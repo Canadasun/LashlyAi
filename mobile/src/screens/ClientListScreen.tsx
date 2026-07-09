@@ -4,6 +4,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   ActivityIndicator,
   FlatList,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -33,6 +34,17 @@ interface UsageSummary {
 function quotaLabel(field: QuotaField) {
   return field.limit === null ? `${field.used}` : `${field.used}/${field.limit}`;
 }
+
+const TOOLS: { label: string; screen: keyof RootStackParamList }[] = [
+  { label: 'Ask the Coach', screen: 'Coach' },
+  { label: 'Lessons', screen: 'LessonList' },
+  { label: 'Community', screen: 'ForumList' },
+  { label: 'Inventory', screen: 'Inventory' },
+  { label: 'Marketing', screen: 'MarketingTools' },
+  { label: 'Glue Guide', screen: 'GlueRecommendation' },
+  { label: 'Report Issue', screen: 'Feedback' },
+  { label: 'Upgrade', screen: 'Paywall' },
+];
 
 export function ClientListScreen({ navigation }: Props) {
   const { signOut } = useAuth();
@@ -66,19 +78,22 @@ export function ClientListScreen({ navigation }: Props) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.navigate('Coach')}>
-          <Text style={styles.link}>Ask the Coach</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => navigation.navigate('Feedback')}>
-          <Text style={styles.link}>Report Issue</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => navigation.navigate('Paywall')}>
-          <Text style={styles.link}>Upgrade</Text>
-        </TouchableOpacity>
+        <Text style={styles.headerTitle}>LashlyAI</Text>
         <TouchableOpacity onPress={signOut}>
           <Text style={styles.link}>Sign out</Text>
         </TouchableOpacity>
       </View>
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.toolsRow}>
+        {TOOLS.map((tool) => (
+          <TouchableOpacity
+            key={tool.screen}
+            style={styles.toolChip}
+            onPress={() => navigation.navigate(tool.screen as never)}>
+            <Text style={styles.toolChipText}>{tool.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
 
       {usage && (
         <View style={styles.usageBanner}>
@@ -129,10 +144,21 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 16,
     paddingTop: 12,
   },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: colors.text },
   link: { color: colors.accent, fontWeight: '600', fontSize: 13 },
+  toolsRow: { marginTop: 12, paddingLeft: 16 },
+  toolChip: {
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    marginRight: 8,
+  },
+  toolChipText: { fontSize: 12, fontWeight: '600', color: colors.text },
   usageBanner: {
     marginHorizontal: 16,
     marginTop: 12,

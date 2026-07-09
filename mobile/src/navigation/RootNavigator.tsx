@@ -2,13 +2,21 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { AuthScreen } from '../screens/AuthScreen';
+import { BeforeAfterScreen } from '../screens/BeforeAfterScreen';
 import { CameraUploadScreen } from '../screens/CameraUploadScreen';
 import { ClientListScreen } from '../screens/ClientListScreen';
 import { ClientProfileScreen } from '../screens/ClientProfileScreen';
 import { CoachScreen } from '../screens/CoachScreen';
 import { EyeAnalysisResultScreen } from '../screens/EyeAnalysisResultScreen';
 import { FeedbackScreen } from '../screens/FeedbackScreen';
+import { ForumListScreen } from '../screens/ForumListScreen';
+import { ForumPostDetailScreen } from '../screens/ForumPostDetailScreen';
+import { GlueRecommendationScreen } from '../screens/GlueRecommendationScreen';
+import { InventoryScreen } from '../screens/InventoryScreen';
 import { LashMapScreen } from '../screens/LashMapScreen';
+import { LessonDetailScreen } from '../screens/LessonDetailScreen';
+import { LessonListScreen } from '../screens/LessonListScreen';
+import { MarketingToolsScreen } from '../screens/MarketingToolsScreen';
 import { NewClientScreen } from '../screens/NewClientScreen';
 import { PaywallScreen } from '../screens/PaywallScreen';
 import { PhotoFeedbackScreen } from '../screens/PhotoFeedbackScreen';
@@ -67,6 +75,46 @@ export function RootNavigator() {
               name="PhotoFeedback"
               component={PhotoFeedbackScreen}
               options={{ title: 'Score My Work' }}
+            />
+            <Stack.Screen
+              name="Inventory"
+              component={InventoryScreen}
+              options={{ title: 'Inventory' }}
+            />
+            <Stack.Screen
+              name="MarketingTools"
+              component={MarketingToolsScreen}
+              options={{ title: 'Marketing Tools' }}
+            />
+            <Stack.Screen
+              name="GlueRecommendation"
+              component={GlueRecommendationScreen}
+              options={{ title: 'Glue & Humidity' }}
+            />
+            <Stack.Screen
+              name="LessonList"
+              component={LessonListScreen}
+              options={{ title: 'Lessons' }}
+            />
+            <Stack.Screen
+              name="LessonDetail"
+              component={LessonDetailScreen}
+              options={{ title: 'Lesson' }}
+            />
+            <Stack.Screen
+              name="ForumList"
+              component={ForumListScreen}
+              options={{ title: 'Community' }}
+            />
+            <Stack.Screen
+              name="ForumPostDetail"
+              component={ForumPostDetailScreen}
+              options={{ title: 'Post' }}
+            />
+            <Stack.Screen
+              name="BeforeAfter"
+              component={BeforeAfterScreen}
+              options={{ title: 'Before & After' }}
             />
           </>
         )}

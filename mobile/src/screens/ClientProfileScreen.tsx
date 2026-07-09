@@ -84,6 +84,12 @@ export function ClientProfileScreen({ route, navigation }: Props) {
         <Text style={styles.secondaryButtonText}>Score My Work</Text>
       </TouchableOpacity>
 
+      <TouchableOpacity
+        style={styles.secondaryButton}
+        onPress={() => navigation.navigate('BeforeAfter', { clientId })}>
+        <Text style={styles.secondaryButtonText}>Before & After</Text>
+      </TouchableOpacity>
+
       <Text style={styles.sectionTitle}>Lash Map History</Text>
       {lashMaps.length === 0 ? (
         <Text style={styles.empty}>No lash maps saved yet.</Text>
