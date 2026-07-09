@@ -10,4 +10,5 @@ export type RootStackParamList = {
   LashMap: { clientId: string; lashMap: LashMap };
   Coach: undefined;
   Feedback: undefined;
+  Paywall: undefined;
 };

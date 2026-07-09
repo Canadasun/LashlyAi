@@ -10,6 +10,7 @@ import { EyeAnalysisResultScreen } from '../screens/EyeAnalysisResultScreen';
 import { FeedbackScreen } from '../screens/FeedbackScreen';
 import { LashMapScreen } from '../screens/LashMapScreen';
 import { NewClientScreen } from '../screens/NewClientScreen';
+import { PaywallScreen } from '../screens/PaywallScreen';
 import { RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -55,6 +56,11 @@ export function RootNavigator() {
               name="Feedback"
               component={FeedbackScreen}
               options={{ title: 'Report an Issue' }}
+            />
+            <Stack.Screen
+              name="Paywall"
+              component={PaywallScreen}
+              options={{ title: 'Subscription' }}
             />
           </>
         )}

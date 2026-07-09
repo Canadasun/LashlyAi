@@ -50,6 +50,9 @@ export function ClientListScreen({ navigation }: Props) {
         <TouchableOpacity onPress={() => navigation.navigate('Feedback')}>
           <Text style={styles.link}>Report Issue</Text>
         </TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.navigate('Paywall')}>
+          <Text style={styles.link}>Upgrade</Text>
+        </TouchableOpacity>
         <TouchableOpacity onPress={signOut}>
           <Text style={styles.link}>Sign out</Text>
         </TouchableOpacity>
