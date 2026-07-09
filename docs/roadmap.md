@@ -5,8 +5,9 @@ actual progress and dates as phases complete — update it at the end of each
 phase.
 
 ## Phase 0 — Scaffolding
-Status: in progress
+Status: complete
 Started: 2026-07-09
+Completed: 2026-07-09
 
 ## Phase 1 — Core MVP
 Status: not started
