@@ -35,6 +35,10 @@
 	</dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string></string>
+	<key>NSCameraUsageDescription</key>
+	<string>LashlyAI needs camera access to photograph a client's eye for AI lash mapping.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>LashlyAI needs photo library access to attach an existing eye photo for AI lash mapping.</string>
 	<key>RCTNewArchEnabled</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
