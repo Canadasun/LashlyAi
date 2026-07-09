@@ -248,3 +248,64 @@ export async function troubleshootRetention(
   const advice = completion.choices[0]?.message?.content ?? "";
   return { advice, mock: false };
 }
+
+const CAPTION_SYSTEM_PROMPT =
+  "You write short, engaging social media captions for a lash artist's business " +
+  "account (Instagram/TikTok style). Given a description of the work/post, write one " +
+  "caption (2-3 sentences max, friendly and professional) and 5-8 relevant hashtags. " +
+  "Respond with the caption on the first line, then a blank line, then the hashtags " +
+  "space-separated on one line starting with #.";
+
+export async function generateCaption(
+  postDescription: string,
+): Promise<{ caption: string; hashtags: string[]; mock: boolean }> {
+  if (!client) {
+    return {
+      caption: `MOCK RESPONSE — no OPENAI_API_KEY configured. Caption for: "${postDescription}"`,
+      hashtags: ["#lashartist", "#lashextensions", "#lashlyai"],
+      mock: true,
+    };
+  }
+
+  const completion = await client.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [
+      { role: "system", content: CAPTION_SYSTEM_PROMPT },
+      { role: "user", content: postDescription },
+    ],
+  });
+
+  const raw = completion.choices[0]?.message?.content ?? "";
+  const [captionPart, hashtagPart] = raw.split(/\n\s*\n/);
+  const hashtags = (hashtagPart ?? "").match(/#\w+/g) ?? [];
+
+  return { caption: (captionPart ?? raw).trim(), hashtags, mock: false };
+}
+
+const CLIENT_REPLY_SYSTEM_PROMPT =
+  "You draft short, warm, professional reply suggestions for a lash artist responding " +
+  "to a client message (e.g. booking questions, aftercare questions, rescheduling). " +
+  "Write one reply, 1-3 sentences, matching a friendly professional tone. Don't invent " +
+  "specific times, prices, or policies you weren't given.";
+
+export async function generateClientReply(
+  clientMessage: string,
+): Promise<{ reply: string; mock: boolean }> {
+  if (!client) {
+    return {
+      reply: `MOCK RESPONSE — no OPENAI_API_KEY configured. Reply draft for: "${clientMessage}"`,
+      mock: true,
+    };
+  }
+
+  const completion = await client.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [
+      { role: "system", content: CLIENT_REPLY_SYSTEM_PROMPT },
+      { role: "user", content: clientMessage },
+    ],
+  });
+
+  const reply = completion.choices[0]?.message?.content ?? "";
+  return { reply, mock: false };
+}

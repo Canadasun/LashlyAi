@@ -161,6 +161,18 @@ Partial update — any subset of the create fields.
 ### `DELETE /inventory/:id`
 Response `204`.
 
+## Marketing
+
+Pro tier. AI-generated drafts — no client scoping.
+
+### `POST /marketing/caption`
+Request: `{ "post_description": "Just finished a mega volume set with a dramatic cat-eye" }`
+Response `200`: `{ "caption": "string", "hashtags": ["string"], "mock": false }`
+
+### `POST /marketing/reply`
+Request: `{ "client_message": "Can I reschedule to next week?" }`
+Response `200`: `{ "reply": "string", "mock": false }`
+
 ## Subscriptions
 
 ### `POST /subscriptions/verify`
