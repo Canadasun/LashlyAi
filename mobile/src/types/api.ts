@@ -64,3 +64,13 @@ export interface InventoryItem {
   created_at: string;
   updated_at: string;
 }
+
+export interface Lesson {
+  id: string;
+  order_index: number;
+  title: string;
+  summary: string;
+  content: string;
+  completed: boolean;
+  created_at: string;
+}

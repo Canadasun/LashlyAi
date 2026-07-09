@@ -1,4 +1,4 @@
-import { EyeAnalysis, LashMap } from '../types/api';
+import { EyeAnalysis, LashMap, Lesson } from '../types/api';
 
 export type RootStackParamList = {
   Auth: undefined;
@@ -12,4 +12,12 @@ export type RootStackParamList = {
   Feedback: undefined;
   Paywall: undefined;
   PhotoFeedback: { clientId: string };
+  Inventory: undefined;
+  MarketingTools: undefined;
+  GlueRecommendation: undefined;
+  LessonList: undefined;
+  LessonDetail: { lesson: Lesson };
+  ForumList: undefined;
+  ForumPostDetail: { postId: string };
+  BeforeAfter: { clientId: string };
 };
