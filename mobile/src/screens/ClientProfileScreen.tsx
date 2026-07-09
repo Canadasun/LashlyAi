@@ -78,6 +78,12 @@ export function ClientProfileScreen({ route, navigation }: Props) {
         <Text style={styles.primaryButtonText}>New Eye Photo + Lash Map</Text>
       </TouchableOpacity>
 
+      <TouchableOpacity
+        style={styles.secondaryButton}
+        onPress={() => navigation.navigate('PhotoFeedback', { clientId })}>
+        <Text style={styles.secondaryButtonText}>Score My Work</Text>
+      </TouchableOpacity>
+
       <Text style={styles.sectionTitle}>Lash Map History</Text>
       {lashMaps.length === 0 ? (
         <Text style={styles.empty}>No lash maps saved yet.</Text>
@@ -118,6 +124,14 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   primaryButtonText: { color: colors.background, fontWeight: '700', fontSize: 15 },
+  secondaryButton: {
+    backgroundColor: '#ffffff',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  secondaryButtonText: { color: colors.text, fontWeight: '600' },
   sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.text, marginTop: 28, marginBottom: 10 },
   empty: { color: colors.text, opacity: 0.6 },
   mapRow: {

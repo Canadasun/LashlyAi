@@ -11,4 +11,5 @@ export type RootStackParamList = {
   Coach: undefined;
   Feedback: undefined;
   Paywall: undefined;
+  PhotoFeedback: { clientId: string };
 };

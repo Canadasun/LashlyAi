@@ -11,6 +11,7 @@ import { FeedbackScreen } from '../screens/FeedbackScreen';
 import { LashMapScreen } from '../screens/LashMapScreen';
 import { NewClientScreen } from '../screens/NewClientScreen';
 import { PaywallScreen } from '../screens/PaywallScreen';
+import { PhotoFeedbackScreen } from '../screens/PhotoFeedbackScreen';
 import { RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -61,6 +62,11 @@ export function RootNavigator() {
               name="Paywall"
               component={PaywallScreen}
               options={{ title: 'Subscription' }}
+            />
+            <Stack.Screen
+              name="PhotoFeedback"
+              component={PhotoFeedbackScreen}
+              options={{ title: 'Score My Work' }}
             />
           </>
         )}

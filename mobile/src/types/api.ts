@@ -35,3 +35,16 @@ export interface LashMap {
   retention_pct: number | null;
   created_at: string;
 }
+
+export interface PhotoFeedback {
+  id: string;
+  client_profile_id: string;
+  photo_url: string;
+  isolation_score: number;
+  direction_score: number;
+  styling_score: number;
+  overall_score: number;
+  notes: string;
+  mock: boolean;
+  created_at: string;
+}
