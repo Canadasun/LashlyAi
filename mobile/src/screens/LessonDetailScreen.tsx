@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { api } from '../services/api';
 import { colors } from '../theme/colors';
 import { RootStackParamList } from '../navigation/types';
@@ -28,6 +28,9 @@ export function LessonDetailScreen({ route }: Props) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <View style={styles.draftBadge}>
+        <Text style={styles.draftBadgeText}>DRAFT — full lesson content coming soon</Text>
+      </View>
       <Text style={styles.title}>{lesson.title}</Text>
       <Text style={styles.summary}>{lesson.summary}</Text>
       <Text style={styles.body}>{lesson.content}</Text>
@@ -51,6 +54,15 @@ export function LessonDetailScreen({ route }: Props) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: 20 },
+  draftBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#FFF3CD',
+    borderRadius: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    marginBottom: 12,
+  },
+  draftBadgeText: { fontSize: 10, fontWeight: '700', color: '#7A5B00' },
   title: { fontSize: 20, fontWeight: '700', color: colors.text },
   summary: { fontSize: 13, color: colors.accent, marginTop: 8, marginBottom: 16 },
   body: { fontSize: 14, color: colors.text, lineHeight: 22 },

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   ActivityIndicator,
   FlatList,
@@ -20,12 +21,33 @@ interface Message {
   mock?: boolean;
 }
 
+interface QuotaField {
+  used: number;
+  limit: number | null;
+}
+
 let nextId = 0;
 
 export function CoachScreen() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [question, setQuestion] = useState('');
   const [sending, setSending] = useState(false);
+  const [quota, setQuota] = useState<QuotaField | null>(null);
+
+  const loadQuota = useCallback(async () => {
+    try {
+      const usage = await api.get<{ coach_questions_today: QuotaField }>('/users/me/usage');
+      setQuota(usage.coach_questions_today);
+    } catch {
+      // Non-critical — quota display just won't show.
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadQuota();
+    }, [loadQuota]),
+  );
 
   const send = async () => {
     const trimmed = question.trim();
@@ -55,6 +77,7 @@ export function CoachScreen() {
       ]);
     } finally {
       setSending(false);
+      loadQuota();
     }
   };
 
@@ -63,6 +86,11 @@ export function CoachScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={80}>
+      {quota && quota.limit !== null && (
+        <Text style={styles.quotaText}>
+          {quota.used}/{quota.limit} questions used today
+        </Text>
+      )}
       <FlatList
         data={messages}
         keyExtractor={(item) => item.id}
@@ -100,6 +128,13 @@ export function CoachScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
+  quotaText: {
+    fontSize: 11,
+    color: colors.accent,
+    fontWeight: '600',
+    textAlign: 'center',
+    paddingTop: 10,
+  },
   list: { padding: 16, flexGrow: 1 },
   empty: { color: colors.text, opacity: 0.6, textAlign: 'center', marginTop: 40 },
   bubble: { borderRadius: 12, padding: 12, marginBottom: 10, maxWidth: '85%' },

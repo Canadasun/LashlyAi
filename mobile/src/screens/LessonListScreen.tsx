@@ -54,6 +54,7 @@ export function LessonListScreen({ navigation }: Props) {
       <Text style={styles.progress}>
         {completedCount} / {lessons.length} lessons complete
       </Text>
+      <Text style={styles.draftNote}>Lesson content is in draft — full curriculum coming soon</Text>
       {error && <Text style={styles.error}>{error}</Text>}
       <FlatList
         data={lessons}
@@ -86,6 +87,12 @@ const styles = StyleSheet.create({
     color: colors.accent,
     padding: 16,
     paddingBottom: 0,
+  },
+  draftNote: {
+    fontSize: 11,
+    color: '#7A5B00',
+    paddingHorizontal: 16,
+    paddingTop: 4,
   },
   error: { color: '#B3261E', paddingHorizontal: 16 },
   list: { padding: 16 },

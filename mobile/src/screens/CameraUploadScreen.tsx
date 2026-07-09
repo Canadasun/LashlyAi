@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { launchCamera, launchImageLibrary, Asset } from 'react-native-image-picker';
 import {
@@ -16,11 +17,28 @@ import { EyeAnalysis } from '../types/api';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CameraUpload'>;
 
+interface QuotaField {
+  used: number;
+  limit: number | null;
+}
+
 export function CameraUploadScreen({ route, navigation }: Props) {
   const { clientId } = route.params;
   const [photo, setPhoto] = useState<Asset | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [quota, setQuota] = useState<QuotaField | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      api
+        .get<{ eye_scans_this_month: QuotaField }>('/users/me/usage')
+        .then((usage) => setQuota(usage.eye_scans_this_month))
+        .catch(() => {
+          // Non-critical — quota display just won't show.
+        });
+    }, []),
+  );
 
   const pick = async (fromCamera: boolean) => {
     setError(null);
@@ -69,6 +87,11 @@ export function CameraUploadScreen({ route, navigation }: Props) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Photograph the client's eye</Text>
+      {quota && quota.limit !== null && (
+        <Text style={styles.quotaText}>
+          {quota.used}/{quota.limit} eye scans used this month
+        </Text>
+      )}
 
       {photo?.uri ? (
         <Image source={{ uri: photo.uri }} style={styles.preview} />
@@ -103,7 +126,8 @@ export function CameraUploadScreen({ route, navigation }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background, padding: 20 },
-  title: { fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: 16 },
+  title: { fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: 4 },
+  quotaText: { fontSize: 11, color: colors.accent, fontWeight: '600', marginBottom: 12 },
   preview: { width: '100%', height: 260, borderRadius: 12, marginBottom: 16 },
   placeholder: {
     width: '100%',

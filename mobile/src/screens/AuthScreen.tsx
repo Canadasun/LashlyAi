@@ -21,12 +21,23 @@ export function AuthScreen() {
 
   const submit = async () => {
     setError(null);
+
+    const trimmedEmail = email.trim();
+    if (!/^\S+@\S+\.\S+$/.test(trimmedEmail)) {
+      setError('Enter a valid email address');
+      return;
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+
     setLoading(true);
     try {
       if (mode === 'signUp') {
-        await signUp(email.trim(), password);
+        await signUp(trimmedEmail, password);
       } else {
-        await signIn(email.trim(), password);
+        await signIn(trimmedEmail, password);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
