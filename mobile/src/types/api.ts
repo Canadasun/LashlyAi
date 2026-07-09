@@ -1,0 +1,37 @@
+export interface EyeAnalysis {
+  eye_shape: string;
+  lash_density: string;
+  lash_length_natural: string;
+  notes: string;
+  mock: boolean;
+}
+
+export interface ClientProfile {
+  id: string;
+  owner_user_id: string;
+  name: string;
+  photos: string[];
+  eye_analysis: EyeAnalysis | null;
+  lash_history: { lash_map_id: string; style: string; created_at: string }[];
+  notes: string | null;
+  created_at: string;
+}
+
+export interface VisualMapZone {
+  zone: 'inner' | 'inner_mid' | 'center' | 'outer_mid' | 'outer';
+  length_mm: number;
+  direction: 'outward' | 'vertical';
+}
+
+export interface LashMap {
+  id: string;
+  client_profile_id: string;
+  style: string;
+  curl: string;
+  lengths: Record<string, number>;
+  diameter: string;
+  fan_type: string;
+  visual_map: { zones: VisualMapZone[] };
+  retention_pct: number | null;
+  created_at: string;
+}

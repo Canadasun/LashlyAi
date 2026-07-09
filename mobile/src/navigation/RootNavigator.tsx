@@ -2,7 +2,13 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { AuthScreen } from '../screens/AuthScreen';
-import { PlaceholderScreen } from '../screens/PlaceholderScreen';
+import { CameraUploadScreen } from '../screens/CameraUploadScreen';
+import { ClientListScreen } from '../screens/ClientListScreen';
+import { ClientProfileScreen } from '../screens/ClientProfileScreen';
+import { CoachScreen } from '../screens/CoachScreen';
+import { EyeAnalysisResultScreen } from '../screens/EyeAnalysisResultScreen';
+import { LashMapScreen } from '../screens/LashMapScreen';
+import { NewClientScreen } from '../screens/NewClientScreen';
 import { RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -17,27 +23,33 @@ export function RootNavigator() {
           <Stack.Screen name="Auth" component={AuthScreen} options={{ headerShown: false }} />
         ) : (
           <>
-            <Stack.Screen name="ClientList" options={{ title: 'Clients' }}>
-              {() => <PlaceholderScreen label="Client list — coming next" />}
-            </Stack.Screen>
-            <Stack.Screen name="NewClient" options={{ title: 'New Client' }}>
-              {() => <PlaceholderScreen label="New client — coming next" />}
-            </Stack.Screen>
-            <Stack.Screen name="ClientProfile" options={{ title: 'Client' }}>
-              {() => <PlaceholderScreen label="Client profile — coming next" />}
-            </Stack.Screen>
-            <Stack.Screen name="CameraUpload" options={{ title: 'Photograph Eye' }}>
-              {() => <PlaceholderScreen label="Camera upload — coming next" />}
-            </Stack.Screen>
-            <Stack.Screen name="EyeAnalysisResult" options={{ title: 'Eye Analysis' }}>
-              {() => <PlaceholderScreen label="Eye analysis — coming next" />}
-            </Stack.Screen>
-            <Stack.Screen name="LashMap" options={{ title: 'Lash Map' }}>
-              {() => <PlaceholderScreen label="Lash map — coming next" />}
-            </Stack.Screen>
-            <Stack.Screen name="Coach" options={{ title: 'AI Lash Coach' }}>
-              {() => <PlaceholderScreen label="Coach chat — coming next" />}
-            </Stack.Screen>
+            <Stack.Screen
+              name="ClientList"
+              component={ClientListScreen}
+              options={{ title: 'Clients' }}
+            />
+            <Stack.Screen
+              name="NewClient"
+              component={NewClientScreen}
+              options={{ title: 'New Client' }}
+            />
+            <Stack.Screen
+              name="ClientProfile"
+              component={ClientProfileScreen}
+              options={{ title: 'Client' }}
+            />
+            <Stack.Screen
+              name="CameraUpload"
+              component={CameraUploadScreen}
+              options={{ title: 'Photograph Eye' }}
+            />
+            <Stack.Screen
+              name="EyeAnalysisResult"
+              component={EyeAnalysisResultScreen}
+              options={{ title: 'Eye Analysis' }}
+            />
+            <Stack.Screen name="LashMap" component={LashMapScreen} options={{ title: 'Lash Map' }} />
+            <Stack.Screen name="Coach" component={CoachScreen} options={{ title: 'AI Lash Coach' }} />
           </>
         )}
       </Stack.Navigator>
