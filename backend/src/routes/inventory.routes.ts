@@ -1,0 +1,110 @@
+import { Router, Request, Response } from "express";
+import { requireUser } from "./middleware/requireUser";
+import {
+  createInventoryItem,
+  deleteInventoryItem,
+  getInventoryItemById,
+  getInventoryItemsByOwner,
+  InventoryCategory,
+  updateInventoryItem,
+} from "../models/InventoryItem";
+import { asyncHandler } from "../utils/asyncHandler";
+
+export const inventoryRouter = Router();
+
+const VALID_CATEGORIES: InventoryCategory[] = ["lash_trays", "glue", "tools", "other"];
+
+// pg returns `numeric` columns as strings to avoid float precision loss — must parse
+// before comparing, or "20.00" <= "5.00" compares lexicographically (wrong: true).
+function withLowStockFlag<T extends { quantity: number; low_stock_threshold: number }>(item: T) {
+  return { ...item, is_low_stock: Number(item.quantity) <= Number(item.low_stock_threshold) };
+}
+
+async function loadOwnedItem(req: Request, res: Response) {
+  const item = await getInventoryItemById(req.params.id);
+  if (!item) {
+    res.status(404).json({ error: "Inventory item not found" });
+    return null;
+  }
+  if (item.owner_user_id !== req.currentUser!.id) {
+    res.status(403).json({ error: "You do not own this inventory item" });
+    return null;
+  }
+  return item;
+}
+
+inventoryRouter.post(
+  "/",
+  requireUser,
+  asyncHandler(async (req, res) => {
+    const { name, category, quantity, unit, low_stock_threshold: lowStockThreshold, notes } =
+      req.body ?? {};
+
+    if (!name || typeof name !== "string") {
+      res.status(400).json({ error: "name is required" });
+      return;
+    }
+    if (!VALID_CATEGORIES.includes(category)) {
+      res.status(400).json({ error: `category must be one of: ${VALID_CATEGORIES.join(", ")}` });
+      return;
+    }
+
+    const item = await createInventoryItem({
+      ownerUserId: req.currentUser!.id,
+      name,
+      category,
+      quantity: typeof quantity === "number" ? quantity : 0,
+      unit: typeof unit === "string" && unit ? unit : "pieces",
+      lowStockThreshold: typeof lowStockThreshold === "number" ? lowStockThreshold : 0,
+      notes,
+    });
+    res.status(201).json(withLowStockFlag(item));
+  }),
+);
+
+inventoryRouter.get(
+  "/",
+  requireUser,
+  asyncHandler(async (req, res) => {
+    const items = await getInventoryItemsByOwner(req.currentUser!.id);
+    res.json(items.map(withLowStockFlag));
+  }),
+);
+
+inventoryRouter.patch(
+  "/:id",
+  requireUser,
+  asyncHandler(async (req, res) => {
+    const item = await loadOwnedItem(req, res);
+    if (!item) return;
+
+    const { name, category, quantity, unit, low_stock_threshold: lowStockThreshold, notes } =
+      req.body ?? {};
+    if (category !== undefined && !VALID_CATEGORIES.includes(category)) {
+      res.status(400).json({ error: `category must be one of: ${VALID_CATEGORIES.join(", ")}` });
+      return;
+    }
+
+    const updated = await updateInventoryItem(item.id, {
+      name,
+      category,
+      quantity,
+      unit,
+      lowStockThreshold,
+      notes,
+    });
+    res.json(withLowStockFlag(updated));
+  }),
+);
+
+inventoryRouter.delete(
+  "/:id",
+  requireUser,
+  asyncHandler(async (req, res) => {
+    const item = await loadOwnedItem(req, res);
+    if (!item) return;
+
+    await deleteInventoryItem(item.id);
+    res.status(204).send();
+  }),
+);

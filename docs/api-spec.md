@@ -145,6 +145,22 @@ Response `200`:
 { "band": "ideal", "recommended_viscosity": "string", "approx_bonding_time": "string", "notes": "string" }
 ```
 
+## Inventory
+
+Pro tier. Owner-scoped (not shared between users yet — that's a Studio-tier feature).
+
+### `POST /inventory`
+Request: `{ "name": "string", "category": "lash_trays|glue|tools|other", "quantity": 0, "unit": "string", "low_stock_threshold": 0, "notes": "string" }`
+
+### `GET /inventory`
+Returns all items owned by the current user, each with a computed `is_low_stock` boolean.
+
+### `PATCH /inventory/:id`
+Partial update — any subset of the create fields.
+
+### `DELETE /inventory/:id`
+Response `204`.
+
 ## Subscriptions
 
 ### `POST /subscriptions/verify`
