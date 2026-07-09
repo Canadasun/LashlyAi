@@ -119,9 +119,16 @@ Blocked on owner action — this is most of the phase's actual checklist:
   configs in `project.pbxproj`.
 - **App Store Connect listing** — ✅ created: SKU `lashlyai-ios-001`, Apple ID
   `6789339271`.
-- **Full Xcode.app** — the one remaining hard blocker. This dev machine only has
-  Command Line Tools, so the app has never actually been built/booted, even though
-  bundle ID/team/App Store Connect record are all correctly set up and waiting.
+- **Full Xcode.app locally** — sidestepped rather than solved: this iMac Pro (2017)
+  can't upgrade past macOS 15.7.7 (`softwareupdate -l` reports no updates at all,
+  strongly suggesting the hardware has aged out of eligibility), and the current
+  App Store Xcode needs macOS 26.2+. Instead of a local install, added
+  `.github/workflows/testflight.yml` — builds and uploads to TestFlight on a
+  GitHub-hosted macOS runner (Xcode 16.4 pre-installed), triggered manually from the
+  Actions tab. See `docs/testflight-ci.md` for the one-time secret setup and, more
+  importantly, the list of things that are educated guesses until a real run proves
+  them — there is still no local Xcode/simulator anywhere to test this workflow
+  against before its first real run.
 - **Real screenshots** — need an actual running build on a device or the iOS Simulator,
   neither of which is available in this environment yet.
 - **Real StoreKit subscription products** — created in App Store Connect once it

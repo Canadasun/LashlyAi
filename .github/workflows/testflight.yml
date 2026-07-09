@@ -1,0 +1,75 @@
+name: iOS TestFlight
+
+# Manual trigger only — uploading a build to App Store Connect is a real, visible
+# action (testers may get notified), not something that should happen as a side
+# effect of every push. Trigger from the Actions tab when you actually want a build
+# in TestFlight.
+on:
+  workflow_dispatch:
+
+jobs:
+  build-and-upload:
+    runs-on: macos-15
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # macos-15 runners ship Xcode 16.0-16.4; React Native 0.86 needs 16.1+.
+      # Bump this if a future RN upgrade needs a newer Xcode (macos-26 runners have
+      # Xcode 26.x, but that requires re-checking RN's actual minimum requirement).
+      - name: Select Xcode 16.4
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install mobile dependencies
+        working-directory: mobile
+        run: npm ci
+
+      - name: Install CocoaPods
+        working-directory: mobile/ios
+        run: |
+          bundle install
+          bundle exec pod install
+
+      - name: Set up App Store Connect API key
+        working-directory: mobile/ios
+        run: |
+          mkdir -p ~/private_keys
+          echo "${{ secrets.ASC_API_KEY_P8 }}" > ~/private_keys/AuthKey_${{ secrets.ASC_KEY_ID }}.p8
+
+      # TestFlight rejects re-uploads of the same build number for a given marketing
+      # version — the GitHub Actions run number is a simple, always-increasing choice.
+      - name: Bump build number
+        working-directory: mobile/ios
+        run: agvtool new-version -all ${{ github.run_number }}
+
+      - name: Archive
+        working-directory: mobile/ios
+        run: |
+          xcodebuild archive \
+            -workspace LashlyAIMobile.xcworkspace \
+            -scheme LashlyAIMobile \
+            -configuration Release \
+            -archivePath "$PWD/build/LashlyAIMobile.xcarchive" \
+            -destination "generic/platform=iOS" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/private_keys/AuthKey_${{ secrets.ASC_KEY_ID }}.p8 \
+            -authenticationKeyID ${{ secrets.ASC_KEY_ID }} \
+            -authenticationKeyIssuerID ${{ secrets.ASC_ISSUER_ID }}
+
+      - name: Export & upload to TestFlight
+        working-directory: mobile/ios
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath "$PWD/build/LashlyAIMobile.xcarchive" \
+            -exportOptionsPlist ExportOptions.plist \
+            -exportPath "$PWD/build" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/private_keys/AuthKey_${{ secrets.ASC_KEY_ID }}.p8 \
+            -authenticationKeyID ${{ secrets.ASC_KEY_ID }} \
+            -authenticationKeyIssuerID ${{ secrets.ASC_ISSUER_ID }}
