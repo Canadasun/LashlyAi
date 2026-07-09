@@ -173,6 +173,21 @@ Response `200`: `{ "caption": "string", "hashtags": ["string"], "mock": false }`
 Request: `{ "client_message": "Can I reschedule to next week?" }`
 Response `200`: `{ "reply": "string", "mock": false }`
 
+## Lessons
+
+Free tier. Seeded with **placeholder curriculum content** — see migration
+`0007_lessons.sql` — not real training material yet.
+
+### `GET /lessons`
+Returns all 10 lessons ordered by `order_index`, each with a `completed` boolean for
+the current user.
+
+### `GET /lessons/:id`
+Single lesson detail + `completed` flag.
+
+### `POST /lessons/:id/complete`
+Marks complete for the current user (idempotent). Response `204`.
+
 ## Subscriptions
 
 ### `POST /subscriptions/verify`

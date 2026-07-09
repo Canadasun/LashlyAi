@@ -12,6 +12,7 @@ import { adminRouter } from "./routes/admin.routes";
 import { toolsRouter } from "./routes/tools.routes";
 import { inventoryRouter } from "./routes/inventory.routes";
 import { marketingRouter } from "./routes/marketing.routes";
+import { lessonsRouter } from "./routes/lessons.routes";
 import { errorHandler, requestLogger } from "./middleware/errorHandler";
 import { localStorageDir } from "./services/storage.service";
 import { logger } from "./utils/logger";
@@ -42,6 +43,7 @@ app.use("/admin", adminRouter);
 app.use("/tools", toolsRouter);
 app.use("/inventory", inventoryRouter);
 app.use("/marketing", marketingRouter);
+app.use("/lessons", lessonsRouter);
 
 // Must be registered after all routes.
 app.use(errorHandler);
