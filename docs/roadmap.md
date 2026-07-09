@@ -71,7 +71,48 @@ Blocked on owner action — needs to happen before this phase can finish:
   Simulator to verify that startup path works before shipping the change.
 
 ## Phase 3 — App Store Preparation
-Status: not started
+Status: partially complete — everything buildable without an Apple Developer account is
+done; the account-gated items (which is most of this phase's checklist) are blocked on
+owner action.
+Started: 2026-07-09
+
+Done:
+- App icon: brand-colored (`#D98FAF` background, `#F7E8E3` "L" mark) PNGs generated at
+  every required iOS `AppIcon.appiconset` size and Android mipmap density, wired into
+  `Contents.json`. It's a placeholder mark, not a final designed logo — swap the source
+  in `mobile` before shipping if a proper logo gets designed.
+- Privacy Policy and Terms of Service drafts in `docs/legal/` — cover client-photo
+  consent responsibility, OpenAI/Firebase/Apple third-party data sharing, and
+  subscription terms. **These are drafts and explicitly flagged as needing legal review
+  before publishing** — every `[PLACEHOLDER]` (contact email, legal entity name,
+  governing law) needs to be filled in too.
+- StoreKit subscription backend: `POST /subscriptions/verify` implements Apple's real
+  `verifyReceipt` flow (production → sandbox fallback per Apple's documented status
+  21007 behavior), verified end-to-end against Apple's actual servers with a fake
+  receipt (got back a real "malformed receipt" status, confirming the network path and
+  error handling both work). Falls back to a dev-mode endpoint (pass `{"plan": "pro"}`
+  directly) since no real subscription products exist yet in App Store Connect.
+- Mobile paywall screen (Free/Pro plan cards) wired to the dev-mode endpoint. **Not
+  wired to a real StoreKit purchase library** — same reasoning as the Crashlytics
+  decision in Phase 2: no real App Store Connect products exist to purchase yet, and
+  there's no iOS Simulator here to verify a native IAP module's startup behavior before
+  shipping it.
+
+Blocked on owner action — this is most of the phase's actual checklist:
+- **Apple Developer Program account** ($99/yr) — needs the owner's own Apple ID and
+  payment; can't be created by an agent.
+- **App Store Connect listing** — needs the Developer account first, plus a real bundle
+  identifier (the Xcode project currently still has the React Native template's default
+  `org.reactjs.native.example.LashlyAIMobile` — pick and register a real one, e.g.
+  `com.lashlyai.app`, once the Developer account exists).
+- **Real screenshots** — need an actual running build on a device or the iOS Simulator,
+  neither of which is available in this environment yet.
+- **Real StoreKit subscription products** — created in App Store Connect once it
+  exists; then update the placeholder product-ID → plan mapping in
+  `backend/src/services/appleReceipt.service.ts`, set `APPLE_SHARED_SECRET`, and add a
+  real IAP purchase library (e.g. `react-native-iap`) to the mobile paywall.
+- **Submission for review** — needs everything above plus an uploaded TestFlight build
+  (see Phase 2's blocker).
 
 ## Phase 4 — Production Launch
 Status: not started
