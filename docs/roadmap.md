@@ -4,6 +4,19 @@ See `CLAUDE.md` §6 for the full phase-by-phase build plan. This file tracks
 actual progress and dates as phases complete — update it at the end of each
 phase.
 
+## Infrastructure: backend deployed on Railway
+
+Live at https://lashlyai-production.up.railway.app (project `vigilant-acceptance`,
+service `LashlyAi`), with a Railway-managed Postgres database, all 4 migrations
+applied. Config lives in `.railway/railway.ts` (Railway's infra-as-code format —
+see `.agents/skills/railway-config/SKILL.md` for how to edit it safely).
+
+This is running in **staging mode** (`NODE_ENV=staging`), so it still uses the same
+dev-auth bypass and mock AI responses as local dev — no real Firebase/OpenAI/Apple
+credentials are set yet. **Not safe for real users in this state.** Also note:
+image uploads go to the container's local disk, which Railway does not persist across
+redeploys — move to real S3 storage before this handles real client photos.
+
 ## Phase 0 — Scaffolding
 Status: complete
 Started: 2026-07-09
