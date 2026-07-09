@@ -102,6 +102,83 @@ export async function analyzeEye(imageBuffer: Buffer): Promise<EyeAnalysis> {
   return { ...parsed, mock: false };
 }
 
+export interface PhotoFeedback {
+  isolation_score: number;
+  direction_score: number;
+  styling_score: number;
+  overall_score: number;
+  notes: string;
+  mock: boolean;
+}
+
+const PHOTO_FEEDBACK_SCHEMA = {
+  type: "object",
+  properties: {
+    isolation_score: { type: "integer", minimum: 0, maximum: 100 },
+    direction_score: { type: "integer", minimum: 0, maximum: 100 },
+    styling_score: { type: "integer", minimum: 0, maximum: 100 },
+    overall_score: { type: "integer", minimum: 0, maximum: 100 },
+    notes: { type: "string" },
+  },
+  required: ["isolation_score", "direction_score", "styling_score", "overall_score", "notes"],
+  additionalProperties: false,
+};
+
+const PHOTO_FEEDBACK_SYSTEM_PROMPT =
+  "You are a lash artistry vision assistant reviewing a photo of an artist's COMPLETED " +
+  "lash extension application (not a bare natural eye — this is finished work). Score " +
+  "isolation (0-100: are individual lashes cleanly separated, any visible stickies?), " +
+  "direction (0-100: consistent, deliberate fan/extension direction, symmetric between " +
+  "eyes), and styling (0-100: coherent shape, smooth density/length transitions). Give " +
+  "an overall_score that reflects your holistic judgment, not necessarily a simple " +
+  "average — a severe isolation problem is a real lash-health risk and should weigh " +
+  "heavily. Only score what you can actually see in the photo.";
+
+/**
+ * Scores a photo of the artist's own finished lash work — distinct from analyzeEye,
+ * which scores the client's pre-work natural eye. See docs/lash-rules.md §7 for the
+ * scoring rubric this prompt is based on.
+ */
+export async function scoreLashPhoto(imageBuffer: Buffer): Promise<PhotoFeedback> {
+  if (!client) {
+    return {
+      isolation_score: 75,
+      direction_score: 75,
+      styling_score: 75,
+      overall_score: 75,
+      notes: "MOCK RESPONSE — no OPENAI_API_KEY configured. This is a placeholder, not real feedback.",
+      mock: true,
+    };
+  }
+
+  const base64Image = imageBuffer.toString("base64");
+  const completion = await client.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [
+      { role: "system", content: PHOTO_FEEDBACK_SYSTEM_PROMPT },
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "Score this completed lash application photo." },
+          { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64Image}` } },
+        ],
+      },
+    ],
+    response_format: {
+      type: "json_schema",
+      json_schema: { name: "photo_feedback", schema: PHOTO_FEEDBACK_SCHEMA, strict: true },
+    },
+  });
+
+  const raw = completion.choices[0]?.message?.content;
+  if (!raw) {
+    throw new Error("OpenAI vision call returned no content");
+  }
+
+  const parsed = JSON.parse(raw) as Omit<PhotoFeedback, "mock">;
+  return { ...parsed, mock: false };
+}
+
 const COACH_SYSTEM_PROMPT =
   "You are the LashlyAI Lash Coach. You only answer questions about lash extension " +
   "application, troubleshooting, retention, and technique (e.g. fanning, isolation, " +
