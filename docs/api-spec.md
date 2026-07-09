@@ -128,6 +128,23 @@ Request:
 
 Response `201`: full `Feedback` record, linked to the reporting user.
 
+## Tools
+
+Deterministic (not AI) utility tools — no client scoping, just requires auth.
+
+### `POST /tools/glue-recommendation`
+Pro tier. See `/docs/lash-rules.md` §8 for the table this implements.
+
+Request:
+```json
+{ "humidity_pct": 45 }
+```
+
+Response `200`:
+```json
+{ "band": "ideal", "recommended_viscosity": "string", "approx_bonding_time": "string", "notes": "string" }
+```
+
 ## Subscriptions
 
 ### `POST /subscriptions/verify`

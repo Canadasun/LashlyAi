@@ -108,7 +108,22 @@ An `overall_score` is the AI's holistic judgment, not strictly an average of the
 — it may weigh a severe isolation problem (a real lash-health risk) more heavily than a
 minor styling inconsistency.
 
-## 8. Owner review log
+## 8. Glue & humidity recommendation table (Pro tier)
+
+> **STATUS: PLACEHOLDER.** Same caveat as the rest of this file.
+
+Used by `backend/src/services/glueRecommendation.service.ts` — deterministic, not
+AI-based, same reasoning as the lash-mapping rules engine: retention depends heavily
+on cure time, and giving a wrong recommendation has real consequences, so this isn't
+left to free-form AI guessing.
+
+| Humidity | Recommended glue viscosity | Approx. bonding/cure time | Notes (PLACEHOLDER) |
+|---|---|---|---|
+| Below 30% (low) | Thinner viscosity | Longer, ~5-6 seconds per lash | Consider a humidifier near the workstation; low humidity slows cure |
+| 30–70% (ideal) | Standard viscosity | Standard, ~2-3 seconds per lash | This is the target range most glues are formulated for |
+| Above 70% (high) | Thicker viscosity | Faster, ~1-2 seconds per lash | Consider a dehumidifier; high humidity over-accelerates cure and can cause bonding issues |
+
+## 9. Owner review log
 
 Use this section to log corrections after comparing AI-generated maps against
 real lash-artist judgment (Phase 2 requirement).
