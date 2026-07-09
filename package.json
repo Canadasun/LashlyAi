@@ -1,0 +1,9 @@
+{
+  "name": "lashlyai-tooling",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Repo-root tooling deps only (Railway infra-as-code config). App code lives in backend/ and mobile/, each with their own package.json.",
+  "devDependencies": {
+    "railway": "^3.5.4"
+  }
+}
