@@ -157,7 +157,26 @@ Not done / blocked:
 - A real production launch (the actual point of this phase) — see Phase 2/3.
 
 ## Phase 5 — Enterprise Expansion
-Status: not started
+Status: in progress, against the brief's own explicit instruction ("build only after
+Phase 4 is stable in production") — owner explicitly chose to proceed anyway for
+groundwork. Real production isn't live yet; see Phase 2/3/4 blockers.
+Started: 2026-07-09
 
-## Phase 5 — Enterprise Expansion
-Status: not started
+Order chosen: AI photo feedback first, since it most directly extends existing
+infrastructure (photo upload + AI service pattern) and drives upsell/retention for
+users who already exist, versus the platform-scale items (education, marketplace,
+community) which need a real user base to justify their much larger scope.
+
+Done:
+- **AI photo feedback** — scores a photo of the artist's *completed* lash work (not
+  the pre-work client eye photo used for lash mapping) on isolation, direction, and
+  styling, 0-100 each plus an overall judgment. `POST /clients/:id/photo-feedback` +
+  `GET /clients/:id/photo-feedback`, a `photo_feedback` Postgres table, mock fallback
+  matching the rest of this codebase's AI services, and a mobile "Score My Work"
+  screen off the client profile. Scoring rubric documented in `docs/lash-rules.md` §7
+  (same placeholder-pending-owner-review status as the lash-mapping tables). Verified
+  end-to-end via curl and the mobile call path.
+
+Not started: client before/after timeline + retention reminders, education platform,
+educator platform, salon team management, inventory management, marketing AI,
+marketplace, community, GDPR/PIPEDA compliance pass.
