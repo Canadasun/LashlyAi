@@ -25,8 +25,18 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
+const ADVANCED_STYLES: { label: string; value: string | null }[] = [
+  { label: 'Auto (from eye shape)', value: null },
+  { label: 'Anime', value: 'anime' },
+  { label: 'Medusa', value: 'medusa' },
+  { label: 'Wet Set', value: 'wet-set' },
+  { label: 'Kim K', value: 'kim-k' },
+  { label: 'Strip Lash Effect', value: 'strip-lash-effect' },
+];
+
 export function EyeAnalysisResultScreen({ route, navigation }: Props) {
   const { clientId, eyeAnalysis, photoUrl } = route.params;
+  const [requestedStyle, setRequestedStyle] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -34,7 +44,9 @@ export function EyeAnalysisResultScreen({ route, navigation }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const lashMap = await api.post<LashMap>(`/clients/${clientId}/lash-map`);
+      const lashMap = await api.post<LashMap>(`/clients/${clientId}/lash-map`, {
+        requested_style: requestedStyle ?? undefined,
+      });
       navigation.replace('LashMap', { clientId, lashMap });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate lash map');
@@ -60,6 +72,24 @@ export function EyeAnalysisResultScreen({ route, navigation }: Props) {
       <Row label="Lash density" value={eyeAnalysis.lash_density} />
       <Row label="Natural lash length" value={eyeAnalysis.lash_length_natural} />
       {eyeAnalysis.notes ? <Text style={styles.notes}>{eyeAnalysis.notes}</Text> : null}
+
+      <Text style={styles.styleLabel}>Style (Pro)</Text>
+      <View style={styles.styleChips}>
+        {ADVANCED_STYLES.map((option) => (
+          <TouchableOpacity
+            key={option.label}
+            style={[styles.chip, requestedStyle === option.value && styles.chipSelected]}
+            onPress={() => setRequestedStyle(option.value)}>
+            <Text
+              style={[
+                styles.chipText,
+                requestedStyle === option.value && styles.chipTextSelected,
+              ]}>
+              {option.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
       {error && <Text style={styles.error}>{error}</Text>}
 
@@ -98,6 +128,19 @@ const styles = StyleSheet.create({
   rowLabel: { color: colors.accent, fontWeight: '600', fontSize: 13 },
   rowValue: { color: colors.text, fontSize: 13, textTransform: 'capitalize' },
   notes: { color: colors.text, fontSize: 13, marginTop: 8, fontStyle: 'italic' },
+  styleLabel: { fontSize: 13, fontWeight: '600', color: colors.text, marginTop: 20, marginBottom: 8 },
+  styleChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: {
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  chipSelected: { backgroundColor: colors.primary },
+  chipText: { fontSize: 12, color: colors.text, fontWeight: '600' },
+  chipTextSelected: { color: colors.background },
   error: { color: '#B3261E', marginTop: 12, fontSize: 13 },
   button: {
     backgroundColor: colors.primary,
