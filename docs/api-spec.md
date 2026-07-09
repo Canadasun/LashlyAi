@@ -65,6 +65,28 @@ Response `201`: full `LashMap` record.
 ### `GET /clients/:id/lash-maps`
 Returns array of saved `LashMap` records for the client.
 
+### `POST /clients/:id/photo-feedback`
+Multipart upload (photo of the artist's **completed** lash application, not the
+pre-work client eye) → AI scores isolation, direction, and styling (see
+`/docs/lash-rules.md` §7 for the rubric). A different input than `eye-analysis` —
+this scores finished work, not a bare natural eye.
+
+Response `201`:
+```json
+{
+  "photo_url": "string",
+  "isolation_score": 0,
+  "direction_score": 0,
+  "styling_score": 0,
+  "overall_score": 0,
+  "notes": "string",
+  "mock": false
+}
+```
+
+### `GET /clients/:id/photo-feedback`
+Returns array of saved `PhotoFeedback` records for the client, newest first.
+
 ## Coach
 
 ### `POST /coach/ask`

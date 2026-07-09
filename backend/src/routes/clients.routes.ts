@@ -9,7 +9,11 @@ import {
   getClientProfilesByOwner,
 } from "../models/ClientProfile";
 import { createLashMap, getLashMapsByClientProfileId } from "../models/LashMap";
-import { analyzeEye } from "../services/ai.service";
+import {
+  createPhotoFeedback,
+  getPhotoFeedbackByClientProfileId,
+} from "../models/PhotoFeedback";
+import { analyzeEye, scoreLashPhoto } from "../services/ai.service";
 import { generateLashMap } from "../services/lashmap.service";
 import { uploadImage } from "../services/storage.service";
 import { asyncHandler } from "../utils/asyncHandler";
@@ -122,5 +126,38 @@ clientsRouter.get(
 
     const maps = await getLashMapsByClientProfileId(client.id);
     res.json(maps);
+  }),
+);
+
+clientsRouter.post(
+  "/:id/photo-feedback",
+  requireUser,
+  upload.single("photo"),
+  asyncHandler(async (req, res) => {
+    const client = await loadOwnedClient(req, res);
+    if (!client) return;
+
+    if (!req.file) {
+      res.status(400).json({ error: 'Missing "photo" file in multipart body' });
+      return;
+    }
+
+    const { url } = await uploadImage(req.file.buffer, req.file.originalname);
+    const feedback = await scoreLashPhoto(req.file.buffer);
+    const saved = await createPhotoFeedback(client.id, url, feedback);
+
+    res.status(201).json(saved);
+  }),
+);
+
+clientsRouter.get(
+  "/:id/photo-feedback",
+  requireUser,
+  asyncHandler(async (req, res) => {
+    const client = await loadOwnedClient(req, res);
+    if (!client) return;
+
+    const feedback = await getPhotoFeedbackByClientProfileId(client.id);
+    res.json(feedback);
   }),
 );
