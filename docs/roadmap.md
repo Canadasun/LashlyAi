@@ -158,25 +158,70 @@ Not done / blocked:
 
 ## Phase 5 — Enterprise Expansion
 Status: in progress, against the brief's own explicit instruction ("build only after
-Phase 4 is stable in production") — owner explicitly chose to proceed anyway for
-groundwork. Real production isn't live yet; see Phase 2/3/4 blockers.
-Started: 2026-07-09
+Phase 4 is stable in production") — owner explicitly chose to proceed anyway. This
+phase absorbed a second, larger scope change: the owner's real Free/Pro/Educator/
+Studio pricing-tier feature list (not originally in CLAUDE.md), audited feature-by-
+feature and built out for Free + Pro. Everything below was verified via a full curl
+regression across all ~30 endpoints (0 failures) plus mobile tsc/lint/jest, on
+2026-07-09.
 
-Order chosen: AI photo feedback first, since it most directly extends existing
-infrastructure (photo upload + AI service pattern) and drives upsell/retention for
-users who already exist, versus the platform-scale items (education, marketplace,
-community) which need a real user base to justify their much larger scope.
+### Free tier ("Starter") — feature-complete except quota enforcement
+- Basic lash style recommendations + basic lash maps — done since Phase 1.
+- 10 beginner lessons — `lessons` + `lesson_completions` tables, seeded with
+  **placeholder curriculum content** (clearly flagged, not real training material),
+  completion tracking, mobile list/detail screens.
+- Community forum — `forum_posts` + `forum_comments`, cross-user tested (user A posts,
+  user B comments), mobile list/detail/comment screens.
+- 5 client cap, 5 coach questions/day, 3 eye scans/month — tracked via a new
+  `usage_events` table and `planLimits.service.ts`, surfaced in a usage banner on the
+  mobile client list. **Not enforced** — gated behind `ENFORCE_PLAN_LIMITS` (unset by
+  default) per owner instruction that everything is free during testing. Verified both
+  ways: with the flag off, exceeding a limit is tracked but never blocked; with it on,
+  the 6th request past each limit correctly returns 403.
 
-Done:
+### Pro tier ("Lash Pro") — feature-complete except real payments
+- Unlimited coach/scans/clients — trivially true (nothing enforces caps for non-free
+  plans).
+- Advanced named styles (Anime, Medusa, Wet Set, Kim K, Strip Lash Effect) — added to
+  the deterministic rules engine with placeholder zone-length tables (`docs/lash-rules.md`
+  §3), artist-requested via a mobile style picker, overriding the eye-shape default.
+- Retention troubleshooting — `POST /clients/:id/lash-maps/:mapId/retention-check`,
+  persists `retention_pct` (a field that existed since Phase 0 but was never used until
+  now), mobile UI on the Lash Map screen.
+- Glue & humidity recommendations — deterministic (not AI) rules table
+  (`docs/lash-rules.md` §8) + mobile tool screen.
+- Client history with photos — done since Phase 1.
+- Before-and-after comparisons — mobile screen pairing the most recent eye-analysis
+  photo ("before") with the most recent photo-feedback photo ("after").
+- Inventory tracking — full CRUD + a computed `is_low_stock` flag (**fixed a real bug**
+  here: Postgres `numeric` columns return as strings via node-pg, so the initial
+  comparison was lexicographic — `"20.00" <= "5.00"` was `true`; fixed by parsing to
+  `Number()` before comparing, verified across the boundary).
+- AI social media captions + AI replies to client messages — `POST /marketing/caption`
+  and `POST /marketing/reply`, same mock-fallback pattern as the rest of the AI
+  services, mobile tool screen.
+- AI photo feedback (isolation/direction/styling scoring) — built earlier this phase,
+  see prior entry below.
+- Priority support — not a technical feature, no code change applicable.
+
+### Educator ("Academy") and Studio ("Salon") tiers — not started
+Course upload/sales, student progress/certificates/quizzes, live classes, multi-staff
+accounts, shared clients/inventory, scheduling, commission tracking, manager
+permissions — all genuinely unbuilt. These need real product decisions (a course
+content model, a payments/revenue-share design, a multi-user-per-account permission
+model — `client_profiles.owner_user_id` is currently single-owner, so "shared" client
+records need a schema change, not just new endpoints) that go well beyond a backend
+audit. Flagged, not silently skipped.
+
+### Earlier Phase 5 work
 - **AI photo feedback** — scores a photo of the artist's *completed* lash work (not
   the pre-work client eye photo used for lash mapping) on isolation, direction, and
-  styling, 0-100 each plus an overall judgment. `POST /clients/:id/photo-feedback` +
-  `GET /clients/:id/photo-feedback`, a `photo_feedback` Postgres table, mock fallback
-  matching the rest of this codebase's AI services, and a mobile "Score My Work"
-  screen off the client profile. Scoring rubric documented in `docs/lash-rules.md` §7
-  (same placeholder-pending-owner-review status as the lash-mapping tables). Verified
-  end-to-end via curl and the mobile call path.
+  styling, 0-100 each plus an overall judgment. Scoring rubric in `docs/lash-rules.md`
+  §7.
 
-Not started: client before/after timeline + retention reminders, education platform,
-educator platform, salon team management, inventory management, marketing AI,
-marketplace, community, GDPR/PIPEDA compliance pass.
+### Reminder: none of this is really "launched"
+Everything above is verified working against this dev/staging backend. The mobile app
+still isn't through TestFlight or App Store review (Phase 2/3's Apple Developer
+account + Xcode blockers, unchanged). Free/Pro being "feature-complete" here means the
+backend + mobile UI both function end-to-end in this environment — it does not mean
+real paying customers can use it yet.
