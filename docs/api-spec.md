@@ -80,6 +80,18 @@ Response `200`:
 
 System prompt is scoped strictly to lash troubleshooting — not general chat.
 
+## Feedback
+
+### `POST /feedback`
+In-app "report an issue" intake (Phase 2).
+
+Request:
+```json
+{ "message": "App crashed when I tapped Analyze twice quickly", "context": { "screen": "CameraUpload" } }
+```
+
+Response `201`: full `Feedback` record, linked to the reporting user.
+
 ## Subscriptions
 
 ### `POST /subscriptions/verify`

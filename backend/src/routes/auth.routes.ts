@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { requireAuth } from "./middleware/requireAuth";
 import { createUser, findUserByFirebaseUid, UserRole } from "../models/User";
+import { asyncHandler } from "../utils/asyncHandler";
 
 const VALID_ROLES: UserRole[] = ["beginner", "certified", "educator", "salon_owner", "academy"];
 
@@ -11,7 +12,7 @@ export const authRouter = Router();
  * Postgres user row. Firebase itself owns the email/password credential; this
  * endpoint just links that identity to our data model.
  */
-authRouter.post("/register", requireAuth, async (req, res) => {
+authRouter.post("/register", requireAuth, asyncHandler(async (req, res) => {
   const identity = req.identity!;
 
   const existing = await findUserByFirebaseUid(identity.firebaseUid);
@@ -29,4 +30,4 @@ authRouter.post("/register", requireAuth, async (req, res) => {
     role,
   });
   res.status(201).json(user);
-});
+}));

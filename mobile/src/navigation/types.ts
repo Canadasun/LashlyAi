@@ -9,4 +9,5 @@ export type RootStackParamList = {
   EyeAnalysisResult: { clientId: string; eyeAnalysis: EyeAnalysis; photoUrl: string };
   LashMap: { clientId: string; lashMap: LashMap };
   Coach: undefined;
+  Feedback: undefined;
 };

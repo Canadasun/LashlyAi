@@ -7,6 +7,7 @@ import { ClientListScreen } from '../screens/ClientListScreen';
 import { ClientProfileScreen } from '../screens/ClientProfileScreen';
 import { CoachScreen } from '../screens/CoachScreen';
 import { EyeAnalysisResultScreen } from '../screens/EyeAnalysisResultScreen';
+import { FeedbackScreen } from '../screens/FeedbackScreen';
 import { LashMapScreen } from '../screens/LashMapScreen';
 import { NewClientScreen } from '../screens/NewClientScreen';
 import { RootStackParamList } from './types';
@@ -50,6 +51,11 @@ export function RootNavigator() {
             />
             <Stack.Screen name="LashMap" component={LashMapScreen} options={{ title: 'Lash Map' }} />
             <Stack.Screen name="Coach" component={CoachScreen} options={{ title: 'AI Lash Coach' }} />
+            <Stack.Screen
+              name="Feedback"
+              component={FeedbackScreen}
+              options={{ title: 'Report an Issue' }}
+            />
           </>
         )}
       </Stack.Navigator>
