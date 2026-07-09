@@ -48,3 +48,19 @@ export interface PhotoFeedback {
   mock: boolean;
   created_at: string;
 }
+
+export type InventoryCategory = 'lash_trays' | 'glue' | 'tools' | 'other';
+
+export interface InventoryItem {
+  id: string;
+  owner_user_id: string;
+  name: string;
+  category: InventoryCategory;
+  quantity: number;
+  unit: string;
+  low_stock_threshold: number;
+  notes: string | null;
+  is_low_stock: boolean;
+  created_at: string;
+  updated_at: string;
+}
