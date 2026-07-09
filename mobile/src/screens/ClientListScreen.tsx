@@ -17,17 +17,39 @@ import { ClientProfile } from '../types/api';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ClientList'>;
 
+interface QuotaField {
+  used: number;
+  limit: number | null;
+}
+
+interface UsageSummary {
+  plan: string;
+  enforced: boolean;
+  client_profiles: QuotaField;
+  coach_questions_today: QuotaField;
+  eye_scans_this_month: QuotaField;
+}
+
+function quotaLabel(field: QuotaField) {
+  return field.limit === null ? `${field.used}` : `${field.used}/${field.limit}`;
+}
+
 export function ClientListScreen({ navigation }: Props) {
   const { signOut } = useAuth();
   const [clients, setClients] = useState<ClientProfile[]>([]);
+  const [usage, setUsage] = useState<UsageSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
       setError(null);
-      const result = await api.get<ClientProfile[]>('/clients');
-      setClients(result);
+      const [clientsResult, usageResult] = await Promise.all([
+        api.get<ClientProfile[]>('/clients'),
+        api.get<UsageSummary>('/users/me/usage'),
+      ]);
+      setClients(clientsResult);
+      setUsage(usageResult);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load clients');
     } finally {
@@ -57,6 +79,20 @@ export function ClientListScreen({ navigation }: Props) {
           <Text style={styles.link}>Sign out</Text>
         </TouchableOpacity>
       </View>
+
+      {usage && (
+        <View style={styles.usageBanner}>
+          <Text style={styles.usageText}>
+            {usage.plan.toUpperCase()} plan{usage.enforced ? '' : ' (limits not enforced yet)'}
+            {'  ·  '}
+            {quotaLabel(usage.client_profiles)} clients
+            {'  ·  '}
+            {quotaLabel(usage.coach_questions_today)} coach Qs today
+            {'  ·  '}
+            {quotaLabel(usage.eye_scans_this_month)} scans this month
+          </Text>
+        </View>
+      )}
 
       {loading ? (
         <ActivityIndicator style={styles.loading} color={colors.primary} />
@@ -97,6 +133,14 @@ const styles = StyleSheet.create({
     paddingTop: 12,
   },
   link: { color: colors.accent, fontWeight: '600', fontSize: 13 },
+  usageBanner: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    padding: 10,
+  },
+  usageText: { fontSize: 11, color: colors.text },
   loading: { marginTop: 40 },
   error: { color: '#B3261E', textAlign: 'center', marginTop: 24 },
   empty: { color: colors.text, textAlign: 'center', marginTop: 40, opacity: 0.6 },
