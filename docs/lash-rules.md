@@ -55,6 +55,16 @@ Expected `eye_shape` values the vision step should classify into:
 | cat-eye | 7 | 9 | 10 | 12 | 13 |
 | doll eye | 9 | 10 | 11 | 10 | 8 |
 
+**Advanced styles (Pro tier — requested explicitly, never auto-derived from eye shape):**
+
+| Style | Inner | Inner-mid | Center | Outer-mid | Outer | Curl | Notes (PLACEHOLDER) |
+|---|---|---|---|---|---|---|---|
+| anime | 10 | 12 | 15 | 14 | 11 | D | dramatic, very long center for a wide-eyed look |
+| medusa | 6 | 11 | 8 | 13 | 9 | CC | textured/spiky mixed lengths, not a smooth curve |
+| wet-set | 6 | 7 | 8 | 8 | 7 | C | shorter overall — styled wet/clumped, not longer |
+| kim-k | 8 | 11 | 12 | 15 | 16 | D | exaggerated dramatic winged cat-eye |
+| strip-lash-effect | 11 | 12 | 13 | 13 | 12 | CC | fairly uniform length/density, mimics a strip lash band |
+
 ## 4. Placeholder diameter guidance
 
 | Natural lash density | Recommended diameter |

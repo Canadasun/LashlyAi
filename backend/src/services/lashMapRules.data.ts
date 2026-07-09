@@ -9,11 +9,21 @@
  */
 import { EyeShape, LashDensity } from "./ai.service";
 
-export type LashStyle = "natural" | "wispy" | "cat-eye" | "doll eye";
+export type BasicLashStyle = "natural" | "wispy" | "cat-eye" | "doll eye";
+export type AdvancedLashStyle = "anime" | "medusa" | "wet-set" | "kim-k" | "strip-lash-effect";
+export type LashStyle = BasicLashStyle | AdvancedLashStyle;
 export type LashCurl = "C" | "CC" | "D";
 export type ZoneName = "inner" | "inner_mid" | "center" | "outer_mid" | "outer";
 
-export const STYLE_CURL_BY_EYE_SHAPE: Record<EyeShape, { style: LashStyle; curl: LashCurl }> = {
+export const ADVANCED_STYLES: AdvancedLashStyle[] = [
+  "anime",
+  "medusa",
+  "wet-set",
+  "kim-k",
+  "strip-lash-effect",
+];
+
+export const STYLE_CURL_BY_EYE_SHAPE: Record<EyeShape, { style: BasicLashStyle; curl: LashCurl }> = {
   round: { style: "cat-eye", curl: "C" },
   almond: { style: "wispy", curl: "CC" },
   hooded: { style: "cat-eye", curl: "CC" },
@@ -30,6 +40,25 @@ export const ZONE_LENGTHS_MM: Record<LashStyle, Record<ZoneName, number>> = {
   wispy: { inner: 7, inner_mid: 9, center: 11, outer_mid: 11, outer: 10 },
   "cat-eye": { inner: 7, inner_mid: 9, center: 10, outer_mid: 12, outer: 13 },
   "doll eye": { inner: 9, inner_mid: 10, center: 11, outer_mid: 10, outer: 8 },
+  // Advanced styles (Pro tier) — PLACEHOLDER numbers, same caveat as the rest of this
+  // file. Requested explicitly by the artist rather than derived from eye shape.
+  anime: { inner: 10, inner_mid: 12, center: 15, outer_mid: 14, outer: 11 },
+  medusa: { inner: 6, inner_mid: 11, center: 8, outer_mid: 13, outer: 9 },
+  "wet-set": { inner: 6, inner_mid: 7, center: 8, outer_mid: 8, outer: 7 },
+  "kim-k": { inner: 8, inner_mid: 11, center: 12, outer_mid: 15, outer: 16 },
+  "strip-lash-effect": { inner: 11, inner_mid: 12, center: 13, outer_mid: 13, outer: 12 },
+};
+
+/**
+ * Advanced styles also override the recommended curl regardless of eye shape, since
+ * the look itself (e.g. Kim K's dramatic wing) depends on a specific curl. PLACEHOLDER.
+ */
+export const ADVANCED_STYLE_CURL: Record<AdvancedLashStyle, LashCurl> = {
+  anime: "D",
+  medusa: "CC",
+  "wet-set": "C",
+  "kim-k": "D",
+  "strip-lash-effect": "CC",
 };
 
 export const DIAMETER_BY_DENSITY: Record<LashDensity, string> = {
