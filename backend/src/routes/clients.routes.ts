@@ -8,12 +8,17 @@ import {
   getClientProfileById,
   getClientProfilesByOwner,
 } from "../models/ClientProfile";
-import { createLashMap, getLashMapsByClientProfileId } from "../models/LashMap";
+import {
+  createLashMap,
+  getLashMapById,
+  getLashMapsByClientProfileId,
+  updateLashMapRetention,
+} from "../models/LashMap";
 import {
   createPhotoFeedback,
   getPhotoFeedbackByClientProfileId,
 } from "../models/PhotoFeedback";
-import { analyzeEye, scoreLashPhoto } from "../services/ai.service";
+import { analyzeEye, scoreLashPhoto, troubleshootRetention } from "../services/ai.service";
 import { generateLashMap } from "../services/lashmap.service";
 import { uploadImage } from "../services/storage.service";
 import { asyncHandler } from "../utils/asyncHandler";
@@ -159,5 +164,38 @@ clientsRouter.get(
 
     const feedback = await getPhotoFeedbackByClientProfileId(client.id);
     res.json(feedback);
+  }),
+);
+
+clientsRouter.post(
+  "/:id/lash-maps/:mapId/retention-check",
+  requireUser,
+  asyncHandler(async (req, res) => {
+    const client = await loadOwnedClient(req, res);
+    if (!client) return;
+
+    const lashMap = await getLashMapById(req.params.mapId);
+    if (!lashMap || lashMap.client_profile_id !== client.id) {
+      res.status(404).json({ error: "Lash map not found for this client" });
+      return;
+    }
+
+    const { days_since_application: daysSinceApplication, retention_pct: retentionPct, symptoms } =
+      req.body ?? {};
+    if (typeof daysSinceApplication !== "number" || typeof retentionPct !== "number") {
+      res.status(400).json({
+        error: "days_since_application and retention_pct (numbers) are required",
+      });
+      return;
+    }
+
+    const { advice, mock } = await troubleshootRetention({
+      daysSinceApplication,
+      retentionPct,
+      symptoms: Array.isArray(symptoms) ? symptoms : [],
+    });
+    const updated = await updateLashMapRetention(lashMap.id, retentionPct);
+
+    res.json({ advice, mock, lash_map: updated });
   }),
 );

@@ -42,3 +42,16 @@ export async function getLashMapsByClientProfileId(clientProfileId: string): Pro
   );
   return result.rows;
 }
+
+export async function getLashMapById(id: string): Promise<LashMap | null> {
+  const result = await pool.query<LashMap>("SELECT * FROM lash_maps WHERE id = $1", [id]);
+  return result.rows[0] ?? null;
+}
+
+export async function updateLashMapRetention(id: string, retentionPct: number): Promise<LashMap> {
+  const result = await pool.query<LashMap>(
+    "UPDATE lash_maps SET retention_pct = $2 WHERE id = $1 RETURNING *",
+    [id, retentionPct],
+  );
+  return result.rows[0];
+}

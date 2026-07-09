@@ -87,6 +87,20 @@ Response `201`:
 ### `GET /clients/:id/photo-feedback`
 Returns array of saved `PhotoFeedback` records for the client, newest first.
 
+### `POST /clients/:id/lash-maps/:mapId/retention-check`
+Pro tier: reports symptoms of a retention problem and gets AI troubleshooting advice.
+Persists `retention_pct` onto the referenced `LashMap` row.
+
+Request:
+```json
+{ "days_since_application": 14, "retention_pct": 60, "symptoms": ["excess oil", "rubbing eyes"] }
+```
+
+Response `200`:
+```json
+{ "advice": "string", "mock": false, "lash_map": { "...": "updated LashMap record" } }
+```
+
 ## Coach
 
 ### `POST /coach/ask`

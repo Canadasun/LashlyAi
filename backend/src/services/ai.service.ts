@@ -206,3 +206,45 @@ export async function askCoach(question: string): Promise<{ answer: string; mock
   const answer = completion.choices[0]?.message?.content ?? "";
   return { answer, mock: false };
 }
+
+export interface RetentionCheckInput {
+  daysSinceApplication: number;
+  retentionPct: number;
+  symptoms: string[];
+}
+
+const RETENTION_SYSTEM_PROMPT =
+  "You are the LashlyAI Lash Coach, specifically troubleshooting a retention problem. " +
+  "Given days since application, the percentage of extensions still remaining, and " +
+  "reported symptoms (e.g. excess oil, rubbing, poor aftercare, premature shedding), " +
+  "give specific, actionable troubleshooting advice — likely causes and what to change " +
+  "next time. Be concise and practical.";
+
+export async function troubleshootRetention(
+  input: RetentionCheckInput,
+): Promise<{ advice: string; mock: boolean }> {
+  const prompt =
+    `Days since application: ${input.daysSinceApplication}. ` +
+    `Retention remaining: ${input.retentionPct}%. ` +
+    `Reported symptoms: ${input.symptoms.length ? input.symptoms.join(", ") : "none reported"}.`;
+
+  if (!client) {
+    return {
+      advice:
+        "MOCK RESPONSE — no OPENAI_API_KEY configured. In production this would be real " +
+        `troubleshooting advice for: ${prompt}`,
+      mock: true,
+    };
+  }
+
+  const completion = await client.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [
+      { role: "system", content: RETENTION_SYSTEM_PROMPT },
+      { role: "user", content: prompt },
+    ],
+  });
+
+  const advice = completion.choices[0]?.message?.content ?? "";
+  return { advice, mock: false };
+}

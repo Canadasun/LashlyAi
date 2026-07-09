@@ -1,6 +1,16 @@
+import { useState } from 'react';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { LashMapZoneDiagram } from '../components/LashMapZoneDiagram';
+import { api } from '../services/api';
 import { colors } from '../theme/colors';
 import { RootStackParamList } from '../navigation/types';
 
@@ -15,8 +25,52 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
+const SYMPTOM_OPTIONS = [
+  'excess oil',
+  'rubbing eyes',
+  'poor aftercare',
+  'premature shedding',
+  'sleeping on face',
+  'humid environment',
+];
+
 export function LashMapScreen({ route, navigation }: Props) {
   const { clientId, lashMap } = route.params;
+  const [showRetentionCheck, setShowRetentionCheck] = useState(false);
+  const [days, setDays] = useState('');
+  const [retentionPct, setRetentionPct] = useState('');
+  const [symptoms, setSymptoms] = useState<string[]>([]);
+  const [advice, setAdvice] = useState<{ advice: string; mock: boolean } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const toggleSymptom = (symptom: string) => {
+    setSymptoms((prev) =>
+      prev.includes(symptom) ? prev.filter((s) => s !== symptom) : [...prev, symptom],
+    );
+  };
+
+  const checkRetention = async () => {
+    const daysNum = Number(days);
+    const pctNum = Number(retentionPct);
+    if (!days || !retentionPct || Number.isNaN(daysNum) || Number.isNaN(pctNum)) {
+      setError('Enter days since application and retention % as numbers');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await api.post<{ advice: string; mock: boolean }>(
+        `/clients/${clientId}/lash-maps/${lashMap.id}/retention-check`,
+        { days_since_application: daysNum, retention_pct: pctNum, symptoms },
+      );
+      setAdvice(result);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to get retention advice');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -35,6 +89,66 @@ export function LashMapScreen({ route, navigation }: Props) {
       <View style={styles.statsRow}>
         <Stat label="Fan Type" value={lashMap.fan_type} />
       </View>
+
+      <TouchableOpacity
+        style={styles.secondaryButton}
+        onPress={() => setShowRetentionCheck((v) => !v)}>
+        <Text style={styles.secondaryButtonText}>
+          {showRetentionCheck ? 'Hide Retention Check (Pro)' : 'Retention Check (Pro)'}
+        </Text>
+      </TouchableOpacity>
+
+      {showRetentionCheck && (
+        <View style={styles.retentionCard}>
+          <TextInput
+            style={styles.input}
+            placeholder="Days since application"
+            keyboardType="number-pad"
+            value={days}
+            onChangeText={setDays}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Retention remaining (%)"
+            keyboardType="number-pad"
+            value={retentionPct}
+            onChangeText={setRetentionPct}
+          />
+          <View style={styles.chipRow}>
+            {SYMPTOM_OPTIONS.map((symptom) => (
+              <TouchableOpacity
+                key={symptom}
+                style={[styles.chip, symptoms.includes(symptom) && styles.chipSelected]}
+                onPress={() => toggleSymptom(symptom)}>
+                <Text
+                  style={[
+                    styles.chipText,
+                    symptoms.includes(symptom) && styles.chipTextSelected,
+                  ]}>
+                  {symptom}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {error && <Text style={styles.error}>{error}</Text>}
+
+          <TouchableOpacity style={styles.button} onPress={checkRetention} disabled={loading}>
+            {loading ? (
+              <ActivityIndicator color={colors.background} />
+            ) : (
+              <Text style={styles.buttonText}>Get Advice</Text>
+            )}
+          </TouchableOpacity>
+
+          {advice && (
+            <View style={styles.adviceBox}>
+              {advice.mock && <Text style={styles.mockTag}>MOCK ADVICE</Text>}
+              <Text style={styles.adviceText}>{advice.advice}</Text>
+            </View>
+          )}
+        </View>
+      )}
 
       <TouchableOpacity
         style={styles.button}
@@ -77,6 +191,45 @@ const styles = StyleSheet.create({
     textTransform: 'capitalize',
   },
   statLabel: { fontSize: 11, color: colors.accent, marginTop: 4 },
+  secondaryButton: {
+    backgroundColor: '#ffffff',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 12,
+    width: '100%',
+  },
+  secondaryButtonText: { color: colors.text, fontWeight: '600' },
+  retentionCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 12,
+    width: '100%',
+  },
+  input: {
+    backgroundColor: colors.background,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: colors.text,
+    marginBottom: 10,
+  },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
+  chip: {
+    backgroundColor: colors.background,
+    borderRadius: 20,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  chipSelected: { backgroundColor: colors.primary },
+  chipText: { fontSize: 11, color: colors.text, fontWeight: '600' },
+  chipTextSelected: { color: colors.background },
+  error: { color: '#B3261E', marginBottom: 8, fontSize: 13 },
+  adviceBox: { marginTop: 12, backgroundColor: colors.background, borderRadius: 10, padding: 12 },
+  mockTag: { fontSize: 10, color: colors.accent, fontWeight: '700', marginBottom: 4 },
+  adviceText: { fontSize: 13, color: colors.text },
   button: {
     backgroundColor: colors.primary,
     borderRadius: 10,
