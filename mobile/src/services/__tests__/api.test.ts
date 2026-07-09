@@ -1,7 +1,7 @@
 import { api, setAuthToken, setUnauthorizedHandler } from '../api';
 
 function mockFetchOnce(status: number, body: unknown) {
-  (global as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockResolvedValue({
+  (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockResolvedValue({
     status,
     ok: status >= 200 && status < 300,
     text: async () => (body === undefined ? '' : JSON.stringify(body)),
@@ -36,5 +36,15 @@ describe('api request handling', () => {
 
     await expect(api.get('/clients/123')).rejects.toThrow('You do not own this client profile');
     expect(onUnauthorized).not.toHaveBeenCalled();
+  });
+
+  it('falls back to a clean status message when the error response is not JSON', async () => {
+    (globalThis as unknown as { fetch: jest.Mock }).fetch = jest.fn().mockResolvedValue({
+      status: 502,
+      ok: false,
+      text: async () => '<!DOCTYPE html><html><body>Bad Gateway</body></html>',
+    });
+
+    await expect(api.get('/clients')).rejects.toThrow('failed with status 502');
   });
 });
