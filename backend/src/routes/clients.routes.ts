@@ -22,6 +22,8 @@ import { analyzeEye, scoreLashPhoto, troubleshootRetention } from "../services/a
 import { generateLashMap } from "../services/lashmap.service";
 import { uploadImage } from "../services/storage.service";
 import { asyncHandler } from "../utils/asyncHandler";
+import { checkClientProfileQuota, checkEyeScanQuota } from "../services/planLimits.service";
+import { logUsageEvent } from "../models/UsageEvent";
 
 export const clientsRouter = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
@@ -48,6 +50,15 @@ clientsRouter.post(
       res.status(400).json({ error: "name is required" });
       return;
     }
+
+    const quota = await checkClientProfileQuota(req.currentUser!.id);
+    if (!quota.allowed) {
+      res.status(403).json({
+        error: `Free plan is limited to ${quota.limit} client profiles. Upgrade to Pro for unlimited clients.`,
+      });
+      return;
+    }
+
     const client = await createClientProfile({ ownerUserId: req.currentUser!.id, name, notes });
     res.status(201).json(client);
   }),
@@ -85,9 +96,18 @@ clientsRouter.post(
       return;
     }
 
+    const quota = await checkEyeScanQuota(req.currentUser!.id);
+    if (!quota.allowed) {
+      res.status(403).json({
+        error: `Free plan is limited to ${quota.limit} eye scans per month. Upgrade to Pro for unlimited scans.`,
+      });
+      return;
+    }
+
     const { url } = await uploadImage(req.file.buffer, req.file.originalname);
     const eyeAnalysis = await analyzeEye(req.file.buffer);
     const updated = await addPhotoAndEyeAnalysis(client.id, url, eyeAnalysis);
+    await logUsageEvent(req.currentUser!.id, "eye_scan");
 
     res.status(201).json({ photo_url: url, eye_analysis: updated.eye_analysis });
   }),

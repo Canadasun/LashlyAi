@@ -27,6 +27,23 @@ In dev, before a real Firebase project is configured, pass
 ### `GET /users/me`
 Response `200`: full `User` record (see data model).
 
+### `GET /users/me/usage`
+Free-tier quota status: client profiles (5), coach questions today (5), eye scans
+this month (3). Paid plans show `limit: null` (unlimited). `enforced` reflects the
+`ENFORCE_PLAN_LIMITS` env var — off during testing, so nothing is actually blocked yet
+even when `allowed: false` would otherwise apply.
+
+Response `200`:
+```json
+{
+  "plan": "free",
+  "enforced": false,
+  "client_profiles": { "used": 0, "limit": 5, "allowed": true },
+  "coach_questions_today": { "used": 0, "limit": 5, "allowed": true },
+  "eye_scans_this_month": { "used": 0, "limit": 3, "allowed": true }
+}
+```
+
 ## Clients
 
 ### `POST /clients`
