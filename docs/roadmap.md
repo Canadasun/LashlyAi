@@ -128,6 +128,35 @@ Blocked on owner action — this is most of the phase's actual checklist:
   (see Phase 2's blocker).
 
 ## Phase 4 — Production Launch
+Status: partially complete — the pieces that don't depend on App Store approval are
+done; a real "production launch" is blocked on Phase 2/3 completing first.
+Started: 2026-07-09
+
+**Reality check on this phase's own checklist**: "AI lash mapping, client profiles,
+save designs — live" describes a real v1.0 launch, which requires the mobile app to
+actually be through TestFlight and App Store review (Phase 2/3's blockers — paid Apple
+Developer account, full Xcode.app, real screenshots, submission). None of that has
+happened yet, so there is no real production launch to report here. What follows is
+what could be built independently of that.
+
+Done:
+- **Admin dashboard** — `GET /admin` (HTML) and `GET /admin/stats` (JSON), protected by
+  HTTP Basic Auth against a dedicated `ADMIN_API_KEY` (not tied to any user account —
+  there is no `503` fallback like other dev-mode bypasses in this repo; admin data is
+  never reachable without a key configured). Shows total users + recent signups, client
+  profile/lash map counts, subscriptions by plan, a count of "unverified" (mock) AI
+  outputs, and recent feedback submissions. Verified locally end-to-end.
+- **Monitoring/alerting** — owner chose to rely on Railway's own observability
+  (`railway status`, `railway logs`, `railway metrics`) rather than a new external
+  uptime-monitoring account. Note: Railway does support email/Slack notifications on
+  deploy failure, but that's a per-account dashboard setting (Project Settings →
+  Notifications), not something scriptable via the CLI — worth 2 minutes to turn on
+  manually if you want push alerts instead of checking in manually.
+
+Not done / blocked:
+- A real production launch (the actual point of this phase) — see Phase 2/3.
+
+## Phase 5 — Enterprise Expansion
 Status: not started
 
 ## Phase 5 — Enterprise Expansion
