@@ -112,12 +112,16 @@ Done:
   shipping it.
 
 Blocked on owner action — this is most of the phase's actual checklist:
-- **Apple Developer Program account** ($99/yr) — needs the owner's own Apple ID and
-  payment; can't be created by an agent.
-- **App Store Connect listing** — needs the Developer account first, plus a real bundle
-  identifier (the Xcode project currently still has the React Native template's default
-  `org.reactjs.native.example.LashlyAIMobile` — pick and register a real one, e.g.
-  `com.lashlyai.app`, once the Developer account exists).
+- **Apple Developer Program account** ($99/yr) — ✅ owner has this (Team ID
+  `T4483283LY`).
+- **Bundle ID** — ✅ registered and wired in: `com.canadasun.lashlyai`, set as
+  `PRODUCT_BUNDLE_IDENTIFIER` + `DEVELOPMENT_TEAM` in both Debug and Release build
+  configs in `project.pbxproj`.
+- **App Store Connect listing** — still needed: create the app record at
+  appstoreconnect.apple.com using this bundle ID.
+- **Full Xcode.app** — still the remaining hard blocker. This dev machine only has
+  Command Line Tools, so the app has never actually been built/booted, even though the
+  bundle ID/team are now correctly configured.
 - **Real screenshots** — need an actual running build on a device or the iOS Simulator,
   neither of which is available in this environment yet.
 - **Real StoreKit subscription products** — created in App Store Connect once it
