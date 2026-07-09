@@ -33,6 +33,14 @@ export async function getClientProfileById(id: string): Promise<ClientProfile | 
   return result.rows[0] ?? null;
 }
 
+export async function getClientProfilesByOwner(ownerUserId: string): Promise<ClientProfile[]> {
+  const result = await pool.query<ClientProfile>(
+    "SELECT * FROM client_profiles WHERE owner_user_id = $1 ORDER BY created_at DESC",
+    [ownerUserId],
+  );
+  return result.rows;
+}
+
 export async function addPhotoAndEyeAnalysis(
   id: string,
   photoUrl: string,

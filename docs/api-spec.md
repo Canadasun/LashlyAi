@@ -6,24 +6,21 @@ All authenticated routes expect `Authorization: Bearer <firebase_id_token>`.
 
 ## Auth
 
+Firebase itself owns email/password sign-up and sign-in — the mobile app calls the
+Firebase client SDK directly for those and gets back an ID token. There's no backend
+`/auth/login`; the backend only needs to link that Firebase identity to a Postgres row.
+
 ### `POST /auth/register`
-Register a new user (email/password, backed by Firebase Auth).
+Call once right after Firebase sign-up (and it's safe to call again on every sign-in —
+idempotent). Verifies the bearer token and creates the matching `User` row if one
+doesn't exist yet.
 
-Request:
-```json
-{ "email": "artist@example.com", "password": "..." }
-```
+Request: empty body, or `{ "role": "beginner" }` to set an initial role.
 
-Response `201`:
-```json
-{ "id": "uuid", "email": "artist@example.com" }
-```
+Response `200` (already existed) or `201` (newly created): full `User` record.
 
-### `POST /auth/login`
-Response `200`:
-```json
-{ "token": "firebase_id_token" }
-```
+In dev, before a real Firebase project is configured, pass
+`Authorization: Bearer dev:<email>` — see `backend/src/services/auth.service.ts`.
 
 ## Users
 
@@ -39,6 +36,9 @@ Request:
 ```json
 { "name": "Jane Doe", "notes": "optional" }
 ```
+
+### `GET /clients`
+Returns all `ClientProfile` records owned by the current user, newest first.
 
 ### `GET /clients/:id`
 Returns a `ClientProfile` including photos, eye_analysis, lash_history, notes.

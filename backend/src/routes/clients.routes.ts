@@ -6,6 +6,7 @@ import {
   appendLashHistoryEntry,
   createClientProfile,
   getClientProfileById,
+  getClientProfilesByOwner,
 } from "../models/ClientProfile";
 import { createLashMap, getLashMapsByClientProfileId } from "../models/LashMap";
 import { analyzeEye } from "../services/ai.service";
@@ -36,6 +37,11 @@ clientsRouter.post("/", requireUser, async (req, res) => {
   }
   const client = await createClientProfile({ ownerUserId: req.currentUser!.id, name, notes });
   res.status(201).json(client);
+});
+
+clientsRouter.get("/", requireUser, async (req, res) => {
+  const clients = await getClientProfilesByOwner(req.currentUser!.id);
+  res.json(clients);
 });
 
 clientsRouter.get("/:id", requireUser, async (req, res) => {
