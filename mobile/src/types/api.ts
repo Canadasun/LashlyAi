@@ -74,3 +74,26 @@ export interface Lesson {
   completed: boolean;
   created_at: string;
 }
+
+export interface ForumPost {
+  id: string;
+  user_id: string;
+  author_email: string;
+  title: string;
+  body: string;
+  comment_count: number;
+  created_at: string;
+}
+
+export interface ForumComment {
+  id: string;
+  post_id: string;
+  user_id: string;
+  author_email: string;
+  body: string;
+  created_at: string;
+}
+
+export interface ForumPostDetail extends ForumPost {
+  comments: ForumComment[];
+}
