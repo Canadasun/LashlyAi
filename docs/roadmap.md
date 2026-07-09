@@ -117,11 +117,11 @@ Blocked on owner action — this is most of the phase's actual checklist:
 - **Bundle ID** — ✅ registered and wired in: `com.canadasun.lashlyai`, set as
   `PRODUCT_BUNDLE_IDENTIFIER` + `DEVELOPMENT_TEAM` in both Debug and Release build
   configs in `project.pbxproj`.
-- **App Store Connect listing** — still needed: create the app record at
-  appstoreconnect.apple.com using this bundle ID.
-- **Full Xcode.app** — still the remaining hard blocker. This dev machine only has
-  Command Line Tools, so the app has never actually been built/booted, even though the
-  bundle ID/team are now correctly configured.
+- **App Store Connect listing** — ✅ created: SKU `lashlyai-ios-001`, Apple ID
+  `6789339271`.
+- **Full Xcode.app** — the one remaining hard blocker. This dev machine only has
+  Command Line Tools, so the app has never actually been built/booted, even though
+  bundle ID/team/App Store Connect record are all correctly set up and waiting.
 - **Real screenshots** — need an actual running build on a device or the iOS Simulator,
   neither of which is available in this environment yet.
 - **Real StoreKit subscription products** — created in App Store Connect once it
