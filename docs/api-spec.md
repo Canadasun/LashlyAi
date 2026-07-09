@@ -95,12 +95,22 @@ Response `201`: full `Feedback` record, linked to the reporting user.
 ## Subscriptions
 
 ### `POST /subscriptions/verify`
-Verifies an Apple StoreKit receipt/transaction.
+Verifies an Apple StoreKit receipt against Apple's `verifyReceipt` endpoint (production,
+falling back to sandbox per Apple's documented status-21007 flow) and upserts the
+user's `Subscription` row — one per user, updated in place as their plan changes.
 
 Request:
 ```json
-{ "apple_transaction_id": "..." }
+{ "receipt_data": "<base64 App Store receipt>" }
 ```
+
+Response `200`: full `Subscription` record, plus `mock: false`.
+
+**Dev mode** (no `APPLE_SHARED_SECRET` configured yet — no real App Store Connect
+subscription products exist): pass `{ "plan": "pro" }` directly instead of a receipt.
+Response includes `mock: true`. See `backend/src/services/appleReceipt.service.ts` for
+the placeholder product-ID → plan mapping that must be updated once real products are
+created in App Store Connect.
 
 Response `200`: updated `Subscription` record.
 
