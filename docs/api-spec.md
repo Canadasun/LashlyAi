@@ -188,6 +188,23 @@ Single lesson detail + `completed` flag.
 ### `POST /lessons/:id/complete`
 Marks complete for the current user (idempotent). Response `204`.
 
+## Forum
+
+Free tier. Not owner-scoped — every authenticated user can read/post/comment on
+every post (it's a community forum, not a private space).
+
+### `POST /forum/posts`
+Request: `{ "title": "string", "body": "string" }`
+
+### `GET /forum/posts`
+Returns all posts, newest first, each with `author_email` and `comment_count`.
+
+### `GET /forum/posts/:id`
+Post detail including a `comments` array (oldest first, each with `author_email`).
+
+### `POST /forum/posts/:id/comments`
+Request: `{ "body": "string" }`
+
 ## Subscriptions
 
 ### `POST /subscriptions/verify`
