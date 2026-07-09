@@ -4,6 +4,8 @@ import cors from "cors";
 import helmet from "helmet";
 import { authRouter } from "./routes/auth.routes";
 import { usersRouter } from "./routes/users.routes";
+import { clientsRouter } from "./routes/clients.routes";
+import { coachRouter } from "./routes/coach.routes";
 import { localStorageDir } from "./services/storage.service";
 
 const app = express();
@@ -23,6 +25,8 @@ app.use("/local-storage", express.static(localStorageDir()));
 
 app.use("/auth", authRouter);
 app.use("/users", usersRouter);
+app.use("/clients", clientsRouter);
+app.use("/coach", coachRouter);
 
 app.listen(port, () => {
   console.log(`LashlyAI backend listening on port ${port}`);
