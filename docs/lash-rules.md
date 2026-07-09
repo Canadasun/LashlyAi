@@ -71,12 +71,34 @@ Expected `eye_shape` values the vision step should classify into:
 | standard volume request | 3D–4D volume |
 | mega volume request, healthy natural lashes | 5D–8D volume |
 
-## 6. Retention factors (for future AI Photo Feedback / Phase 5)
+## 6. Retention factors (for future client timeline / Phase 5)
 
 Not yet defined. Owner to provide guidance on how retention % should be
 estimated/tracked over time per client.
 
-## 7. Owner review log
+## 7. Photo feedback scoring rubric (Phase 5)
+
+> **STATUS: PLACEHOLDER.** Same caveat as the rest of this file — these criteria are
+> a reasonable starting point for prompting the AI, not a validated professional
+> rubric. The owner should review and correct based on real examples.
+
+Used by `backend/src/services/ai.service.ts` (`scoreLashPhoto`) to build the system
+prompt for scoring a photo of an artist's **completed** lash application — this is a
+different input than the pre-work client eye photo used for lash mapping.
+
+Each dimension is scored 0–100:
+
+| Dimension | What "100" looks like (PLACEHOLDER) | What drags the score down |
+|---|---|---|
+| Isolation | Every extension applied to a single, cleanly separated natural lash; no visible stickies (two or more natural lashes bonded together) | Visible stickies, extensions bonded to skin/lid, uneven separation |
+| Direction | Fans/extensions follow a consistent, deliberate direction matching the intended style (e.g. cat-eye sweeping outward); symmetric between both eyes | Crossing lashes, inconsistent angles, visible asymmetry between eyes |
+| Styling | Overall shape matches a coherent, intentional style (natural, wispy, cat-eye, doll eye, etc.); density and length transition smoothly across zones | Patchy density, length jumps between zones, style doesn't match what the zone lengths would suggest |
+
+An `overall_score` is the AI's holistic judgment, not strictly an average of the three
+— it may weigh a severe isolation problem (a real lash-health risk) more heavily than a
+minor styling inconsistency.
+
+## 8. Owner review log
 
 Use this section to log corrections after comparing AI-generated maps against
 real lash-artist judgment (Phase 2 requirement).

@@ -5,7 +5,7 @@
  *
  * STATUS: PLACEHOLDER. Same caveat as docs/lash-rules.md — these are conservative,
  * clearly-labeled defaults, not verified lash industry standards. Do not treat as
- * accurate until the owner has reviewed them (see docs/lash-rules.md §7).
+ * accurate until the owner has reviewed them (see docs/lash-rules.md §8).
  */
 import { EyeShape, LashDensity } from "./ai.service";
 
