@@ -12,7 +12,7 @@ import { useAuth } from '../context/AuthContext';
 import { colors } from '../theme/colors';
 
 export function AuthScreen() {
-  const { signUp, signIn } = useAuth();
+  const { signUp, signIn, sessionExpiredMessage } = useAuth();
   const [mode, setMode] = useState<'signIn' | 'signUp'>('signIn');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -54,6 +54,8 @@ export function AuthScreen() {
       <Text style={styles.subtitle}>
         {mode === 'signIn' ? 'Sign in to your account' : 'Create your artist account'}
       </Text>
+
+      {sessionExpiredMessage && <Text style={styles.sessionExpired}>{sessionExpiredMessage}</Text>}
 
       <TextInput
         style={styles.input}
@@ -132,6 +134,15 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.text,
     marginBottom: 12,
+  },
+  sessionExpired: {
+    color: '#7A5B00',
+    backgroundColor: '#FFF3CD',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 16,
+    fontSize: 13,
+    textAlign: 'center',
   },
   error: {
     color: '#B3261E',

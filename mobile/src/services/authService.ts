@@ -1,5 +1,6 @@
 import {
   createUserWithEmailAndPassword,
+  onIdTokenChanged,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
 } from 'firebase/auth';
@@ -37,4 +38,25 @@ export async function signOut(): Promise<void> {
   if (isFirebaseConfigured && auth) {
     await firebaseSignOut(auth);
   }
+}
+
+/**
+ * Firebase ID tokens expire after 1 hour. The SDK auto-refreshes them internally
+ * (~5 min before expiry) as long as something is listening — onIdTokenChanged fires
+ * with the new token each time that happens. Without this, every session would start
+ * getting silent 401s an hour after sign-in. No-op in dev-stub mode, where
+ * "dev:<email>" tokens don't expire.
+ */
+export function subscribeToTokenRefresh(onToken: (token: string | null) => void): () => void {
+  if (!isFirebaseConfigured || !auth) {
+    return () => {};
+  }
+  return onIdTokenChanged(auth, async (user) => {
+    if (!user) {
+      onToken(null);
+      return;
+    }
+    const token = await user.getIdToken();
+    onToken(token);
+  });
 }

@@ -6,6 +6,15 @@ export function setAuthToken(token: string | undefined) {
   currentToken = token;
 }
 
+// Lets AuthContext react to any 401 from anywhere in the app (e.g. an expired token)
+// by signing the user out and bouncing to the login screen, instead of leaving them
+// stuck on whatever screen they were on with a raw "invalid token" error.
+let onUnauthorized: (() => void) | undefined;
+
+export function setUnauthorizedHandler(handler: () => void) {
+  onUnauthorized = handler;
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = {
     ...(options.body && !(options.body instanceof FormData)
@@ -15,6 +24,12 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   };
 
   const response = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
+
+  if (response.status === 401) {
+    onUnauthorized?.();
+    throw new Error('Your session expired. Please sign in again.');
+  }
+
   const text = await response.text();
   const body = text ? JSON.parse(text) : undefined;
 
