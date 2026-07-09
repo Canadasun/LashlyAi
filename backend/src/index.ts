@@ -8,6 +8,7 @@ import { clientsRouter } from "./routes/clients.routes";
 import { coachRouter } from "./routes/coach.routes";
 import { feedbackRouter } from "./routes/feedback.routes";
 import { subscriptionsRouter } from "./routes/subscriptions.routes";
+import { adminRouter } from "./routes/admin.routes";
 import { errorHandler, requestLogger } from "./middleware/errorHandler";
 import { localStorageDir } from "./services/storage.service";
 import { logger } from "./utils/logger";
@@ -34,6 +35,7 @@ app.use("/clients", clientsRouter);
 app.use("/coach", coachRouter);
 app.use("/feedback", feedbackRouter);
 app.use("/subscriptions", subscriptionsRouter);
+app.use("/admin", adminRouter);
 
 // Must be registered after all routes.
 app.use(errorHandler);
