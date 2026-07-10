@@ -21,6 +21,11 @@ import { logger } from "./utils/logger";
 const app = express();
 const port = process.env.PORT ? Number(process.env.PORT) : 3000;
 
+// Railway sits in front of this app as a single reverse-proxy hop — without this,
+// express-rate-limit can't trust X-Forwarded-For to identify the real client IP,
+// throwing a ValidationError and potentially rate-limiting everyone as one IP.
+app.set("trust proxy", 1);
+
 app.use(helmet());
 app.use(cors());
 app.use(express.json());

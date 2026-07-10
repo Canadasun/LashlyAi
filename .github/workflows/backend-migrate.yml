@@ -1,0 +1,49 @@
+name: Backend migrate & verify
+
+# Runs on every push to main, not just backend/ changes — migrations are idempotent
+# (each one records itself in schema_migrations and is skipped if already applied),
+# so there's no cost to running this unconditionally, and it closes the gap where
+# migrations only ever ran against a local dev database and silently never reached
+# production (see the 2026-07-10 incident: 0011/0012/0013 all sat unapplied on
+# Railway until caught manually). This runs the same migration script directly
+# against the production database, then hits the live /health endpoint so a broken
+# deploy is visible in CI, not just discovered by hand later.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  migrate-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Run pending migrations against production
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npx tsx src/db/migrate.ts
+
+      - name: Verify production health
+        run: |
+          for i in 1 2 3 4 5; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" https://lashlyai-production.up.railway.app/health)
+            if [ "$code" = "200" ]; then
+              echo "Health check passed (attempt $i)"
+              exit 0
+            fi
+            echo "Health check returned $code, retrying in 10s (attempt $i)..."
+            sleep 10
+          done
+          echo "Health check failed after 5 attempts"
+          exit 1
