@@ -1,4 +1,5 @@
 import { Router } from "express";
+import rateLimit from "express-rate-limit";
 import { asyncHandler } from "../utils/asyncHandler";
 import {
   createSessionToken,
@@ -16,6 +17,25 @@ import {
 const VALID_ROLES: UserRole[] = ["beginner", "certified", "educator", "salon_owner", "academy"];
 
 export const authRouter = Router();
+
+// Per-IP limits — these endpoints have no CAPTCHA, so they're the main brute-force /
+// signup-spam surface. Registration is looser (legitimate onboarding bursts); login is
+// tight since it's the credential-stuffing target.
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many accounts created from this address. Try again later." },
+});
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many login attempts. Try again later." },
+});
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -42,7 +62,11 @@ function validateCredentials(reqBody: unknown): { email: string; password: strin
 
 function issueSession(user: User) {
   const token = createSessionToken({ userId: user.id, email: user.email });
-  return { user, token };
+  // Defensive strip: callers may pass a UserRow (which carries password_hash) here —
+  // TS structural typing lets that through silently since UserRow extends User, and
+  // JSON.stringify would otherwise serialize the hash straight into the response body.
+  const { password_hash: _passwordHash, ...safeUser } = user as User & { password_hash?: unknown };
+  return { user: safeUser, token };
 }
 
 /**
@@ -51,6 +75,7 @@ function issueSession(user: User) {
  */
 authRouter.post(
   "/register",
+  registerLimiter,
   asyncHandler(async (req, res) => {
     const { email, password, role } = validateCredentials(req.body);
     const existing = await findUserByEmail(email);
@@ -79,6 +104,7 @@ authRouter.post(
 
 authRouter.post(
   "/login",
+  loginLimiter,
   asyncHandler(async (req, res) => {
     const { email, password } = validateCredentials(req.body);
     const user = await findUserByEmail(email);

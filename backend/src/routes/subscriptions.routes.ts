@@ -14,7 +14,16 @@ subscriptionsRouter.post(
   asyncHandler(async (req, res) => {
     if (!process.env.APPLE_SHARED_SECRET) {
       // No real App Store Connect subscription exists yet — let the mobile paywall UI
-      // be testable by accepting a plan directly instead of a real Apple receipt.
+      // be testable by accepting a plan directly instead of a real Apple receipt. Never
+      // allow this in production/staging: it would let anyone grant themselves a paid
+      // plan for free.
+      if (process.env.NODE_ENV === "production" || process.env.NODE_ENV === "staging") {
+        res.status(503).json({
+          error: "APPLE_SHARED_SECRET is not configured. Real receipt verification is required in this environment.",
+        });
+        return;
+      }
+
       const requestedPlan = req.body?.plan;
       if (!VALID_PLANS.includes(requestedPlan)) {
         res.status(400).json({

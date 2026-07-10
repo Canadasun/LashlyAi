@@ -8,13 +8,17 @@ export interface VerifiedIdentity {
 const SESSION_PREFIX = "lashly";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 
+const FALLBACK_ALLOWED_ENVS = new Set([undefined, "development", "test"]);
+
 function resolveSessionSecret(): string {
   const secret = process.env.AUTH_SESSION_SECRET ?? process.env.ADMIN_API_KEY;
   if (secret) {
     return secret;
   }
 
-  if (process.env.NODE_ENV === "production" || process.env.NODE_ENV === "staging") {
+  // Allow-listed, not deny-listed: an unset/misspelled NODE_ENV must fail closed rather
+  // than silently signing tokens with a secret checked into git history.
+  if (!FALLBACK_ALLOWED_ENVS.has(process.env.NODE_ENV)) {
     throw new Error(
       "AUTH_SESSION_SECRET is missing. Refusing to start without a signed session secret.",
     );
