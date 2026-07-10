@@ -12,18 +12,44 @@ import {
 import { api } from '../services/api';
 import { colors } from '../theme/colors';
 import { RootStackParamList } from '../navigation/types';
-import { LashMap } from '../types/api';
+import { EyeAnalysis, LashMap } from '../types/api';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'EyeAnalysisResult'>;
+
+function formatValue(value: string): string {
+  return value.replace(/_/g, ' ');
+}
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.row}>
       <Text style={styles.rowLabel}>{label}</Text>
-      <Text style={styles.rowValue}>{value}</Text>
+      <Text style={styles.rowValue}>{formatValue(value)}</Text>
     </View>
   );
 }
+
+const EYE_FIELDS: { label: string; key: keyof EyeAnalysis }[] = [
+  { label: 'Eye shape', key: 'eye_shape' },
+  { label: 'Eye size', key: 'eye_size' },
+  { label: 'Eye width', key: 'eye_width' },
+  { label: 'Eye spacing', key: 'eye_spacing' },
+  { label: 'Canthal tilt', key: 'canthal_tilt' },
+  { label: 'Lid exposure', key: 'lid_exposure' },
+  { label: 'Under-eye condition', key: 'under_eye_condition' },
+  { label: 'Eye symmetry', key: 'eye_symmetry' },
+  { label: 'Lash density', key: 'lash_density' },
+  { label: 'Natural lash length', key: 'lash_length_natural' },
+  { label: 'Natural lash curl', key: 'natural_lash_curl' },
+];
+
+const BROW_FIELDS: { label: string; key: keyof EyeAnalysis }[] = [
+  { label: 'Brow shape', key: 'brow_shape' },
+  { label: 'Brow spacing', key: 'brow_spacing' },
+  { label: 'Brow tail length', key: 'brow_tail_length' },
+  { label: 'Brow gap', key: 'brow_gap' },
+  { label: 'Brow hair direction', key: 'brow_hair_direction' },
+];
 
 const ADVANCED_STYLES: { label: string; value: string | null }[] = [
   { label: 'Auto (from eye shape)', value: null },
@@ -67,10 +93,20 @@ export function EyeAnalysisResultScreen({ route, navigation }: Props) {
         </View>
       )}
 
-      <Text style={styles.title}>Eye Analysis</Text>
-      <Row label="Eye shape" value={eyeAnalysis.eye_shape} />
-      <Row label="Lash density" value={eyeAnalysis.lash_density} />
-      <Row label="Natural lash length" value={eyeAnalysis.lash_length_natural} />
+      <View style={styles.scoreBadge}>
+        <Text style={styles.scoreValue}>{eyeAnalysis.balance_score}</Text>
+        <Text style={styles.scoreLabel}>Balance Score</Text>
+      </View>
+
+      <Text style={styles.title}>Full Analysis — Eye</Text>
+      {EYE_FIELDS.map(({ label, key }) => (
+        <Row key={key} label={label} value={String(eyeAnalysis[key])} />
+      ))}
+
+      <Text style={styles.title}>Full Analysis — Brow</Text>
+      {BROW_FIELDS.map(({ label, key }) => (
+        <Row key={key} label={label} value={String(eyeAnalysis[key])} />
+      ))}
       {eyeAnalysis.notes ? <Text style={styles.notes}>{eyeAnalysis.notes}</Text> : null}
 
       <Text style={styles.styleLabel}>Style (Pro)</Text>
@@ -115,7 +151,16 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   mockBadgeText: { color: '#7A5B00', fontSize: 12, fontWeight: '600' },
-  title: { fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: 12 },
+  scoreBadge: {
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingVertical: 16,
+    marginBottom: 16,
+  },
+  scoreValue: { fontSize: 32, fontWeight: '800', color: colors.background },
+  scoreLabel: { fontSize: 12, fontWeight: '600', color: colors.background, marginTop: 2 },
+  title: { fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: 12, marginTop: 8 },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',

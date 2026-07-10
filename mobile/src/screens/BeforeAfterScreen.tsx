@@ -6,6 +6,7 @@ import { api } from '../services/api';
 import { colors } from '../theme/colors';
 import { RootStackParamList } from '../navigation/types';
 import { ClientProfile, PhotoFeedback } from '../types/api';
+import { BeforeAfterSlider } from '../components/BeforeAfterSlider';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'BeforeAfter'>;
 
@@ -62,35 +63,42 @@ export function BeforeAfterScreen({ route }: Props) {
       <Text style={styles.title}>Before & After</Text>
       <Text style={styles.subtitle}>{client.name}</Text>
 
-      <View style={styles.row}>
-        <View style={styles.column}>
-          <Text style={styles.label}>Before</Text>
-          {beforePhoto ? (
-            <Image source={{ uri: beforePhoto }} style={styles.photo} />
-          ) : (
-            <View style={styles.placeholder}>
-              <Text style={styles.placeholderText}>No eye photo yet</Text>
+      {beforePhoto && afterPhoto ? (
+        <>
+          <BeforeAfterSlider beforeUri={beforePhoto} afterUri={afterPhoto} />
+          <Text style={styles.hint}>Drag the handle to compare.</Text>
+        </>
+      ) : (
+        <>
+          <View style={styles.row}>
+            <View style={styles.column}>
+              <Text style={styles.label}>Before</Text>
+              {beforePhoto ? (
+                <Image source={{ uri: beforePhoto }} style={styles.photo} />
+              ) : (
+                <View style={styles.placeholder}>
+                  <Text style={styles.placeholderText}>No eye photo yet</Text>
+                </View>
+              )}
             </View>
-          )}
-        </View>
-        <View style={styles.column}>
-          <Text style={styles.label}>After</Text>
-          {afterPhoto ? (
-            <Image source={{ uri: afterPhoto }} style={styles.photo} />
-          ) : (
-            <View style={styles.placeholder}>
-              <Text style={styles.placeholderText}>No completed-work photo yet</Text>
+            <View style={styles.column}>
+              <Text style={styles.label}>After</Text>
+              {afterPhoto ? (
+                <Image source={{ uri: afterPhoto }} style={styles.photo} />
+              ) : (
+                <View style={styles.placeholder}>
+                  <Text style={styles.placeholderText}>No completed-work photo yet</Text>
+                </View>
+              )}
             </View>
-          )}
-        </View>
-      </View>
+          </View>
 
-      {!beforePhoto || !afterPhoto ? (
-        <Text style={styles.hint}>
-          Upload an eye photo (New Eye Photo + Lash Map) and a completed-work photo
-          (Score My Work) for this client to see a full comparison.
-        </Text>
-      ) : null}
+          <Text style={styles.hint}>
+            Upload an eye photo (New Eye Photo + Lash Map) and a completed-work photo
+            (Score My Work) for this client to see a full drag-to-compare view.
+          </Text>
+        </>
+      )}
     </ScrollView>
   );
 }

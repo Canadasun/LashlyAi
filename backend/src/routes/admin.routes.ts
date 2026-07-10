@@ -38,7 +38,7 @@ adminRouter.get(
     const feedbackRows = stats.recentFeedback
       .map(
         (f) =>
-          `<tr><td>${escapeHtml(f.message)}</td><td>${new Date(f.created_at).toLocaleString()}</td></tr>`,
+          `<tr><td>${f.is_priority ? "⭐ Priority" : ""}</td><td>${escapeHtml(f.message)}</td><td>${new Date(f.created_at).toLocaleString()}</td></tr>`,
       )
       .join("");
 
@@ -86,7 +86,7 @@ adminRouter.get(
 
   <section>
     <h2>Recent Feedback</h2>
-    <table><tr><th>Message</th><th>Submitted</th></tr>${feedbackRows || '<tr><td colspan="2">None yet</td></tr>'}</table>
+    <table><tr><th>Priority</th><th>Message</th><th>Submitted</th></tr>${feedbackRows || '<tr><td colspan="3">None yet</td></tr>'}</table>
   </section>
 </body>
 </html>`);

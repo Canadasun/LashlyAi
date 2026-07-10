@@ -6,7 +6,7 @@ export interface AdminStats {
   totalClients: number;
   totalLashMaps: number;
   mockEyeAnalysisCount: number;
-  recentFeedback: { id: string; message: string; created_at: string }[];
+  recentFeedback: { id: string; message: string; is_priority: boolean; created_at: string }[];
   subscriptionsByPlan: { plan: string; count: number }[];
 }
 
@@ -30,7 +30,7 @@ export async function getAdminStats(): Promise<AdminStats> {
       "SELECT COUNT(*)::int AS count FROM client_profiles WHERE eye_analysis ->> 'mock' = 'true'",
     ),
     pool.query(
-      "SELECT id, message, created_at FROM feedback ORDER BY created_at DESC LIMIT 20",
+      "SELECT id, message, is_priority, created_at FROM feedback ORDER BY is_priority DESC, created_at DESC LIMIT 20",
     ),
     pool.query("SELECT plan, COUNT(*)::int AS count FROM subscriptions GROUP BY plan"),
   ]);

@@ -25,6 +25,7 @@ export function InventoryScreen() {
   const [category, setCategory] = useState<InventoryCategory>('glue');
   const [quantity, setQuantity] = useState('');
   const [threshold, setThreshold] = useState('');
+  const [expiryDate, setExpiryDate] = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -55,10 +56,12 @@ export function InventoryScreen() {
         category,
         quantity: Number(quantity) || 0,
         low_stock_threshold: Number(threshold) || 0,
+        expiry_date: expiryDate.trim() || undefined,
       });
       setName('');
       setQuantity('');
       setThreshold('');
+      setExpiryDate('');
       setShowAddForm(false);
       load();
     } catch (err) {
@@ -92,13 +95,21 @@ export function InventoryScreen() {
           contentContainerStyle={styles.list}
           ListEmptyComponent={<Text style={styles.empty}>No inventory items yet.</Text>}
           renderItem={({ item }) => (
-            <View style={[styles.row, item.is_low_stock && styles.rowLow]}>
+            <View
+              style={[
+                styles.row,
+                (item.is_low_stock || item.is_expired || item.is_expiring_soon) && styles.rowLow,
+              ]}>
               <View style={styles.rowInfo}>
                 <Text style={styles.rowName}>{item.name}</Text>
                 <Text style={styles.rowMeta}>
                   {item.category.replace('_', ' ')} · {item.quantity} {item.unit}
                   {item.is_low_stock ? ' · LOW STOCK' : ''}
+                  {item.is_expired ? ' · EXPIRED' : item.is_expiring_soon ? ' · EXPIRING SOON' : ''}
                 </Text>
+                {item.expiry_date && (
+                  <Text style={styles.rowMeta}>Expires {item.expiry_date}</Text>
+                )}
               </View>
               <View style={styles.rowActions}>
                 <TouchableOpacity
@@ -150,6 +161,12 @@ export function InventoryScreen() {
             keyboardType="number-pad"
             value={threshold}
             onChangeText={setThreshold}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Expiry date (YYYY-MM-DD, optional)"
+            value={expiryDate}
+            onChangeText={setExpiryDate}
           />
           <TouchableOpacity style={styles.saveButton} onPress={addItem}>
             <Text style={styles.saveButtonText}>Save Item</Text>

@@ -8,6 +8,11 @@ import {
 import { initializeApp } from 'firebase/app';
 import { getAuth, type Auth } from 'firebase/auth';
 
+// UNUSED: nothing in the app imports `auth` from this module. Real sign-up/sign-in
+// goes through services/authService.ts directly against the backend's own
+// email/password sessions (backend/src/services/auth.service.ts) — not Firebase. This
+// file is a leftover placeholder for the Firebase-based auth originally described in
+// CLAUDE.md's tech stack, never wired in after the pivot to homegrown auth.
 export const isFirebaseConfigured = Boolean(FIREBASE_API_KEY);
 
 export let auth: Auth | undefined;
@@ -20,12 +25,5 @@ if (isFirebaseConfigured) {
     appId: FIREBASE_APP_ID,
     messagingSenderId: FIREBASE_MESSAGING_SENDER_ID,
   });
-  // Default in-memory persistence — session won't survive an app restart until this
-  // is revisited alongside a real Firebase project (see docs/roadmap.md Phase 2).
   auth = getAuth(app);
-} else {
-  console.warn(
-    '[firebase] No Firebase config in .env — auth will use the dev-mode stub sign-in, ' +
-      'matching the backend DEV AUTH BYPASS. Add real Firebase config to test actual auth.',
-  );
 }

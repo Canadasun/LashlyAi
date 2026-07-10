@@ -20,13 +20,25 @@ describe('api request handling', () => {
     expect(result).toEqual({ hello: 'world' });
   });
 
-  it('calls the unauthorized handler and throws on 401, without touching JSON parsing', async () => {
+  it('calls the unauthorized handler and throws "session expired" on a 401 for an authenticated request', async () => {
+    setAuthToken('a-previously-valid-token');
     mockFetchOnce(401, { error: 'Invalid or expired token' });
     const onUnauthorized = jest.fn();
     setUnauthorizedHandler(onUnauthorized);
 
     await expect(api.get('/clients')).rejects.toThrow('Your session expired');
     expect(onUnauthorized).toHaveBeenCalledTimes(1);
+  });
+
+  it('surfaces the backend error (not "session expired") on a 401 with no token attached, e.g. bad login credentials', async () => {
+    mockFetchOnce(401, { error: 'Invalid email or password' });
+    const onUnauthorized = jest.fn();
+    setUnauthorizedHandler(onUnauthorized);
+
+    await expect(api.post('/auth/login', { email: 'a@b.com', password: 'wrong' })).rejects.toThrow(
+      'Invalid email or password',
+    );
+    expect(onUnauthorized).not.toHaveBeenCalled();
   });
 
   it('does not call the unauthorized handler for non-401 errors', async () => {

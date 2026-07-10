@@ -2,6 +2,20 @@ export interface EyeAnalysis {
   eye_shape: string;
   lash_density: string;
   lash_length_natural: string;
+  eye_width: string;
+  eye_size: string;
+  eye_spacing: string;
+  canthal_tilt: string;
+  lid_exposure: string;
+  under_eye_condition: string;
+  eye_symmetry: string;
+  natural_lash_curl: string;
+  brow_shape: string;
+  brow_spacing: string;
+  brow_tail_length: string;
+  brow_gap: string;
+  brow_hair_direction: string;
+  balance_score: number;
   notes: string;
   mock: boolean;
 }
@@ -60,7 +74,10 @@ export interface InventoryItem {
   unit: string;
   low_stock_threshold: number;
   notes: string | null;
+  expiry_date: string | null;
   is_low_stock: boolean;
+  is_expired: boolean;
+  is_expiring_soon: boolean;
   created_at: string;
   updated_at: string;
 }

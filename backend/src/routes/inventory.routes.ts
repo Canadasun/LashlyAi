@@ -14,10 +14,26 @@ export const inventoryRouter = Router();
 
 const VALID_CATEGORIES: InventoryCategory[] = ["lash_trays", "glue", "tools", "other"];
 
+const EXPIRING_SOON_WINDOW_DAYS = 30;
+
 // pg returns `numeric` columns as strings to avoid float precision loss — must parse
 // before comparing, or "20.00" <= "5.00" compares lexicographically (wrong: true).
-function withLowStockFlag<T extends { quantity: number; low_stock_threshold: number }>(item: T) {
-  return { ...item, is_low_stock: Number(item.quantity) <= Number(item.low_stock_threshold) };
+function withStockAndExpiryFlags<
+  T extends { quantity: number; low_stock_threshold: number; expiry_date: string | null },
+>(item: T) {
+  let isExpired = false;
+  let isExpiringSoon = false;
+  if (item.expiry_date) {
+    const msUntilExpiry = new Date(item.expiry_date).getTime() - Date.now();
+    isExpired = msUntilExpiry < 0;
+    isExpiringSoon = !isExpired && msUntilExpiry <= EXPIRING_SOON_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+  }
+  return {
+    ...item,
+    is_low_stock: Number(item.quantity) <= Number(item.low_stock_threshold),
+    is_expired: isExpired,
+    is_expiring_soon: isExpiringSoon,
+  };
 }
 
 async function loadOwnedItem(req: Request, res: Response) {
@@ -37,8 +53,15 @@ inventoryRouter.post(
   "/",
   requireUser,
   asyncHandler(async (req, res) => {
-    const { name, category, quantity, unit, low_stock_threshold: lowStockThreshold, notes } =
-      req.body ?? {};
+    const {
+      name,
+      category,
+      quantity,
+      unit,
+      low_stock_threshold: lowStockThreshold,
+      notes,
+      expiry_date: expiryDate,
+    } = req.body ?? {};
 
     if (!name || typeof name !== "string") {
       res.status(400).json({ error: "name is required" });
@@ -57,8 +80,9 @@ inventoryRouter.post(
       unit: typeof unit === "string" && unit ? unit : "pieces",
       lowStockThreshold: typeof lowStockThreshold === "number" ? lowStockThreshold : 0,
       notes,
+      expiryDate: typeof expiryDate === "string" ? expiryDate : null,
     });
-    res.status(201).json(withLowStockFlag(item));
+    res.status(201).json(withStockAndExpiryFlags(item));
   }),
 );
 
@@ -67,7 +91,7 @@ inventoryRouter.get(
   requireUser,
   asyncHandler(async (req, res) => {
     const items = await getInventoryItemsByOwner(req.currentUser!.id);
-    res.json(items.map(withLowStockFlag));
+    res.json(items.map(withStockAndExpiryFlags));
   }),
 );
 
@@ -78,8 +102,15 @@ inventoryRouter.patch(
     const item = await loadOwnedItem(req, res);
     if (!item) return;
 
-    const { name, category, quantity, unit, low_stock_threshold: lowStockThreshold, notes } =
-      req.body ?? {};
+    const {
+      name,
+      category,
+      quantity,
+      unit,
+      low_stock_threshold: lowStockThreshold,
+      notes,
+      expiry_date: expiryDate,
+    } = req.body ?? {};
     if (category !== undefined && !VALID_CATEGORIES.includes(category)) {
       res.status(400).json({ error: `category must be one of: ${VALID_CATEGORIES.join(", ")}` });
       return;
@@ -92,8 +123,9 @@ inventoryRouter.patch(
       unit,
       lowStockThreshold,
       notes,
+      expiryDate,
     });
-    res.json(withLowStockFlag(updated));
+    res.json(withStockAndExpiryFlags(updated));
   }),
 );
 

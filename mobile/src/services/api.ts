@@ -38,6 +38,13 @@ export function setUnauthorizedHandler(handler: () => void) {
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  // A 401 means two very different things depending on whether this request carried a
+  // session token: with one attached, the session itself was rejected (expired/invalid)
+  // — sign out and bounce to login. With no token attached, this was a pre-auth
+  // request (e.g. login/register) and a 401 just means bad credentials, not an
+  // expired session; the backend's actual message ("Invalid email or password")
+  // should reach the caller instead of a generic session-expired string.
+  const hadToken = Boolean(currentToken);
   const headers: Record<string, string> = {
     ...(options.body && !(options.body instanceof FormData)
       ? { 'Content-Type': 'application/json' }
@@ -46,11 +53,6 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   };
 
   const response = await fetch(`${resolvedApiBaseUrl}${path}`, { ...options, headers });
-
-  if (response.status === 401) {
-    onUnauthorized?.();
-    throw new Error('Your session expired. Please sign in again.');
-  }
 
   const text = await response.text();
   // A non-JSON response (an HTML 404/502 page from a typo'd route, or the platform's
@@ -61,6 +63,11 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     body = text ? JSON.parse(text) : undefined;
   } catch {
     body = undefined;
+  }
+
+  if (response.status === 401 && hadToken) {
+    onUnauthorized?.();
+    throw new Error('Your session expired. Please sign in again.');
   }
 
   if (!response.ok) {

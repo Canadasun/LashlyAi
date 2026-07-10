@@ -11,6 +11,7 @@ export interface InventoryItem {
   unit: string;
   low_stock_threshold: number;
   notes: string | null;
+  expiry_date: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -23,10 +24,11 @@ export async function createInventoryItem(input: {
   unit: string;
   lowStockThreshold: number;
   notes?: string;
+  expiryDate?: string | null;
 }): Promise<InventoryItem> {
   const result = await pool.query<InventoryItem>(
-    `INSERT INTO inventory_items (owner_user_id, name, category, quantity, unit, low_stock_threshold, notes)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `INSERT INTO inventory_items (owner_user_id, name, category, quantity, unit, low_stock_threshold, notes, expiry_date)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      RETURNING *`,
     [
       input.ownerUserId,
@@ -36,6 +38,7 @@ export async function createInventoryItem(input: {
       input.unit,
       input.lowStockThreshold,
       input.notes ?? null,
+      input.expiryDate ?? null,
     ],
   );
   return result.rows[0];
@@ -65,6 +68,7 @@ export async function updateInventoryItem(
     unit: string;
     lowStockThreshold: number;
     notes: string;
+    expiryDate: string | null;
   }>,
 ): Promise<InventoryItem> {
   const result = await pool.query<InventoryItem>(
@@ -75,6 +79,7 @@ export async function updateInventoryItem(
          unit = COALESCE($5, unit),
          low_stock_threshold = COALESCE($6, low_stock_threshold),
          notes = COALESCE($7, notes),
+         expiry_date = COALESCE($8, expiry_date),
          updated_at = now()
      WHERE id = $1
      RETURNING *`,
@@ -86,6 +91,7 @@ export async function updateInventoryItem(
       updates.unit ?? null,
       updates.lowStockThreshold ?? null,
       updates.notes ?? null,
+      updates.expiryDate ?? null,
     ],
   );
   return result.rows[0];

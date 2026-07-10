@@ -1,15 +1,17 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { setAuthToken, setUnauthorizedHandler } from '../services/api';
 import {
+  loadPersistedSession,
+  persistSession,
   Session,
   signIn as doSignIn,
   signOut as doSignOut,
   signUp as doSignUp,
-  subscribeToTokenRefresh,
 } from '../services/authService';
 
 interface AuthContextValue {
   session: Session | null;
+  restoringSession: boolean;
   sessionExpiredMessage: string | null;
   signUp: (email: string, password: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
@@ -20,6 +22,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
+  const [restoringSession, setRestoringSession] = useState(true);
   const [sessionExpiredMessage, setSessionExpiredMessage] = useState<string | null>(null);
 
   // Any 401 from anywhere in the app — including a token that's simply gone stale —
@@ -35,23 +38,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  // Firebase ID tokens expire after 1 hour; the SDK auto-refreshes them internally as
-  // long as something is listening. Keeps the API client's token current so sessions
-  // don't start silently failing an hour after sign-in. No-op in dev-stub mode.
+  // Sessions live in AsyncStorage (services/authService.ts), not just React state —
+  // restore whatever was persisted on the previous launch instead of forcing a
+  // re-login every time the app is closed and reopened.
   useEffect(() => {
-    const unsubscribe = subscribeToTokenRefresh((token) => {
-      if (token) {
-        setAuthToken(token);
-      } else {
-        setAuthToken(undefined);
-        setSession(null);
-      }
-    });
-    return unsubscribe;
+    loadPersistedSession()
+      .then((restored) => {
+        if (restored) {
+          setAuthToken(restored.token);
+          setSession(restored);
+        }
+      })
+      .finally(() => setRestoringSession(false));
   }, []);
 
   const signUp = useCallback(async (email: string, password: string) => {
     const s = await doSignUp(email, password);
+    await persistSession(s);
     setAuthToken(s.token);
     setSessionExpiredMessage(null);
     setSession(s);
@@ -59,6 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = useCallback(async (email: string, password: string) => {
     const s = await doSignIn(email, password);
+    await persistSession(s);
     setAuthToken(s.token);
     setSessionExpiredMessage(null);
     setSession(s);
@@ -72,7 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ session, sessionExpiredMessage, signUp, signIn, signOut }}>
+      value={{ session, restoringSession, sessionExpiredMessage, signUp, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -16,6 +16,14 @@ export function FeedbackScreen() {
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isPriorityPlan, setIsPriorityPlan] = useState(false);
+
+  useEffect(() => {
+    api
+      .get<{ plan: string }>('/users/me/usage')
+      .then((usage) => setIsPriorityPlan(usage.plan !== 'free'))
+      .catch(() => setIsPriorityPlan(false));
+  }, []);
 
   const submit = async () => {
     if (!message.trim()) {
@@ -44,6 +52,11 @@ export function FeedbackScreen() {
       <Text style={styles.subtitle}>
         Tell us what happened — a crash, something confusing, a wrong-looking lash map.
       </Text>
+      {isPriorityPlan && (
+        <View style={styles.priorityBadge}>
+          <Text style={styles.priorityBadgeText}>⭐ Priority Support — Pro plan</Text>
+        </View>
+      )}
 
       <TextInput
         style={styles.input}
@@ -69,7 +82,16 @@ export function FeedbackScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background, padding: 20 },
   title: { fontSize: 20, fontWeight: '700', color: colors.text },
-  subtitle: { fontSize: 13, color: colors.accent, marginTop: 6, marginBottom: 20 },
+  subtitle: { fontSize: 13, color: colors.accent, marginTop: 6, marginBottom: 12 },
+  priorityBadge: {
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    alignSelf: 'flex-start',
+    marginBottom: 16,
+  },
+  priorityBadgeText: { color: colors.background, fontWeight: '700', fontSize: 12 },
   input: {
     backgroundColor: '#ffffff',
     borderRadius: 10,

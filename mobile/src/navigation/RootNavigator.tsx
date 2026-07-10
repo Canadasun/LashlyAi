@@ -1,6 +1,8 @@
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { ActivityIndicator, View } from 'react-native';
 import { useAuth } from '../context/AuthContext';
+import { colors } from '../theme/colors';
 import { AuthScreen } from '../screens/AuthScreen';
 import { BeforeAfterScreen } from '../screens/BeforeAfterScreen';
 import { CameraUploadScreen } from '../screens/CameraUploadScreen';
@@ -25,7 +27,15 @@ import { RootStackParamList } from './types';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export function RootNavigator() {
-  const { session } = useAuth();
+  const { session, restoringSession } = useAuth();
+
+  if (restoringSession) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
 
   return (
     <NavigationContainer>

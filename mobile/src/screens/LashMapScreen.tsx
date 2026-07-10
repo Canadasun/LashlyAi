@@ -39,6 +39,8 @@ export function LashMapScreen({ route, navigation }: Props) {
   const [showRetentionCheck, setShowRetentionCheck] = useState(false);
   const [days, setDays] = useState('');
   const [retentionPct, setRetentionPct] = useState('');
+  const [humidityPct, setHumidityPct] = useState('');
+  const [glueUsed, setGlueUsed] = useState('');
   const [symptoms, setSymptoms] = useState<string[]>([]);
   const [advice, setAdvice] = useState<{ advice: string; mock: boolean } | null>(null);
   const [loading, setLoading] = useState(false);
@@ -57,12 +59,23 @@ export function LashMapScreen({ route, navigation }: Props) {
       setError('Enter days since application and retention % as numbers');
       return;
     }
+    const humidityNum = humidityPct ? Number(humidityPct) : undefined;
+    if (humidityPct && Number.isNaN(humidityNum)) {
+      setError('Humidity must be a number between 0 and 100');
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
       const result = await api.post<{ advice: string; mock: boolean }>(
         `/clients/${clientId}/lash-maps/${lashMap.id}/retention-check`,
-        { days_since_application: daysNum, retention_pct: pctNum, symptoms },
+        {
+          days_since_application: daysNum,
+          retention_pct: pctNum,
+          symptoms,
+          humidity_pct: humidityNum,
+          glue_used: glueUsed || undefined,
+        },
       );
       setAdvice(result);
     } catch (err) {
@@ -113,6 +126,19 @@ export function LashMapScreen({ route, navigation }: Props) {
             keyboardType="number-pad"
             value={retentionPct}
             onChangeText={setRetentionPct}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Humidity at application % (optional)"
+            keyboardType="number-pad"
+            value={humidityPct}
+            onChangeText={setHumidityPct}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Glue used (optional)"
+            value={glueUsed}
+            onChangeText={setGlueUsed}
           />
           <View style={styles.chipRow}>
             {SYMPTOM_OPTIONS.map((symptom) => (

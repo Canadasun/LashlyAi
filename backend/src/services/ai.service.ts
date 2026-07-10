@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { recommendGlue } from "./glueRecommendation.service";
 
 export type EyeShape =
   | "round"
@@ -14,16 +15,56 @@ export type EyeShape =
 export type LashDensity = "sparse" | "medium" | "dense";
 export type LashLength = "short" | "medium" | "long";
 
+export type EyeWidthCategory = "narrow" | "average" | "wide";
+export type EyeSizeCategory = "small" | "average" | "large";
+export type EyeSpacing = "close_set" | "balanced" | "wide_set";
+export type CanthalTilt = "upturned" | "neutral" | "downturned";
+export type LidExposure = "hooded" | "balanced" | "prominent";
+export type UnderEyeCondition = "taut" | "mild_puffiness" | "hollow" | "textured";
+export type EyeSymmetry = "symmetric" | "mild_asymmetry" | "notable_asymmetry";
+export type NaturalLashCurl = "straight" | "slight_curl" | "curled";
+export type BrowShape = "straight" | "soft_angled" | "high_arch" | "s_shaped" | "flat";
+export type BrowSpacing = "close" | "balanced" | "wide";
+export type BrowTailLength = "short" | "medium" | "extended";
+export type BrowGap = "tight" | "balanced" | "wide";
+export type BrowHairDirection = "upward" | "outward" | "downward" | "mixed";
+
+/**
+ * Full consultation-grade analysis: eye_shape/lash_density/lash_length_natural feed
+ * the deterministic lash-map rules engine (lashMapRules.data.ts) and must stay as-is;
+ * every other field is presentation-only (labeled display + client-facing framing),
+ * not consumed by any rules lookup, so they're safe to extend independently.
+ */
 export interface EyeAnalysis {
   eye_shape: EyeShape;
   lash_density: LashDensity;
   lash_length_natural: LashLength;
+  eye_width: EyeWidthCategory;
+  eye_size: EyeSizeCategory;
+  eye_spacing: EyeSpacing;
+  canthal_tilt: CanthalTilt;
+  lid_exposure: LidExposure;
+  under_eye_condition: UnderEyeCondition;
+  eye_symmetry: EyeSymmetry;
+  natural_lash_curl: NaturalLashCurl;
+  brow_shape: BrowShape;
+  brow_spacing: BrowSpacing;
+  brow_tail_length: BrowTailLength;
+  brow_gap: BrowGap;
+  brow_hair_direction: BrowHairDirection;
+  // AI-estimated 0-100 eye/brow balance score for consultation framing — not a
+  // medical or diagnostic measurement.
+  balance_score: number;
   notes: string;
   mock: boolean;
 }
 
 const apiKey = process.env.OPENAI_API_KEY;
-const client = apiKey ? new OpenAI({ apiKey }) : null;
+// Explicit timeout/retry rather than SDK defaults: vision calls are slower than plain
+// chat, and a bounded retry count keeps a flaky OpenAI response from hanging a request
+// indefinitely. Retries only kick in on transient errors (network/429/5xx) — the SDK
+// already skips retrying non-retryable 4xx errors.
+const client = apiKey ? new OpenAI({ apiKey, timeout: 30_000, maxRetries: 2 }) : null;
 
 if (!client) {
   console.warn(
@@ -51,9 +92,54 @@ const EYE_ANALYSIS_SCHEMA = {
     },
     lash_density: { type: "string", enum: ["sparse", "medium", "dense"] },
     lash_length_natural: { type: "string", enum: ["short", "medium", "long"] },
+    eye_width: { type: "string", enum: ["narrow", "average", "wide"] },
+    eye_size: { type: "string", enum: ["small", "average", "large"] },
+    eye_spacing: { type: "string", enum: ["close_set", "balanced", "wide_set"] },
+    canthal_tilt: { type: "string", enum: ["upturned", "neutral", "downturned"] },
+    lid_exposure: { type: "string", enum: ["hooded", "balanced", "prominent"] },
+    under_eye_condition: {
+      type: "string",
+      enum: ["taut", "mild_puffiness", "hollow", "textured"],
+    },
+    eye_symmetry: {
+      type: "string",
+      enum: ["symmetric", "mild_asymmetry", "notable_asymmetry"],
+    },
+    natural_lash_curl: { type: "string", enum: ["straight", "slight_curl", "curled"] },
+    brow_shape: {
+      type: "string",
+      enum: ["straight", "soft_angled", "high_arch", "s_shaped", "flat"],
+    },
+    brow_spacing: { type: "string", enum: ["close", "balanced", "wide"] },
+    brow_tail_length: { type: "string", enum: ["short", "medium", "extended"] },
+    brow_gap: { type: "string", enum: ["tight", "balanced", "wide"] },
+    brow_hair_direction: {
+      type: "string",
+      enum: ["upward", "outward", "downward", "mixed"],
+    },
+    balance_score: { type: "integer", minimum: 0, maximum: 100 },
     notes: { type: "string" },
   },
-  required: ["eye_shape", "lash_density", "lash_length_natural", "notes"],
+  required: [
+    "eye_shape",
+    "lash_density",
+    "lash_length_natural",
+    "eye_width",
+    "eye_size",
+    "eye_spacing",
+    "canthal_tilt",
+    "lid_exposure",
+    "under_eye_condition",
+    "eye_symmetry",
+    "natural_lash_curl",
+    "brow_shape",
+    "brow_spacing",
+    "brow_tail_length",
+    "brow_gap",
+    "brow_hair_direction",
+    "balance_score",
+    "notes",
+  ],
   additionalProperties: false,
 };
 
@@ -63,6 +149,20 @@ export async function analyzeEye(imageBuffer: Buffer): Promise<EyeAnalysis> {
       eye_shape: "almond",
       lash_density: "medium",
       lash_length_natural: "medium",
+      eye_width: "average",
+      eye_size: "average",
+      eye_spacing: "balanced",
+      canthal_tilt: "neutral",
+      lid_exposure: "balanced",
+      under_eye_condition: "taut",
+      eye_symmetry: "symmetric",
+      natural_lash_curl: "slight_curl",
+      brow_shape: "soft_angled",
+      brow_spacing: "balanced",
+      brow_tail_length: "medium",
+      brow_gap: "balanced",
+      brow_hair_direction: "outward",
+      balance_score: 78,
       notes: "MOCK RESPONSE — no OPENAI_API_KEY configured. This is a placeholder, not a real analysis.",
       mock: true,
     };
@@ -75,14 +175,21 @@ export async function analyzeEye(imageBuffer: Buffer): Promise<EyeAnalysis> {
       {
         role: "system",
         content:
-          "You are a lash artistry vision assistant. Classify the client's eye shape and " +
-          "natural lash characteristics from the photo. Only classify what you can see — " +
-          "do not invent details.",
+          "You are a lash artistry consultation assistant performing a full eye and brow " +
+          "analysis from the client's photo, the way an experienced lash artist would " +
+          "assess a new client before mapping a design. Classify eye shape, size, width, " +
+          "spacing, canthal tilt, lid exposure, under-eye condition, symmetry, and natural " +
+          "lash density/length/curl, plus brow shape, spacing, tail length, gap, and hair " +
+          "direction. Finish with a balance_score (0-100) estimating overall eye/brow " +
+          "harmony for consultation framing — not a medical or diagnostic score. Only " +
+          "classify what you can actually see in the photo — do not invent details, and " +
+          "prefer the closest neutral/balanced category over guessing when a feature is " +
+          "unclear or occluded.",
       },
       {
         role: "user",
         content: [
-          { type: "text", text: "Analyze this client eye photo." },
+          { type: "text", text: "Analyze this client eye and brow photo." },
           { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64Image}` } },
         ],
       },
@@ -91,6 +198,7 @@ export async function analyzeEye(imageBuffer: Buffer): Promise<EyeAnalysis> {
       type: "json_schema",
       json_schema: { name: "eye_analysis", schema: EYE_ANALYSIS_SCHEMA, strict: true },
     },
+    max_tokens: 600,
   });
 
   const raw = completion.choices[0]?.message?.content;
@@ -168,6 +276,7 @@ export async function scoreLashPhoto(imageBuffer: Buffer): Promise<PhotoFeedback
       type: "json_schema",
       json_schema: { name: "photo_feedback", schema: PHOTO_FEEDBACK_SCHEMA, strict: true },
     },
+    max_tokens: 400,
   });
 
   const raw = completion.choices[0]?.message?.content;
@@ -201,6 +310,7 @@ export async function askCoach(question: string): Promise<{ answer: string; mock
       { role: "system", content: COACH_SYSTEM_PROMPT },
       { role: "user", content: question },
     ],
+    max_tokens: 500,
   });
 
   const answer = completion.choices[0]?.message?.content ?? "";
@@ -211,22 +321,44 @@ export interface RetentionCheckInput {
   daysSinceApplication: number;
   retentionPct: number;
   symptoms: string[];
+  // Optional context tying this check to the glue/humidity tool
+  // (glueRecommendation.service.ts) — when provided, the recommended viscosity/bonding
+  // band for that humidity is folded into the prompt so advice isn't generic.
+  humidityPct?: number;
+  glueUsed?: string;
 }
 
 const RETENTION_SYSTEM_PROMPT =
   "You are the LashlyAI Lash Coach, specifically troubleshooting a retention problem. " +
-  "Given days since application, the percentage of extensions still remaining, and " +
-  "reported symptoms (e.g. excess oil, rubbing, poor aftercare, premature shedding), " +
-  "give specific, actionable troubleshooting advice — likely causes and what to change " +
-  "next time. Be concise and practical.";
+  "Given days since application, the percentage of extensions still remaining, reported " +
+  "symptoms (e.g. excess oil, rubbing, poor aftercare, premature shedding), and — when " +
+  "available — the humidity at application time, the glue-viscosity band that humidity " +
+  "calls for, and which glue the artist actually used, give specific, actionable " +
+  "troubleshooting advice. If the glue used doesn't match the recommended band for that " +
+  "humidity, call that out explicitly as a likely cause. Be concise and practical.";
 
 export async function troubleshootRetention(
   input: RetentionCheckInput,
 ): Promise<{ advice: string; mock: boolean }> {
-  const prompt =
-    `Days since application: ${input.daysSinceApplication}. ` +
-    `Retention remaining: ${input.retentionPct}%. ` +
-    `Reported symptoms: ${input.symptoms.length ? input.symptoms.join(", ") : "none reported"}.`;
+  const contextLines = [
+    `Days since application: ${input.daysSinceApplication}.`,
+    `Retention remaining: ${input.retentionPct}%.`,
+    `Reported symptoms: ${input.symptoms.length ? input.symptoms.join(", ") : "none reported"}.`,
+  ];
+
+  if (typeof input.humidityPct === "number") {
+    const recommendation = recommendGlue(input.humidityPct);
+    contextLines.push(
+      `Humidity at application: ${input.humidityPct}% (${recommendation.band} band — ` +
+        `recommended ${recommendation.recommended_viscosity}, ` +
+        `${recommendation.approx_bonding_time}).`,
+    );
+  }
+  if (input.glueUsed) {
+    contextLines.push(`Glue actually used: ${input.glueUsed}.`);
+  }
+
+  const prompt = contextLines.join(" ");
 
   if (!client) {
     return {
@@ -243,6 +375,7 @@ export async function troubleshootRetention(
       { role: "system", content: RETENTION_SYSTEM_PROMPT },
       { role: "user", content: prompt },
     ],
+    max_tokens: 400,
   });
 
   const advice = completion.choices[0]?.message?.content ?? "";
@@ -273,6 +406,7 @@ export async function generateCaption(
       { role: "system", content: CAPTION_SYSTEM_PROMPT },
       { role: "user", content: postDescription },
     ],
+    max_tokens: 300,
   });
 
   const raw = completion.choices[0]?.message?.content ?? "";
@@ -304,6 +438,7 @@ export async function generateClientReply(
       { role: "system", content: CLIENT_REPLY_SYSTEM_PROMPT },
       { role: "user", content: clientMessage },
     ],
+    max_tokens: 250,
   });
 
   const reply = completion.choices[0]?.message?.content ?? "";

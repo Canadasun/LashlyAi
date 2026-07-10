@@ -200,8 +200,13 @@ clientsRouter.post(
       return;
     }
 
-    const { days_since_application: daysSinceApplication, retention_pct: retentionPct, symptoms } =
-      req.body ?? {};
+    const {
+      days_since_application: daysSinceApplication,
+      retention_pct: retentionPct,
+      symptoms,
+      humidity_pct: humidityPct,
+      glue_used: glueUsed,
+    } = req.body ?? {};
     if (typeof daysSinceApplication !== "number" || typeof retentionPct !== "number") {
       res.status(400).json({
         error: "days_since_application and retention_pct (numbers) are required",
@@ -213,6 +218,8 @@ clientsRouter.post(
       daysSinceApplication,
       retentionPct,
       symptoms: Array.isArray(symptoms) ? symptoms : [],
+      humidityPct: typeof humidityPct === "number" ? humidityPct : undefined,
+      glueUsed: typeof glueUsed === "string" ? glueUsed : undefined,
     });
     const updated = await updateLashMapRetention(lashMap.id, retentionPct);
 
