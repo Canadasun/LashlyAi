@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { api, setAuthToken, setUnauthorizedHandler } from '../services/api';
+import { setAuthToken, setUnauthorizedHandler } from '../services/api';
 import {
   Session,
   signIn as doSignIn,
@@ -53,9 +53,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signUp = useCallback(async (email: string, password: string) => {
     const s = await doSignUp(email, password);
     setAuthToken(s.token);
-    // Links the Firebase identity to a Postgres user row. Idempotent — safe to call
-    // on every sign-in too, so we don't need a separate "have we registered?" check.
-    await api.post('/auth/register');
     setSessionExpiredMessage(null);
     setSession(s);
   }, []);
@@ -63,7 +60,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signIn = useCallback(async (email: string, password: string) => {
     const s = await doSignIn(email, password);
     setAuthToken(s.token);
-    await api.post('/auth/register');
     setSessionExpiredMessage(null);
     setSession(s);
   }, []);

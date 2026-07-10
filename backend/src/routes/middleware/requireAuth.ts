@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response } from "express";
-import { verifyIdToken, VerifiedIdentity } from "../../services/auth.service";
+import { VerifiedIdentity, verifySessionToken } from "../../services/auth.service";
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -20,7 +20,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   }
 
   try {
-    req.identity = await verifyIdToken(token);
+    req.identity = verifySessionToken(token);
     next();
   } catch (err) {
     res.status(401).json({ error: "Invalid or expired token" });

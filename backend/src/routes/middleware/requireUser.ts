@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from "express";
-import { verifyIdToken } from "../../services/auth.service";
-import { findUserByFirebaseUid, User } from "../../models/User";
+import { verifySessionToken } from "../../services/auth.service";
+import { findUserById, User } from "../../models/User";
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -25,8 +25,8 @@ export async function requireUser(req: Request, res: Response, next: NextFunctio
   }
 
   try {
-    const identity = await verifyIdToken(token);
-    const user = await findUserByFirebaseUid(identity.firebaseUid);
+    const identity = verifySessionToken(token);
+    const user = await findUserById(identity.userId);
     if (!user) {
       res.status(404).json({ error: "No user record yet. Call POST /auth/register first." });
       return;
