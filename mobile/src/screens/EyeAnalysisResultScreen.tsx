@@ -60,9 +60,15 @@ const ADVANCED_STYLES: { label: string; value: string | null }[] = [
   { label: 'Strip Lash Effect', value: 'strip-lash-effect' },
 ];
 
+const TECHNIQUES: { label: string; value: 'classic' | 'wispy' }[] = [
+  { label: 'Classic', value: 'classic' },
+  { label: 'Wispy', value: 'wispy' },
+];
+
 export function EyeAnalysisResultScreen({ route, navigation }: Props) {
   const { clientId, eyeAnalysis, photoUrl } = route.params;
   const [requestedStyle, setRequestedStyle] = useState<string | null>(null);
+  const [technique, setTechnique] = useState<'classic' | 'wispy'>('classic');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -72,6 +78,7 @@ export function EyeAnalysisResultScreen({ route, navigation }: Props) {
     try {
       const lashMap = await api.post<LashMap>(`/clients/${clientId}/lash-map`, {
         requested_style: requestedStyle ?? undefined,
+        requested_technique: technique,
       });
       navigation.replace('LashMap', { clientId, lashMap });
     } catch (err) {
@@ -121,6 +128,21 @@ export function EyeAnalysisResultScreen({ route, navigation }: Props) {
                 styles.chipText,
                 requestedStyle === option.value && styles.chipTextSelected,
               ]}>
+              {option.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <Text style={styles.styleLabel}>Technique</Text>
+      <View style={styles.styleChips}>
+        {TECHNIQUES.map((option) => (
+          <TouchableOpacity
+            key={option.value}
+            style={[styles.chip, technique === option.value && styles.chipSelected]}
+            onPress={() => setTechnique(option.value)}>
+            <Text
+              style={[styles.chipText, technique === option.value && styles.chipTextSelected]}>
               {option.label}
             </Text>
           </TouchableOpacity>

@@ -37,6 +37,17 @@ export interface VisualMapZone {
   direction: 'outward' | 'vertical';
 }
 
+export interface ZoneRange {
+  min: number;
+  max: number;
+}
+
+export interface ZoneSummary {
+  inner: ZoneRange;
+  middle: ZoneRange;
+  outer: ZoneRange;
+}
+
 export interface LashMap {
   id: string;
   client_profile_id: string;
@@ -48,6 +59,11 @@ export interface LashMap {
   visual_map: { zones: VisualMapZone[] };
   retention_pct: number | null;
   created_at: string;
+  technique: 'classic' | 'wispy';
+  style_label: string;
+  curl_label: string;
+  spike_lengths?: number[];
+  zone_summary: ZoneSummary;
 }
 
 export interface PhotoFeedback {

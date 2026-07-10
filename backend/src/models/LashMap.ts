@@ -1,5 +1,10 @@
 import { pool } from "../db";
-import { GeneratedLashMap } from "../services/lashmap.service";
+import {
+  deriveClassicPresentation,
+  GeneratedLashMap,
+  ZoneSummary,
+} from "../services/lashmap.service";
+import { ZoneName } from "../services/lashMapRules.data";
 
 export interface LashMap {
   id: string;
@@ -12,15 +17,65 @@ export interface LashMap {
   visual_map: unknown;
   retention_pct: number | null;
   created_at: string;
+  technique: "classic" | "wispy";
+  style_label: string;
+  curl_label: string;
+  spike_lengths?: number[];
+  zone_summary: ZoneSummary;
+}
+
+type LashMapPresentation = Pick<
+  LashMap,
+  "technique" | "style_label" | "curl_label" | "spike_lengths" | "zone_summary"
+>;
+
+interface LashMapRow {
+  id: string;
+  client_profile_id: string;
+  style: string;
+  curl: string;
+  lengths: Record<string, number>;
+  diameter: string;
+  fan_type: string;
+  visual_map: unknown;
+  retention_pct: number | null;
+  created_at: string;
+  presentation: LashMapPresentation | null;
+}
+
+function mapLashMapRow(row: LashMapRow): LashMap {
+  const presentation =
+    row.presentation ??
+    deriveClassicPresentation(row.style, row.curl, row.lengths as Record<ZoneName, number>);
+  return {
+    id: row.id,
+    client_profile_id: row.client_profile_id,
+    style: row.style,
+    curl: row.curl,
+    lengths: row.lengths,
+    diameter: row.diameter,
+    fan_type: row.fan_type,
+    visual_map: row.visual_map,
+    retention_pct: row.retention_pct,
+    created_at: row.created_at,
+    ...presentation,
+  };
 }
 
 export async function createLashMap(
   clientProfileId: string,
   map: GeneratedLashMap,
 ): Promise<LashMap> {
-  const result = await pool.query<LashMap>(
-    `INSERT INTO lash_maps (client_profile_id, style, curl, lengths, diameter, fan_type, visual_map)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
+  const presentation: LashMapPresentation = {
+    technique: map.technique,
+    style_label: map.style_label,
+    curl_label: map.curl_label,
+    spike_lengths: map.spike_lengths,
+    zone_summary: map.zone_summary,
+  };
+  const result = await pool.query<LashMapRow>(
+    `INSERT INTO lash_maps (client_profile_id, style, curl, lengths, diameter, fan_type, visual_map, presentation)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      RETURNING *`,
     [
       clientProfileId,
@@ -30,28 +85,30 @@ export async function createLashMap(
       map.diameter,
       map.fan_type,
       JSON.stringify(map.visual_map),
+      JSON.stringify(presentation),
     ],
   );
-  return result.rows[0];
+  return mapLashMapRow(result.rows[0]);
 }
 
 export async function getLashMapsByClientProfileId(clientProfileId: string): Promise<LashMap[]> {
-  const result = await pool.query<LashMap>(
+  const result = await pool.query<LashMapRow>(
     "SELECT * FROM lash_maps WHERE client_profile_id = $1 ORDER BY created_at DESC",
     [clientProfileId],
   );
-  return result.rows;
+  return result.rows.map(mapLashMapRow);
 }
 
 export async function getLashMapById(id: string): Promise<LashMap | null> {
-  const result = await pool.query<LashMap>("SELECT * FROM lash_maps WHERE id = $1", [id]);
-  return result.rows[0] ?? null;
+  const result = await pool.query<LashMapRow>("SELECT * FROM lash_maps WHERE id = $1", [id]);
+  const row = result.rows[0];
+  return row ? mapLashMapRow(row) : null;
 }
 
 export async function updateLashMapRetention(id: string, retentionPct: number): Promise<LashMap> {
-  const result = await pool.query<LashMap>(
+  const result = await pool.query<LashMapRow>(
     "UPDATE lash_maps SET retention_pct = $2 WHERE id = $1 RETURNING *",
     [id, retentionPct],
   );
-  return result.rows[0];
+  return mapLashMapRow(result.rows[0]);
 }

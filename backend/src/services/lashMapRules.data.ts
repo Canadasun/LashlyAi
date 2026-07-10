@@ -82,3 +82,34 @@ export const FAN_TYPE_BY_DENSITY: Record<LashDensity, string> = {
   medium: "3D-4D volume",
   dense: "5D-8D volume",
 };
+
+/**
+ * Technique is orthogonal to style: style is the shape (Cat Eye, Doll Eye, ...),
+ * technique is how the lashes are placed within that shape. "wispy" here means the
+ * textured/mixed-length, mixed-curl look (as in "Wispy Cat Eye"), layered on top of
+ * any base style rather than being a style on its own. (The "wispy" *style* above is
+ * kept separate/unchanged for artists who explicitly request just that base shape.)
+ */
+export type LashTechnique = "classic" | "wispy";
+
+export const STYLE_LABELS: Record<LashStyle, string> = {
+  natural: "Natural",
+  "cat-eye": "Cat Eye",
+  "doll eye": "Doll Eye",
+  wispy: "Wispy",
+  anime: "Anime",
+  medusa: "Medusa",
+  "wet-set": "Wet Set",
+  "kim-k": "Kim K",
+  "strip-lash-effect": "Strip Lash Effect",
+};
+
+/**
+ * One step more dramatic than the base curl, used for the "spike" lashes mixed into
+ * a wispy technique (e.g. base CC + D spikes). Caps at D — there's nothing beyond it.
+ */
+export const CURL_BUMP: Record<LashCurl, LashCurl> = {
+  C: "CC",
+  CC: "D",
+  D: "D",
+};

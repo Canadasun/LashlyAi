@@ -95,12 +95,39 @@ export function LashMapScreen({ route, navigation }: Props) {
       </View>
 
       <View style={styles.statsRow}>
-        <Stat label="Style" value={lashMap.style} />
-        <Stat label="Curl" value={lashMap.curl} />
+        <Stat label="Style" value={lashMap.style_label} />
+        <Stat label="Curl" value={lashMap.curl_label} />
         <Stat label="Diameter" value={lashMap.diameter} />
       </View>
       <View style={styles.statsRow}>
         <Stat label="Fan Type" value={lashMap.fan_type} />
+      </View>
+
+      <View style={styles.mappingCard}>
+        <Text style={styles.mappingTitle}>Mapping</Text>
+        <View style={styles.mappingRow}>
+          <Text style={styles.mappingLabel}>Inner</Text>
+          <Text style={styles.mappingValue}>
+            {lashMap.zone_summary.inner.min}-{lashMap.zone_summary.inner.max}
+          </Text>
+        </View>
+        <View style={styles.mappingRow}>
+          <Text style={styles.mappingLabel}>Middle</Text>
+          <Text style={styles.mappingValue}>
+            {lashMap.zone_summary.middle.min}-{lashMap.zone_summary.middle.max}
+          </Text>
+        </View>
+        <View style={styles.mappingRow}>
+          <Text style={styles.mappingLabel}>Outer</Text>
+          <Text style={styles.mappingValue}>
+            {lashMap.zone_summary.outer.min}-{lashMap.zone_summary.outer.max}
+          </Text>
+        </View>
+        {lashMap.spike_lengths && (
+          <Text style={styles.spikeLengths}>
+            Spike lengths: {lashMap.spike_lengths.join(', ')}
+          </Text>
+        )}
       </View>
 
       <TouchableOpacity
@@ -201,6 +228,18 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 20,
   },
+  mappingCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 20,
+    width: '100%',
+  },
+  mappingTitle: { fontSize: 13, fontWeight: '700', color: colors.text, marginBottom: 8 },
+  mappingRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
+  mappingLabel: { fontSize: 12, color: colors.accent, fontWeight: '600' },
+  mappingValue: { fontSize: 12, color: colors.text, fontWeight: '600' },
+  spikeLengths: { fontSize: 11, color: colors.accent, marginTop: 6 },
   statsRow: { flexDirection: 'row', width: '100%', marginBottom: 12 },
   stat: {
     flex: 1,

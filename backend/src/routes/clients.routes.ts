@@ -130,7 +130,11 @@ clientsRouter.post(
       return;
     }
 
-    const generated = generateLashMap(eyeAnalysis, req.body?.requested_style);
+    const generated = generateLashMap(
+      eyeAnalysis,
+      req.body?.requested_style,
+      req.body?.requested_technique,
+    );
     const saved = await createLashMap(client.id, generated);
     await appendLashHistoryEntry(client.id, {
       lash_map_id: saved.id,
