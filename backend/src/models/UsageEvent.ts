@@ -1,6 +1,6 @@
 import { pool } from "../db";
 
-export type UsageEventType = "coach_question" | "eye_scan";
+export type UsageEventType = "coach_question" | "eye_scan" | "retention_check";
 
 export async function logUsageEvent(userId: string, eventType: UsageEventType): Promise<void> {
   await pool.query("INSERT INTO usage_events (user_id, event_type) VALUES ($1, $2)", [

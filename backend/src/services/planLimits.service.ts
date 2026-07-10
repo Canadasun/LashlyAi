@@ -34,24 +34,25 @@ async function quotaStatus(used: number, limit: number | null): Promise<QuotaSta
 
 export async function checkClientProfileQuota(userId: string): Promise<QuotaStatus> {
   const plan = await getUserPlan(userId);
-  if (plan !== "free") return quotaStatus(0, null);
-
+  // Usage is always counted for real, regardless of plan — only the *limit* (and
+  // therefore enforcement) is plan-gated. Previously this short-circuited to a
+  // hardcoded `used: 0` for any non-free plan, which meant a Pro artist's own usage
+  // banner would falsely show "0 clients" no matter how many they actually had.
   const clients = await getClientProfilesByOwner(userId);
-  return quotaStatus(clients.length, FREE_LIMITS.clientProfiles);
+  const limit = plan === "free" ? FREE_LIMITS.clientProfiles : null;
+  return quotaStatus(clients.length, limit);
 }
 
 export async function checkCoachQuota(userId: string): Promise<QuotaStatus> {
   const plan = await getUserPlan(userId);
-  if (plan !== "free") return quotaStatus(0, null);
-
   const used = await countEventsToday(userId, "coach_question");
-  return quotaStatus(used, FREE_LIMITS.coachQuestionsPerDay);
+  const limit = plan === "free" ? FREE_LIMITS.coachQuestionsPerDay : null;
+  return quotaStatus(used, limit);
 }
 
 export async function checkEyeScanQuota(userId: string): Promise<QuotaStatus> {
   const plan = await getUserPlan(userId);
-  if (plan !== "free") return quotaStatus(0, null);
-
   const used = await countEventsThisMonth(userId, "eye_scan");
-  return quotaStatus(used, FREE_LIMITS.eyeScansPerMonth);
+  const limit = plan === "free" ? FREE_LIMITS.eyeScansPerMonth : null;
+  return quotaStatus(used, limit);
 }

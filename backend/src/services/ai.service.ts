@@ -15,6 +15,33 @@ export type EyeShape =
 export type LashDensity = "sparse" | "medium" | "dense";
 export type LashLength = "short" | "medium" | "long";
 
+const VALID_EYE_SHAPES: readonly EyeShape[] = [
+  "round",
+  "almond",
+  "hooded",
+  "monolid",
+  "downturned",
+  "upturned",
+  "deep_set",
+  "close_set",
+  "wide_set",
+];
+const VALID_LASH_DENSITIES: readonly LashDensity[] = ["sparse", "medium", "dense"];
+
+/**
+ * The AI-generated analysis path is already schema-safe (strict OpenAI JSON schema),
+ * but routes/clients.routes.ts also accepts a client-supplied eye_analysis object
+ * directly — these guard against that unvalidated path reaching the rules engine
+ * with a bad eye_shape/lash_density and crashing on an undefined lookup.
+ */
+export function isValidEyeShape(value: unknown): value is EyeShape {
+  return VALID_EYE_SHAPES.includes(value as EyeShape);
+}
+
+export function isValidLashDensity(value: unknown): value is LashDensity {
+  return VALID_LASH_DENSITIES.includes(value as LashDensity);
+}
+
 export type EyeWidthCategory = "narrow" | "average" | "wide";
 export type EyeSizeCategory = "small" | "average" | "large";
 export type EyeSpacing = "close_set" | "balanced" | "wide_set";

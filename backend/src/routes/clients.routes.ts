@@ -18,7 +18,13 @@ import {
   createPhotoFeedback,
   getPhotoFeedbackByClientProfileId,
 } from "../models/PhotoFeedback";
-import { analyzeEye, scoreLashPhoto, troubleshootRetention } from "../services/ai.service";
+import {
+  analyzeEye,
+  isValidEyeShape,
+  isValidLashDensity,
+  scoreLashPhoto,
+  troubleshootRetention,
+} from "../services/ai.service";
 import { generateLashMap } from "../services/lashmap.service";
 import { uploadImage } from "../services/storage.service";
 import { asyncHandler } from "../utils/asyncHandler";
@@ -129,6 +135,12 @@ clientsRouter.post(
       });
       return;
     }
+    if (!isValidEyeShape(eyeAnalysis.eye_shape) || !isValidLashDensity(eyeAnalysis.lash_density)) {
+      res.status(400).json({
+        error: "eye_analysis.eye_shape and eye_analysis.lash_density must be valid values",
+      });
+      return;
+    }
 
     const generated = generateLashMap(
       eyeAnalysis,
@@ -217,6 +229,14 @@ clientsRouter.post(
       });
       return;
     }
+    if (daysSinceApplication < 0) {
+      res.status(400).json({ error: "days_since_application cannot be negative" });
+      return;
+    }
+    if (retentionPct < 0 || retentionPct > 100) {
+      res.status(400).json({ error: "retention_pct must be between 0 and 100" });
+      return;
+    }
 
     const { advice, mock } = await troubleshootRetention({
       daysSinceApplication,
@@ -226,6 +246,7 @@ clientsRouter.post(
       glueUsed: typeof glueUsed === "string" ? glueUsed : undefined,
     });
     const updated = await updateLashMapRetention(lashMap.id, retentionPct);
+    await logUsageEvent(req.currentUser!.id, "retention_check");
 
     res.json({ advice, mock, lash_map: updated });
   }),
