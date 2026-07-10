@@ -1,6 +1,28 @@
 import { API_BASE_URL } from '@env';
 
 let currentToken: string | undefined;
+const DEFAULT_API_BASE_URL = 'https://lashlyai-production.up.railway.app';
+
+function resolveApiBaseUrl(): string {
+  const baseUrl = API_BASE_URL?.trim();
+
+  if (
+    baseUrl &&
+    !/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(baseUrl)
+  ) {
+    return baseUrl;
+  }
+
+  if (__DEV__ && baseUrl) {
+    console.warn(
+      `[api] API_BASE_URL is set to ${baseUrl}; using ${DEFAULT_API_BASE_URL} for auth requests so mobile auth can reach the deployed backend.`,
+    );
+  }
+
+  return DEFAULT_API_BASE_URL;
+}
+
+const resolvedApiBaseUrl = resolveApiBaseUrl();
 
 export function setAuthToken(token: string | undefined) {
   currentToken = token;
@@ -23,7 +45,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     ...(currentToken ? { Authorization: `Bearer ${currentToken}` } : {}),
   };
 
-  const response = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
+  const response = await fetch(`${resolvedApiBaseUrl}${path}`, { ...options, headers });
 
   if (response.status === 401) {
     onUnauthorized?.();
