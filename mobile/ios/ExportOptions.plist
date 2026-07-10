@@ -9,6 +9,13 @@
 	<key>teamID</key>
 	<string>T4483283LY</string>
 	<key>signingStyle</key>
-	<string>automatic</string>
+	<string>manual</string>
+	<key>signingCertificate</key>
+	<string>Apple Distribution</string>
+	<key>provisioningProfiles</key>
+	<dict>
+		<key>com.canadasun.lashlyai</key>
+		<string>LashlyAI AppStore</string>
+	</dict>
 </dict>
 </plist>

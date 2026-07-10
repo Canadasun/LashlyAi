@@ -42,6 +42,28 @@ jobs:
           mkdir -p ~/private_keys
           echo "${{ secrets.ASC_API_KEY_P8 }}" > ~/private_keys/AuthKey_${{ secrets.ASC_KEY_ID }}.p8
 
+      # Automatic signing's `-allowProvisioningUpdates` reliably tried to create a
+      # Development profile during `archive` instead of a Distribution one (a known
+      # Xcode CLI quirk, tracked in the iOS build checklist). Manual signing with a
+      # pre-issued Distribution cert + App Store profile sidesteps it entirely.
+      - name: Import signing certificate and provisioning profile
+        run: |
+          KEYCHAIN_PATH="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 24)
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          echo "${{ secrets.IOS_DIST_CERT_P12_BASE64 }}" | base64 --decode -o "$RUNNER_TEMP/dist_cert.p12"
+          security import "$RUNNER_TEMP/dist_cert.p12" -P "${{ secrets.IOS_DIST_CERT_PASSWORD }}" \
+            -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | sed 's/"//g')
+
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          echo "${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}" | base64 --decode \
+            -o ~/Library/MobileDevice/Provisioning\ Profiles/LashlyAI_AppStore.mobileprovision
+
       # TestFlight rejects re-uploads of the same build number for a given marketing
       # version — the GitHub Actions run number is a simple, always-increasing choice.
       - name: Bump build number
@@ -56,11 +78,7 @@ jobs:
             -scheme LashlyAIMobile \
             -configuration Release \
             -archivePath "$PWD/build/LashlyAIMobile.xcarchive" \
-            -destination "generic/platform=iOS" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath ~/private_keys/AuthKey_${{ secrets.ASC_KEY_ID }}.p8 \
-            -authenticationKeyID ${{ secrets.ASC_KEY_ID }} \
-            -authenticationKeyIssuerID ${{ secrets.ASC_ISSUER_ID }}
+            -destination "generic/platform=iOS"
 
       - name: Export & upload to TestFlight
         working-directory: mobile/ios
