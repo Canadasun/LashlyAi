@@ -1,121 +1,160 @@
-import { useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { api } from '../services/api';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme/colors';
 
-interface PlanCardProps {
-  name: string;
-  price: string;
-  features: string[];
-  selected: boolean;
-  onSelect: () => void;
-}
-
-function PlanCard({ name, price, features, selected, onSelect }: PlanCardProps) {
-  return (
-    <TouchableOpacity
-      style={[styles.card, selected && styles.cardSelected]}
-      onPress={onSelect}
-      activeOpacity={0.8}>
-      <Text style={styles.cardName}>{name}</Text>
-      <Text style={styles.cardPrice}>{price}</Text>
-      {features.map((feature) => (
-        <Text key={feature} style={styles.cardFeature}>
-          • {feature}
-        </Text>
-      ))}
-    </TouchableOpacity>
-  );
-}
+const featureRows = [
+  ['Client management', 'Free: 5 profiles', 'Pro: unlimited'],
+  ['AI Lash Coach', 'Free: 5 questions/day', 'Pro: unlimited'],
+  ['Eye scans', 'Free: 3/month', 'Pro: unlimited'],
+  ['Priority support', 'Not included', 'Included'],
+];
 
 export function PaywallScreen() {
-  const [plan, setPlan] = useState<'free' | 'pro'>('pro');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [confirmed, setConfirmed] = useState<string | null>(null);
-
-  const subscribe = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      // Placeholder purchase flow: no real App Store Connect subscription products
-      // exist yet, so this calls the backend's dev-mode fallback directly instead of
-      // going through a real StoreKit purchase. Once real products exist, replace
-      // this with a native IAP library purchase call that returns a receipt, then
-      // POST { receipt_data } here instead of { plan }.
-      const result = await api.post<{ plan: string; mock: boolean }>('/subscriptions/verify', {
-        plan,
-      });
-      setConfirmed(result.plan);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update subscription');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Choose Your Plan</Text>
-      <Text style={styles.notice}>
-        Purchases aren't live yet — real App Store subscriptions require an Apple
-        Developer account and App Store Connect setup that hasn't happened. This screen
-        is wired to the backend's dev-mode subscription endpoint for now.
-      </Text>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <View style={styles.hero}>
+        <Text style={styles.kicker}>Upgrade path</Text>
+        <Text style={styles.title}>Built for serious lash businesses</Text>
+        <Text style={styles.subtitle}>
+          This build does not have StoreKit wired yet, so subscription purchase is
+          intentionally disabled instead of pretending to work.
+        </Text>
+      </View>
 
-      <PlanCard
-        name="Free"
-        price="$0"
-        features={['1 client profile', 'Basic lash maps']}
-        selected={plan === 'free'}
-        onSelect={() => setPlan('free')}
-      />
-      <PlanCard
-        name="Pro"
-        price="$—/mo"
-        features={['Unlimited clients', 'AI Lash Coach', 'Full lash map history']}
-        selected={plan === 'pro'}
-        onSelect={() => setPlan('pro')}
-      />
+      <View style={styles.card}>
+        <Text style={styles.cardLabel}>What the app already supports</Text>
+        {featureRows.map(([label, freeValue, proValue]) => (
+          <View key={label} style={styles.featureRow}>
+            <Text style={styles.featureName}>{label}</Text>
+            <Text style={styles.featureValue}>{freeValue}</Text>
+            <Text style={[styles.featureValue, styles.featureValueStrong]}>{proValue}</Text>
+          </View>
+        ))}
+      </View>
 
-      {error && <Text style={styles.error}>{error}</Text>}
-      {confirmed && <Text style={styles.confirmed}>Subscription set to: {confirmed}</Text>}
+      <View style={styles.notice}>
+        <Text style={styles.noticeTitle}>Purchase flow status</Text>
+        <Text style={styles.noticeBody}>
+          Real subscriptions now require Apple receipt verification on the backend.
+          Until a native purchase flow is added, the app should keep this screen read
+          only so users are not led into a dead-end flow.
+        </Text>
+      </View>
 
-      <TouchableOpacity style={styles.button} onPress={subscribe} disabled={loading}>
-        {loading ? (
-          <ActivityIndicator color={colors.background} />
-        ) : (
-          <Text style={styles.buttonText}>Confirm {plan === 'pro' ? 'Pro' : 'Free'} Plan</Text>
-        )}
-      </TouchableOpacity>
-    </View>
+      <View style={styles.enterpriseCard}>
+        <Text style={styles.enterpriseTitle}>Enterprise-ready next step</Text>
+        <Text style={styles.enterpriseBody}>
+          Connect StoreKit, pass the signed receipt to the API, and let the server
+          determine access from receipt status and expiry.
+        </Text>
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background, padding: 20 },
-  title: { fontSize: 20, fontWeight: '700', color: colors.text, marginBottom: 8 },
-  notice: { fontSize: 12, color: colors.accent, marginBottom: 20, lineHeight: 17 },
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  content: {
+    padding: 20,
+  },
+  hero: {
+    backgroundColor: '#101827',
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 16,
+  },
+  kicker: {
+    color: '#C7D2FE',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    marginBottom: 8,
+  },
+  title: {
+    color: '#F8FAFC',
+    fontSize: 28,
+    fontWeight: '800',
+    lineHeight: 34,
+  },
+  subtitle: {
+    color: '#CBD5E1',
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 10,
+  },
   card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
     padding: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 16,
+  },
+  cardLabel: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '700',
     marginBottom: 12,
-    borderWidth: 2,
-    borderColor: 'transparent',
   },
-  cardSelected: { borderColor: colors.primary },
-  cardName: { fontSize: 16, fontWeight: '700', color: colors.text },
-  cardPrice: { fontSize: 14, color: colors.accent, marginTop: 2, marginBottom: 8 },
-  cardFeature: { fontSize: 13, color: colors.text, marginTop: 2 },
-  error: { color: '#B3261E', marginTop: 8, fontSize: 13 },
-  confirmed: { color: colors.text, marginTop: 8, fontSize: 13, fontWeight: '600' },
-  button: {
-    backgroundColor: colors.primary,
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 20,
+  featureRow: {
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#EEF2F7',
   },
-  buttonText: { color: colors.background, fontWeight: '700', fontSize: 15 },
+  featureName: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  featureValue: {
+    color: colors.accent,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  featureValueStrong: {
+    color: colors.primary,
+    fontWeight: '700',
+  },
+  notice: {
+    backgroundColor: '#FFF7ED',
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#FDBA74',
+    marginBottom: 16,
+  },
+  noticeTitle: {
+    color: '#9A3412',
+    fontSize: 15,
+    fontWeight: '800',
+    marginBottom: 6,
+  },
+  noticeBody: {
+    color: '#9A3412',
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  enterpriseCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#DCE4F0',
+    marginBottom: 8,
+  },
+  enterpriseTitle: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: '800',
+    marginBottom: 6,
+  },
+  enterpriseBody: {
+    color: colors.accent,
+    fontSize: 13,
+    lineHeight: 19,
+  },
 });

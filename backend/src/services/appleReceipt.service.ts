@@ -1,4 +1,4 @@
-import { SubscriptionPlan } from "../models/Subscription";
+import { SubscriptionPlan, SubscriptionStatus } from "../models/Subscription";
 
 const PRODUCTION_URL = "https://buy.itunes.apple.com/verifyReceipt";
 const SANDBOX_URL = "https://sandbox.itunes.apple.com/verifyReceipt";
@@ -19,7 +19,7 @@ const PRODUCT_ID_TO_PLAN: Record<string, SubscriptionPlan> = {
 
 export interface VerifiedReceipt {
   plan: SubscriptionPlan;
-  status: string;
+  status: SubscriptionStatus;
   appleTransactionId: string;
   renewsAt: string | null;
 }
@@ -31,6 +31,40 @@ interface AppleVerifyResponse {
     transaction_id: string;
     expires_date_ms?: string;
   }>;
+}
+
+interface ReceiptCandidate {
+  product_id: string;
+  transaction_id: string;
+  expires_date_ms: string;
+}
+
+export function selectLatestReceipt(
+  receipts: AppleVerifyResponse["latest_receipt_info"],
+): ReceiptCandidate | null {
+  const candidates =
+    receipts
+      ?.filter(
+        (receipt): receipt is ReceiptCandidate =>
+          !!receipt &&
+          typeof receipt.product_id === "string" &&
+          typeof receipt.transaction_id === "string" &&
+          typeof receipt.expires_date_ms === "string" &&
+          Number.isFinite(Number(receipt.expires_date_ms)),
+      )
+      .sort((a, b) => {
+        const expiresDelta = Number(b.expires_date_ms) - Number(a.expires_date_ms);
+        if (expiresDelta !== 0) {
+          return expiresDelta;
+        }
+        return b.transaction_id.localeCompare(a.transaction_id);
+      }) ?? [];
+
+  return candidates[0] ?? null;
+}
+
+export function resolveSubscriptionStatus(expiresAt: string): SubscriptionStatus {
+  return new Date(expiresAt).getTime() > Date.now() ? "active" : "expired";
 }
 
 async function callAppleVerify(url: string, receiptData: string, sharedSecret: string) {
@@ -50,8 +84,7 @@ export async function verifyAppleReceipt(receiptData: string): Promise<VerifiedR
   const sharedSecret = process.env.APPLE_SHARED_SECRET;
   if (!sharedSecret) {
     throw new Error(
-      "APPLE_SHARED_SECRET is not configured — set it up in App Store Connect once a " +
-        "real subscription product exists (see backend/.env.example).",
+      "APPLE_SHARED_SECRET is not configured. Real receipt verification is required in this environment.",
     );
   }
 
@@ -64,9 +97,9 @@ export async function verifyAppleReceipt(receiptData: string): Promise<VerifiedR
     throw new Error(`Apple rejected the receipt (status ${result.status})`);
   }
 
-  const latest = result.latest_receipt_info?.[0];
+  const latest = selectLatestReceipt(result.latest_receipt_info);
   if (!latest) {
-    throw new Error("Apple's response had no transaction info");
+    throw new Error("Apple's response had no usable subscription transaction info");
   }
 
   const plan = PRODUCT_ID_TO_PLAN[latest.product_id];
@@ -74,12 +107,11 @@ export async function verifyAppleReceipt(receiptData: string): Promise<VerifiedR
     throw new Error(`Unrecognized product_id "${latest.product_id}"`);
   }
 
+  const renewsAt = new Date(Number(latest.expires_date_ms)).toISOString();
   return {
     plan,
-    status: "active",
+    status: resolveSubscriptionStatus(renewsAt),
     appleTransactionId: latest.transaction_id,
-    renewsAt: latest.expires_date_ms
-      ? new Date(Number(latest.expires_date_ms)).toISOString()
-      : null,
+    renewsAt,
   };
 }

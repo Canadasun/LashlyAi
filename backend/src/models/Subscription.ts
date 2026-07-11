@@ -1,6 +1,7 @@
 import { pool } from "../db";
 
 export type SubscriptionPlan = "free" | "pro" | "educator" | "salon" | "enterprise";
+export type SubscriptionStatus = "active" | "expired" | "revoked" | "pending" | "billing_retry";
 
 export interface Subscription {
   id: string;
@@ -15,7 +16,7 @@ export interface Subscription {
 export async function upsertSubscription(input: {
   userId: string;
   plan: SubscriptionPlan;
-  status: string;
+  status: SubscriptionStatus;
   appleTransactionId?: string;
   renewsAt?: string;
 }): Promise<Subscription> {

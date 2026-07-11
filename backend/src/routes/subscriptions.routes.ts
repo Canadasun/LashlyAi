@@ -1,44 +1,19 @@
 import { Router } from "express";
 import { requireUser } from "./middleware/requireUser";
-import { upsertSubscription, SubscriptionPlan } from "../models/Subscription";
+import { upsertSubscription } from "../models/Subscription";
 import { verifyAppleReceipt } from "../services/appleReceipt.service";
 import { asyncHandler } from "../utils/asyncHandler";
 
 export const subscriptionsRouter = Router();
-
-const VALID_PLANS: SubscriptionPlan[] = ["free", "pro", "educator", "salon", "enterprise"];
 
 subscriptionsRouter.post(
   "/verify",
   requireUser,
   asyncHandler(async (req, res) => {
     if (!process.env.APPLE_SHARED_SECRET) {
-      // No real App Store Connect subscription exists yet — let the mobile paywall UI
-      // be testable by accepting a plan directly instead of a real Apple receipt. Never
-      // allow this in production/staging: it would let anyone grant themselves a paid
-      // plan for free.
-      if (process.env.NODE_ENV === "production" || process.env.NODE_ENV === "staging") {
-        res.status(503).json({
-          error: "APPLE_SHARED_SECRET is not configured. Real receipt verification is required in this environment.",
-        });
-        return;
-      }
-
-      const requestedPlan = req.body?.plan;
-      if (!VALID_PLANS.includes(requestedPlan)) {
-        res.status(400).json({
-          error:
-            "APPLE_SHARED_SECRET is not configured (dev mode) — pass a valid `plan` " +
-            `field directly instead of a receipt. One of: ${VALID_PLANS.join(", ")}`,
-        });
-        return;
-      }
-      const subscription = await upsertSubscription({
-        userId: req.currentUser!.id,
-        plan: requestedPlan,
-        status: "active",
+      res.status(503).json({
+        error: "APPLE_SHARED_SECRET is not configured. Real receipt verification is required in this environment.",
       });
-      res.json({ ...subscription, mock: true });
       return;
     }
 
@@ -56,6 +31,6 @@ subscriptionsRouter.post(
       appleTransactionId: verified.appleTransactionId,
       renewsAt: verified.renewsAt ?? undefined,
     });
-    res.json({ ...subscription, mock: false });
+    res.json({ ...subscription, verified: true });
   }),
 );

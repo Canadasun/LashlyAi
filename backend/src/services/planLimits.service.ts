@@ -1,4 +1,4 @@
-import { getSubscriptionByUserId, SubscriptionPlan } from "../models/Subscription";
+import { getSubscriptionByUserId, Subscription, SubscriptionPlan } from "../models/Subscription";
 import { getClientProfilesByOwner } from "../models/ClientProfile";
 import { countEventsThisMonth, countEventsToday } from "../models/UsageEvent";
 
@@ -16,9 +16,32 @@ const FREE_LIMITS = {
   eyeScansPerMonth: 3,
 };
 
+const ACTIVE_SUBSCRIPTION_STATUSES = new Set(["active", "trialing", "grace_period"]);
+
+function isNonExpiredRenewal(renewsAt: string | null, now: number) {
+  if (!renewsAt) {
+    return true;
+  }
+  const expiresAt = new Date(renewsAt).getTime();
+  return Number.isFinite(expiresAt) && expiresAt > now;
+}
+
+export function isSubscriptionActive(subscription: Subscription | null, now = Date.now()): boolean {
+  if (!subscription) {
+    return false;
+  }
+  if (!ACTIVE_SUBSCRIPTION_STATUSES.has(subscription.status)) {
+    return false;
+  }
+  return isNonExpiredRenewal(subscription.renews_at, now);
+}
+
 export async function getUserPlan(userId: string): Promise<SubscriptionPlan> {
   const subscription = await getSubscriptionByUserId(userId);
-  return subscription?.plan ?? "free";
+  if (!subscription || !isSubscriptionActive(subscription)) {
+    return "free";
+  }
+  return subscription.plan;
 }
 
 export interface QuotaStatus {
