@@ -36,6 +36,16 @@ jobs:
         working-directory: mobile
         run: npm ci
 
+      # Fail before the slower signing/archive stages when JavaScript or TypeScript is
+      # unhealthy. The test script explicitly disables Watchman so this behaves the
+      # same way on clean and restricted runners.
+      - name: Validate mobile app
+        working-directory: mobile
+        run: |
+          npm run build
+          npm run lint
+          npm test -- --runInBand
+
       - name: Install CocoaPods
         working-directory: mobile/ios
         run: |
