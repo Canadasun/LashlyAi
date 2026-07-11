@@ -1,10 +1,16 @@
 name: iOS TestFlight
 
-# Manual trigger only — uploading a build to App Store Connect is a real, visible
-# action (testers may get notified), not something that should happen as a side
-# effect of every push. Trigger from the Actions tab when you actually want a build
-# in TestFlight.
+# Auto-deploys on every push to main that touches the mobile app — this is now the
+# single source of truth for iOS builds (EAS was retired: it was a redundant parallel
+# pipeline hitting the same App Store Connect app, and the two had already collided on
+# build numbers once). Scoped to mobile/** so backend-only pushes don't spawn pointless
+# iOS builds. Still keeps workflow_dispatch for an on-demand rebuild of the same commit.
 on:
+  push:
+    branches: [main]
+    paths:
+      - "mobile/**"
+      - ".github/workflows/testflight.yml"
   workflow_dispatch:
 
 jobs:

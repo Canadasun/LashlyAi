@@ -1,17 +1,4 @@
 {
   "name": "LashlyAIMobile",
-  "displayName": "LashlyAI",
-  "expo": {
-    "name": "LashlyAI",
-    "slug": "lashlyai",
-    "version": "1.0.0",
-    "ios": {
-      "bundleIdentifier": "com.canadasun.lashlyai"
-    },
-    "extra": {
-      "eas": {
-        "projectId": "7ea1c25d-28a1-48a7-b06b-b9033dc68cfd"
-      }
-    }
-  }
+  "displayName": "LashlyAI"
 }
