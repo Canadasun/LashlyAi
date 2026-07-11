@@ -47,7 +47,14 @@ export async function getMediaAssetsByClientProfileId(clientProfileId: string): 
   return result.rows;
 }
 
+export async function getMediaAssetsByOwnerUserId(ownerUserId: string): Promise<MediaAsset[]> {
+  const result = await pool.query<MediaAsset>(
+    "SELECT * FROM media_assets WHERE owner_user_id = $1 ORDER BY created_at ASC",
+    [ownerUserId],
+  );
+  return result.rows;
+}
+
 export async function deleteMediaAsset(id: string): Promise<void> {
   await pool.query("DELETE FROM media_assets WHERE id = $1", [id]);
 }
-

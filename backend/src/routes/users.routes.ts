@@ -8,6 +8,9 @@ import {
   ENFORCEMENT_ENABLED,
   getUserPlan,
 } from "../services/planLimits.service";
+import { deleteUserById } from "../models/User";
+import { getMediaAssetsByOwnerUserId } from "../models/MediaAsset";
+import { deleteStoredMediaAsset } from "../services/storage.service";
 
 export const usersRouter = Router();
 
@@ -16,6 +19,20 @@ usersRouter.get(
   requireUser,
   asyncHandler(async (req, res) => {
     res.json(req.currentUser);
+  }),
+);
+
+usersRouter.delete(
+  "/me",
+  requireUser,
+  asyncHandler(async (req, res) => {
+    const userId = req.currentUser!.id;
+    const assets = await getMediaAssetsByOwnerUserId(userId);
+    for (const asset of assets) {
+      await deleteStoredMediaAsset(asset);
+    }
+    await deleteUserById(userId);
+    res.status(204).send();
   }),
 );
 

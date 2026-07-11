@@ -87,3 +87,7 @@ export async function updateUserPasswordHash(userId: string, passwordHash: strin
   );
   return mapUserRow(result.rows[0]);
 }
+
+export async function deleteUserById(userId: string): Promise<void> {
+  await pool.query("DELETE FROM users WHERE id = $1", [userId]);
+}
