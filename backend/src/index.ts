@@ -27,6 +27,11 @@ const port = process.env.PORT ? Number(process.env.PORT) : 3000;
 app.set("trust proxy", 1);
 
 app.use(helmet());
+// Intentionally unrestricted: this API is consumed by the mobile app (no browser
+// Origin to check) and auth is a Bearer token in the Authorization header, not a
+// cookie — so there's no ambient credential for a CORS restriction to protect against
+// the way there would be with cookie-based auth. Revisit if a web frontend with
+// cookie-based sessions is ever added.
 app.use(cors());
 app.use(express.json());
 app.use(requestLogger);

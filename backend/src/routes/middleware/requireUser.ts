@@ -12,8 +12,8 @@ declare global {
 }
 
 /**
- * Verifies the Firebase token AND resolves the matching Postgres user row.
- * Use for any route that needs to know "which of our users is this."
+ * Verifies the session token (see auth.service.ts) AND resolves the matching
+ * Postgres user row. Use for any route that needs to know "which of our users is this."
  */
 export async function requireUser(req: Request, res: Response, next: NextFunction) {
   const header = req.header("Authorization");

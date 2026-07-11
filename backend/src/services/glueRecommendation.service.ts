@@ -1,6 +1,10 @@
 /**
  * Deterministic — not AI-based, same reasoning as lashmap.service.ts. See
  * docs/lash-rules.md §8 for the placeholder table this mirrors.
+ *
+ * Boundaries are inclusive of the edges in the "ideal" band: exactly 30% and exactly
+ * 70% both count as "ideal" (checks below are strict < 30 / > 70), so the bands are
+ * low = [0, 30), ideal = [30, 70], high = (70, 100].
  */
 export interface GlueRecommendation {
   band: "low" | "ideal" | "high";

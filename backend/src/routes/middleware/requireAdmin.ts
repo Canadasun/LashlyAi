@@ -3,8 +3,9 @@ import { NextFunction, Request, Response } from "express";
 const REALM = 'Basic realm="LashlyAI Admin"';
 
 /**
- * Separate from the Firebase-based user auth — this is a single shared secret for
- * the internal admin dashboard, not tied to any user account. HTTP Basic Auth so it
+ * Separate from the session-based user auth (auth.service.ts) — this is a single
+ * shared secret for the internal admin dashboard, not tied to any user account.
+ * HTTP Basic Auth so it
  * works both from a browser (native login prompt) and curl/scripts. Unlike other
  * dev-mode bypasses in this codebase, there is NO fallback when unconfigured: admin
  * data (user list, feedback) must never be reachable without a key set.

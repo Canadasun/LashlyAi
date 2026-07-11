@@ -71,6 +71,14 @@ inventoryRouter.post(
       res.status(400).json({ error: `category must be one of: ${VALID_CATEGORIES.join(", ")}` });
       return;
     }
+    if (typeof quantity === "number" && quantity < 0) {
+      res.status(400).json({ error: "quantity cannot be negative" });
+      return;
+    }
+    if (typeof lowStockThreshold === "number" && lowStockThreshold < 0) {
+      res.status(400).json({ error: "low_stock_threshold cannot be negative" });
+      return;
+    }
 
     const item = await createInventoryItem({
       ownerUserId: req.currentUser!.id,
@@ -113,6 +121,14 @@ inventoryRouter.patch(
     } = req.body ?? {};
     if (category !== undefined && !VALID_CATEGORIES.includes(category)) {
       res.status(400).json({ error: `category must be one of: ${VALID_CATEGORIES.join(", ")}` });
+      return;
+    }
+    if (typeof quantity === "number" && quantity < 0) {
+      res.status(400).json({ error: "quantity cannot be negative" });
+      return;
+    }
+    if (typeof lowStockThreshold === "number" && lowStockThreshold < 0) {
+      res.status(400).json({ error: "low_stock_threshold cannot be negative" });
       return;
     }
 
