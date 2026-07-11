@@ -8,6 +8,12 @@ require Pod::Executable.execute_command('node', ['-p',
 platform :ios, min_ios_version_supported
 prepare_react_native_project!
 
+# Firebase's Swift pods (FirebaseCoreInternal, FirebaseCrashlytics, FirebaseSessions)
+# depend on GoogleUtilities/GoogleDataTransport/nanopb, none of which define modules —
+# without this, static-library builds fail with "cannot yet be integrated as static
+# libraries" during pod install.
+use_modular_headers!
+
 linkage = ENV['USE_FRAMEWORKS']
 if linkage != nil
   Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green
