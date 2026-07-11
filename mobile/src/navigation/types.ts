@@ -7,7 +7,11 @@ export type RootStackParamList = {
   NewClient: undefined;
   ClientProfile: { clientId: string };
   CameraUpload: { clientId: string };
-  EyeAnalysisResult: { clientId: string; eyeAnalysis: EyeAnalysis; photoUrl: string };
+  EyeAnalysisResult: {
+    clientId: string;
+    eyeAnalysis?: EyeAnalysis;
+    photoUrl?: string;
+  };
   LashMap: { clientId: string; lashMap: LashMap };
   Coach: undefined;
   Feedback: undefined;

@@ -113,6 +113,14 @@ export function ClientProfileScreen({ route, navigation }: Props) {
         <Text style={styles.secondaryButtonText}>Before & After</Text>
       </TouchableOpacity>
 
+      {client.eye_analysis && (
+        <TouchableOpacity
+          style={styles.secondaryButton}
+          onPress={() => navigation.navigate('EyeAnalysisResult', { clientId })}>
+          <Text style={styles.secondaryButtonText}>View Latest Full Scan</Text>
+        </TouchableOpacity>
+      )}
+
       <Text style={styles.sectionTitle}>Lash Map History</Text>
       {lashMaps.length === 0 ? (
         <Text style={styles.empty}>No lash maps saved yet.</Text>

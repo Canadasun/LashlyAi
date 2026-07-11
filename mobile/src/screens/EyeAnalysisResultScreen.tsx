@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   ActivityIndicator,
@@ -12,7 +12,7 @@ import {
 import { api, authenticatedImageSource } from '../services/api';
 import { colors } from '../theme/colors';
 import { RootStackParamList } from '../navigation/types';
-import { EyeAnalysis, LashMap } from '../types/api';
+import { ClientProfile, EyeAnalysis, LashMap } from '../types/api';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'EyeAnalysisResult'>;
 
@@ -66,19 +66,42 @@ const TECHNIQUES: { label: string; value: 'classic' | 'wispy' }[] = [
 ];
 
 export function EyeAnalysisResultScreen({ route, navigation }: Props) {
-  const { clientId, eyeAnalysis, photoUrl } = route.params;
+  const { clientId } = route.params;
   const [requestedStyle, setRequestedStyle] = useState<string | null>(null);
   const [technique, setTechnique] = useState<'classic' | 'wispy'>('classic');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [eyeAnalysis, setEyeAnalysis] = useState<EyeAnalysis | null>(route.params.eyeAnalysis ?? null);
+  const [photoUrl, setPhotoUrl] = useState(route.params.photoUrl ?? null);
   const [error, setError] = useState<string | null>(null);
 
+  const loadClient = useCallback(async () => {
+    try {
+      setError(null);
+      const clientResult = await api.get<ClientProfile>(`/clients/${clientId}`);
+      setEyeAnalysis(route.params.eyeAnalysis ?? clientResult.eye_analysis);
+      setPhotoUrl(route.params.photoUrl ?? clientResult.photos.at(-1) ?? null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load scan');
+    } finally {
+      setLoading(false);
+    }
+  }, [clientId, route.params.eyeAnalysis, route.params.photoUrl]);
+
+  useEffect(() => {
+    loadClient();
+  }, [loadClient]);
+
   const generateLashMap = async () => {
+    if (!eyeAnalysis) {
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
       const lashMap = await api.post<LashMap>(`/clients/${clientId}/lash-map`, {
         requested_style: requestedStyle ?? undefined,
         requested_technique: technique,
+        eye_analysis: eyeAnalysis,
       });
       navigation.replace('LashMap', { clientId, lashMap });
     } catch (err) {
@@ -88,14 +111,30 @@ export function EyeAnalysisResultScreen({ route, navigation }: Props) {
     }
   };
 
+  if (loading && !eyeAnalysis) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (!eyeAnalysis) {
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.error}>{error ?? 'No eye analysis available for this client yet.'}</Text>
+      </View>
+    );
+  }
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Image source={authenticatedImageSource(photoUrl)} style={styles.photo} />
+      {photoUrl ? <Image source={authenticatedImageSource(photoUrl)} style={styles.photo} /> : null}
 
       {eyeAnalysis.mock && (
         <View style={styles.mockBadge}>
           <Text style={styles.mockBadgeText}>
-            MOCK ANALYSIS — no OpenAI key configured on the backend yet
+            MOCK ANALYSIS - no OpenAI key configured on the backend yet
           </Text>
         </View>
       )}
@@ -105,12 +144,12 @@ export function EyeAnalysisResultScreen({ route, navigation }: Props) {
         <Text style={styles.scoreLabel}>Balance Score</Text>
       </View>
 
-      <Text style={styles.title}>Full Analysis — Eye</Text>
+      <Text style={styles.title}>Full Analysis - Eye</Text>
       {EYE_FIELDS.map(({ label, key }) => (
         <Row key={key} label={label} value={String(eyeAnalysis[key])} />
       ))}
 
-      <Text style={styles.title}>Full Analysis — Brow</Text>
+      <Text style={styles.title}>Full Analysis - Brow</Text>
       {BROW_FIELDS.map(({ label, key }) => (
         <Row key={key} label={label} value={String(eyeAnalysis[key])} />
       ))}
@@ -151,7 +190,10 @@ export function EyeAnalysisResultScreen({ route, navigation }: Props) {
 
       {error && <Text style={styles.error}>{error}</Text>}
 
-      <TouchableOpacity style={styles.button} onPress={generateLashMap} disabled={loading}>
+      <TouchableOpacity
+        style={[styles.button, loading && styles.buttonDisabled]}
+        onPress={generateLashMap}
+        disabled={loading}>
         {loading ? (
           <ActivityIndicator color={colors.background} />
         ) : (
@@ -165,6 +207,7 @@ export function EyeAnalysisResultScreen({ route, navigation }: Props) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: 20 },
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background },
   photo: { width: '100%', height: 220, borderRadius: 12, marginBottom: 16 },
   mockBadge: {
     backgroundColor: '#FFF3CD',
@@ -196,7 +239,7 @@ const styles = StyleSheet.create({
   rowValue: { color: colors.text, fontSize: 13, textTransform: 'capitalize' },
   notes: { color: colors.text, fontSize: 13, marginTop: 8, fontStyle: 'italic' },
   styleLabel: { fontSize: 13, fontWeight: '600', color: colors.text, marginTop: 20, marginBottom: 8 },
-  styleChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  styleChips: { flexDirection: 'row', flexWrap: 'wrap' },
   chip: {
     backgroundColor: '#ffffff',
     borderRadius: 20,
@@ -216,5 +259,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 24,
   },
+  buttonDisabled: { opacity: 0.7 },
   buttonText: { color: colors.background, fontWeight: '700', fontSize: 15 },
 });
