@@ -6,9 +6,9 @@ tests, deployment, and production verification are all finished.
 
 ## P0 — release blockers
 
-- [ ] Private, durable client-photo storage, authenticated delivery, and complete deletion
-  - In progress: Railway S3-compatible storage, media ownership records, file validation,
-    authenticated image delivery, and client deletion.
+- [x] Private, durable client-photo storage, authenticated delivery, and complete deletion
+  - Production verified on 2026-07-10: Railway object storage, tenant-owned media records,
+    decoded/normalized uploads, authenticated delivery, client deletion, and account deletion.
 - [ ] Production StoreKit purchase flow and entitlement verification
 - [ ] Accurate iOS privacy manifest, reviewed legal documents, consent, export, and account deletion
 - [ ] Hardened authentication: secure device storage, password reset, email verification,
@@ -33,4 +33,3 @@ tests, deployment, and production verification are all finished.
 - [ ] Configure Android release signing, Crashlytics, and CI native builds
 - [ ] Resolve mobile dependency advisories
 - [ ] Establish staging/prod separation, branch protection, release approvals, and rollback runbooks
-
