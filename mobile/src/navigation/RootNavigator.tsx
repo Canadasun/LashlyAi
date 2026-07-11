@@ -1,6 +1,6 @@
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { colors } from '../theme/colors';
 import { AuthScreen } from '../screens/AuthScreen';
@@ -11,6 +11,7 @@ import { ClientProfileScreen } from '../screens/ClientProfileScreen';
 import { CoachScreen } from '../screens/CoachScreen';
 import { EyeAnalysisResultScreen } from '../screens/EyeAnalysisResultScreen';
 import { FeedbackScreen } from '../screens/FeedbackScreen';
+import { HomeDashboardScreen } from '../screens/HomeDashboardScreen';
 import { ForumListScreen } from '../screens/ForumListScreen';
 import { ForumPostDetailScreen } from '../screens/ForumPostDetailScreen';
 import { GlueRecommendationScreen } from '../screens/GlueRecommendationScreen';
@@ -31,7 +32,7 @@ export function RootNavigator() {
 
   if (restoringSession) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
+      <View style={styles.loadingScreen}>
         <ActivityIndicator color={colors.primary} />
       </View>
     );
@@ -39,11 +40,23 @@ export function RootNavigator() {
 
   return (
     <NavigationContainer>
-      <Stack.Navigator>
+      <Stack.Navigator
+        screenOptions={{
+          headerShadowVisible: false,
+          headerStyle: { backgroundColor: colors.background },
+          headerTintColor: colors.ink,
+          headerTitleStyle: { fontWeight: '700' },
+          contentStyle: { backgroundColor: colors.background },
+        }}>
         {!session ? (
           <Stack.Screen name="Auth" component={AuthScreen} options={{ headerShown: false }} />
         ) : (
           <>
+            <Stack.Screen
+              name="Dashboard"
+              component={HomeDashboardScreen}
+              options={{ headerShown: false }}
+            />
             <Stack.Screen
               name="ClientList"
               component={ClientListScreen}
@@ -132,3 +145,12 @@ export function RootNavigator() {
     </NavigationContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  loadingScreen: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.background,
+  },
+});

@@ -2,6 +2,7 @@ import { EyeAnalysis, LashMap, Lesson } from '../types/api';
 
 export type RootStackParamList = {
   Auth: undefined;
+  Dashboard: undefined;
   ClientList: undefined;
   NewClient: undefined;
   ClientProfile: { clientId: string };

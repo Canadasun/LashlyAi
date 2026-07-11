@@ -1,6 +1,15 @@
 export const colors = {
-  primary: '#D98FAF', // Dusty Rose
-  accent: '#C9A45C', // Champagne Gold
-  background: '#F7E8E3', // Soft Nude
-  text: '#2B2B2B', // Charcoal
+  primary: '#B85C7A',
+  primaryDark: '#713548',
+  primarySoft: '#F4DDE5',
+  accent: '#A77A32',
+  accentSoft: '#F3E8D3',
+  background: '#FAF7F4',
+  surface: '#FFFFFF',
+  ink: '#241D20',
+  text: '#342B2F',
+  muted: '#746A6E',
+  border: '#EAE2DE',
+  success: '#32705A',
+  danger: '#A43F4C',
 };

@@ -1,0 +1,294 @@
+import { useCallback, useMemo, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import {
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth } from '../context/AuthContext';
+import { RootStackParamList } from '../navigation/types';
+import { api } from '../services/api';
+import { colors } from '../theme/colors';
+import { ClientProfile, InventoryItem } from '../types/api';
+
+type Props = NativeStackScreenProps<RootStackParamList, 'Dashboard'>;
+
+interface QuotaField {
+  used: number;
+  limit: number | null;
+}
+
+interface UsageSummary {
+  plan: string;
+  enforced: boolean;
+  client_profiles: QuotaField;
+  coach_questions_today: QuotaField;
+  eye_scans_this_month: QuotaField;
+}
+
+const QUICK_ACTIONS: {
+  title: string;
+  caption: string;
+  symbol: string;
+  screen: 'NewClient' | 'Coach' | 'MarketingTools' | 'GlueRecommendation';
+}[] = [
+  { title: 'Add client', caption: 'Start a profile', symbol: '+', screen: 'NewClient' },
+  { title: 'Ask AI coach', caption: 'Get guidance', symbol: 'AI', screen: 'Coach' },
+  { title: 'Create content', caption: 'Caption or reply', symbol: 'Aa', screen: 'MarketingTools' },
+  { title: 'Glue check', caption: 'Match conditions', symbol: '%', screen: 'GlueRecommendation' },
+];
+
+function quotaText(field?: QuotaField) {
+  if (!field) return '—';
+  return field.limit === null ? `${field.used}` : `${field.used} / ${field.limit}`;
+}
+
+export function HomeDashboardScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
+  const { session, signOut } = useAuth();
+  const [clients, setClients] = useState<ClientProfile[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [usage, setUsage] = useState<UsageSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadDashboard = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    try {
+      setError(null);
+      const results = await Promise.allSettled([
+        api.get<ClientProfile[]>('/clients'),
+        api.get<UsageSummary>('/users/me/usage'),
+        api.get<InventoryItem[]>('/inventory'),
+      ]);
+
+      if (results[0].status === 'fulfilled') setClients(results[0].value);
+      if (results[1].status === 'fulfilled') setUsage(results[1].value);
+      if (results[2].status === 'fulfilled') setInventory(results[2].value);
+
+      if (results.every((result) => result.status === 'rejected')) {
+        const firstFailure = results[0] as PromiseRejectedResult;
+        throw firstFailure.reason;
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Your dashboard could not be loaded.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadDashboard();
+    }, [loadDashboard]),
+  );
+
+  const recentClients = useMemo(
+    () =>
+      [...clients]
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 3),
+    [clients],
+  );
+  const stockAlerts = inventory.filter(
+    (item) => item.is_low_stock || item.is_expired || item.is_expiring_soon,
+  );
+  const firstName = session?.email.split('@')[0].split(/[._-]/)[0] || 'there';
+  const displayName = firstName.charAt(0).toUpperCase() + firstName.slice(1);
+
+  return (
+    <View style={styles.screen}>
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + 14 }]}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => loadDashboard(true)}
+            tintColor={colors.primary}
+          />
+        }>
+        <View style={styles.topBar}>
+          <View style={styles.brandRow}>
+            <View style={styles.brandMark}><Text style={styles.brandMarkText}>L</Text></View>
+            <Text style={styles.brand}>Lashly<Text style={styles.brandAccent}>AI</Text></Text>
+          </View>
+          <TouchableOpacity accessibilityRole="button" onPress={signOut} style={styles.avatar}>
+            <Text style={styles.avatarText}>{displayName.charAt(0)}</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.welcomeRow}>
+          <View>
+            <Text style={styles.eyebrow}>YOUR BUSINESS, AT A GLANCE</Text>
+            <Text style={styles.greeting}>Good to see you, {displayName}.</Text>
+          </View>
+          <Text style={styles.planPill}>{usage?.plan?.toUpperCase() || 'MY STUDIO'}</Text>
+        </View>
+
+        {error && (
+          <TouchableOpacity style={styles.errorBanner} onPress={() => loadDashboard()}>
+            <Text style={styles.errorText}>{error}  Tap to retry.</Text>
+          </TouchableOpacity>
+        )}
+
+        {loading ? (
+          <ActivityIndicator style={styles.loader} color={colors.primary} />
+        ) : (
+          <>
+            <View style={styles.metricsGrid}>
+              <TouchableOpacity style={[styles.metricCard, styles.metricCardPrimary]} onPress={() => navigation.navigate('ClientList')}>
+                <Text style={styles.metricLabelLight}>CLIENT RELATIONSHIPS</Text>
+                <Text style={styles.metricValueLight}>{clients.length}</Text>
+                <Text style={styles.metricCaptionLight}>active profiles  →</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.metricCard} onPress={() => navigation.navigate('Inventory')}>
+                <Text style={styles.metricLabel}>STOCK ATTENTION</Text>
+                <Text style={[styles.metricValue, stockAlerts.length > 0 && styles.alertValue]}>{stockAlerts.length}</Text>
+                <Text style={styles.metricCaption}>{stockAlerts.length === 1 ? 'item needs action' : 'items need action'}  →</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.sectionTitle}>Run your day</Text>
+            <Text style={styles.sectionSubtitle}>The things you reach for most, one tap away.</Text>
+            <View style={styles.actionGrid}>
+              {QUICK_ACTIONS.map((action) => (
+                <TouchableOpacity key={action.screen} style={styles.actionCard} onPress={() => navigation.navigate(action.screen)}>
+                  <View style={styles.actionIcon}><Text style={styles.actionIconText}>{action.symbol}</Text></View>
+                  <View style={styles.actionCopy}>
+                    <Text style={styles.actionTitle}>{action.title}</Text>
+                    <Text style={styles.actionCaption}>{action.caption}</Text>
+                  </View>
+                  <Text style={styles.chevron}>›</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={styles.sectionHeader}>
+              <View>
+                <Text style={styles.sectionTitle}>Recent clients</Text>
+                <Text style={styles.sectionSubtitle}>Continue where you left off.</Text>
+              </View>
+              <TouchableOpacity onPress={() => navigation.navigate('ClientList')}>
+                <Text style={styles.seeAll}>View all</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.clientCard}>
+              {recentClients.length === 0 ? (
+                <TouchableOpacity style={styles.emptyState} onPress={() => navigation.navigate('NewClient')}>
+                  <Text style={styles.emptyTitle}>Build your client book</Text>
+                  <Text style={styles.emptyText}>Add your first client to save notes, photos and lash maps.</Text>
+                </TouchableOpacity>
+              ) : recentClients.map((client, index) => (
+                <TouchableOpacity
+                  key={client.id}
+                  style={[styles.clientRow, index < recentClients.length - 1 && styles.clientDivider]}
+                  onPress={() => navigation.navigate('ClientProfile', { clientId: client.id })}>
+                  <View style={styles.clientInitial}><Text style={styles.clientInitialText}>{client.name.charAt(0).toUpperCase()}</Text></View>
+                  <View style={styles.clientCopy}>
+                    <Text style={styles.clientName}>{client.name}</Text>
+                    <Text style={styles.clientMeta}>{client.eye_analysis ? `${client.eye_analysis.eye_shape} eye profile` : 'Profile ready for analysis'}</Text>
+                  </View>
+                  <Text style={styles.chevron}>›</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={styles.usageCard}>
+              <View style={styles.usageHeading}>
+                <View>
+                  <Text style={styles.usageEyebrow}>THIS PERIOD</Text>
+                  <Text style={styles.usageTitle}>AI workspace usage</Text>
+                </View>
+                <TouchableOpacity onPress={() => navigation.navigate('Paywall')}><Text style={styles.managePlan}>Manage plan</Text></TouchableOpacity>
+              </View>
+              <View style={styles.usageStats}>
+                <View style={styles.usageStat}><Text style={styles.usageValue}>{quotaText(usage?.eye_scans_this_month)}</Text><Text style={styles.usageLabel}>eye scans</Text></View>
+                <View style={styles.usageRule} />
+                <View style={styles.usageStat}><Text style={styles.usageValue}>{quotaText(usage?.coach_questions_today)}</Text><Text style={styles.usageLabel}>coach questions</Text></View>
+              </View>
+            </View>
+
+            <View style={styles.growRow}>
+              <TouchableOpacity style={styles.growLink} onPress={() => navigation.navigate('LessonList')}><Text style={styles.growText}>Learn & improve</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.growLink} onPress={() => navigation.navigate('ForumList')}><Text style={styles.growText}>Community</Text></TouchableOpacity>
+            </View>
+          </>
+        )}
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
+  content: { paddingHorizontal: 20, paddingBottom: 36 },
+  topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  brandRow: { flexDirection: 'row', alignItems: 'center' },
+  brandMark: { width: 28, height: 28, borderRadius: 9, backgroundColor: colors.primaryDark, alignItems: 'center', justifyContent: 'center', marginRight: 9 },
+  brandMarkText: { color: '#FFFFFF', fontWeight: '800', fontSize: 15 },
+  brand: { color: colors.ink, fontWeight: '800', fontSize: 19, letterSpacing: -0.4 },
+  brandAccent: { color: colors.primary },
+  avatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { color: colors.primaryDark, fontWeight: '800', fontSize: 14 },
+  welcomeRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 34, marginBottom: 20 },
+  eyebrow: { color: colors.primary, fontSize: 10, fontWeight: '800', letterSpacing: 1.2, marginBottom: 7 },
+  greeting: { color: colors.ink, fontSize: 24, fontWeight: '700', letterSpacing: -0.6 },
+  planPill: { color: colors.accent, backgroundColor: colors.accentSoft, fontSize: 9, fontWeight: '800', letterSpacing: 0.7, overflow: 'hidden', borderRadius: 10, paddingHorizontal: 9, paddingVertical: 6 },
+  errorBanner: { backgroundColor: '#FBE8E8', borderRadius: 12, padding: 12, marginBottom: 14 },
+  errorText: { color: colors.danger, fontSize: 12, fontWeight: '600' },
+  loader: { marginVertical: 70 },
+  metricsGrid: { flexDirection: 'row', marginHorizontal: -5 },
+  metricCard: { flex: 1, minHeight: 138, marginHorizontal: 5, padding: 16, borderRadius: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  metricCardPrimary: { backgroundColor: colors.primaryDark, borderColor: colors.primaryDark },
+  metricLabel: { color: colors.muted, fontSize: 9, fontWeight: '800', letterSpacing: 0.8 },
+  metricLabelLight: { color: '#E9C8D3', fontSize: 9, fontWeight: '800', letterSpacing: 0.8 },
+  metricValue: { color: colors.ink, fontSize: 38, fontWeight: '700', marginTop: 12, letterSpacing: -1 },
+  metricValueLight: { color: '#FFFFFF', fontSize: 38, fontWeight: '700', marginTop: 12, letterSpacing: -1 },
+  alertValue: { color: colors.danger },
+  metricCaption: { color: colors.muted, fontSize: 11, marginTop: 3 },
+  metricCaptionLight: { color: '#F2DCE3', fontSize: 11, marginTop: 3 },
+  sectionTitle: { color: colors.ink, fontSize: 17, fontWeight: '700', letterSpacing: -0.25, marginTop: 28 },
+  sectionSubtitle: { color: colors.muted, fontSize: 12, marginTop: 4 },
+  actionGrid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -5, marginTop: 12 },
+  actionCard: { width: '47.35%', flexGrow: 1, minHeight: 76, margin: 5, borderRadius: 15, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, padding: 12, flexDirection: 'row', alignItems: 'center' },
+  actionIcon: { width: 34, height: 34, borderRadius: 11, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center', marginRight: 9 },
+  actionIconText: { color: colors.primaryDark, fontSize: 12, fontWeight: '800' },
+  actionCopy: { flex: 1 },
+  actionTitle: { color: colors.ink, fontSize: 12, fontWeight: '700' },
+  actionCaption: { color: colors.muted, fontSize: 9, marginTop: 3 },
+  chevron: { color: colors.primary, fontSize: 22, fontWeight: '400' },
+  sectionHeader: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
+  seeAll: { color: colors.primary, fontSize: 12, fontWeight: '700', paddingBottom: 1 },
+  clientCard: { marginTop: 12, backgroundColor: colors.surface, borderRadius: 18, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 15 },
+  clientRow: { minHeight: 70, flexDirection: 'row', alignItems: 'center' },
+  clientDivider: { borderBottomWidth: 1, borderBottomColor: colors.border },
+  clientInitial: { width: 38, height: 38, borderRadius: 12, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  clientInitialText: { color: colors.accent, fontSize: 14, fontWeight: '800' },
+  clientCopy: { flex: 1 },
+  clientName: { color: colors.ink, fontSize: 13, fontWeight: '700' },
+  clientMeta: { color: colors.muted, fontSize: 10, marginTop: 4, textTransform: 'capitalize' },
+  emptyState: { paddingVertical: 20 },
+  emptyTitle: { color: colors.ink, fontSize: 13, fontWeight: '700' },
+  emptyText: { color: colors.muted, fontSize: 11, lineHeight: 16, marginTop: 5 },
+  usageCard: { backgroundColor: '#F1ECE8', borderRadius: 18, padding: 17, marginTop: 28 },
+  usageHeading: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  usageEyebrow: { color: colors.muted, fontSize: 9, fontWeight: '800', letterSpacing: 0.8 },
+  usageTitle: { color: colors.ink, fontSize: 14, fontWeight: '700', marginTop: 4 },
+  managePlan: { color: colors.primary, fontSize: 11, fontWeight: '700' },
+  usageStats: { flexDirection: 'row', alignItems: 'center', marginTop: 18 },
+  usageStat: { flex: 1 },
+  usageValue: { color: colors.ink, fontSize: 17, fontWeight: '700' },
+  usageLabel: { color: colors.muted, fontSize: 10, marginTop: 3 },
+  usageRule: { width: 1, height: 31, backgroundColor: '#D8CECA', marginHorizontal: 15 },
+  growRow: { flexDirection: 'row', justifyContent: 'center', marginTop: 23 },
+  growLink: { paddingHorizontal: 16, paddingVertical: 8 },
+  growText: { color: colors.muted, fontSize: 11, fontWeight: '600' },
+});
