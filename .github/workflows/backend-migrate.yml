@@ -31,7 +31,9 @@ jobs:
       # Never run production migrations from a revision that does not compile.
       - name: Build backend
         working-directory: backend
-        run: npm run build
+        run: |
+          npm run build
+          npm test
 
       - name: Run pending migrations against production
         working-directory: backend

@@ -3,6 +3,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Image,
   ScrollView,
@@ -11,7 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { api } from '../services/api';
+import { api, authenticatedImageSource } from '../services/api';
 import { colors } from '../theme/colors';
 import { RootStackParamList } from '../navigation/types';
 import { ClientProfile, LashMap } from '../types/api';
@@ -24,6 +25,28 @@ export function ClientProfileScreen({ route, navigation }: Props) {
   const [lashMaps, setLashMaps] = useState<LashMap[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const confirmDelete = () => {
+    Alert.alert(
+      'Delete client?',
+      'This permanently deletes the client profile, photos, analyses and lash maps.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete permanently',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.delete(`/clients/${clientId}`);
+              navigation.navigate('Dashboard');
+            } catch (err) {
+              setError(err instanceof Error ? err.message : 'Failed to delete client');
+            }
+          },
+        },
+      ],
+    );
+  };
 
   const load = useCallback(async () => {
     try {
@@ -69,7 +92,7 @@ export function ClientProfileScreen({ route, navigation }: Props) {
       {client.notes ? <Text style={styles.notes}>{client.notes}</Text> : null}
 
       {client.photos.length > 0 && (
-        <Image source={{ uri: client.photos[client.photos.length - 1] }} style={styles.photo} />
+        <Image source={authenticatedImageSource(client.photos[client.photos.length - 1])} style={styles.photo} />
       )}
 
       <TouchableOpacity
@@ -110,6 +133,10 @@ export function ClientProfileScreen({ route, navigation }: Props) {
           )}
         />
       )}
+
+      <TouchableOpacity style={styles.deleteButton} onPress={confirmDelete}>
+        <Text style={styles.deleteButtonText}>Delete client and photos</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -150,4 +177,6 @@ const styles = StyleSheet.create({
   },
   mapStyle: { color: colors.text, fontWeight: '600', textTransform: 'capitalize' },
   mapDate: { color: colors.accent, fontSize: 12 },
+  deleteButton: { alignItems: 'center', paddingVertical: 14, marginTop: 20 },
+  deleteButtonText: { color: colors.danger, fontSize: 12, fontWeight: '700' },
 });

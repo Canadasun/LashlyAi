@@ -5,6 +5,7 @@ import {
   addPhotoAndEyeAnalysis,
   appendLashHistoryEntry,
   createClientProfile,
+  deleteClientProfile,
   getClientProfileById,
   getClientProfilesByOwner,
 } from "../models/ClientProfile";
@@ -26,10 +27,11 @@ import {
   troubleshootRetention,
 } from "../services/ai.service";
 import { generateLashMap } from "../services/lashmap.service";
-import { uploadImage } from "../services/storage.service";
+import { deleteStoredMediaAsset, prepareImage, uploadImage } from "../services/storage.service";
 import { asyncHandler } from "../utils/asyncHandler";
 import { checkClientProfileQuota, checkEyeScanQuota } from "../services/planLimits.service";
 import { logUsageEvent } from "../models/UsageEvent";
+import { getMediaAssetsByClientProfileId } from "../models/MediaAsset";
 
 export const clientsRouter = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
@@ -110,12 +112,24 @@ clientsRouter.post(
       return;
     }
 
-    const { url } = await uploadImage(req.file.buffer, req.file.originalname);
-    const eyeAnalysis = await analyzeEye(req.file.buffer);
-    const updated = await addPhotoAndEyeAnalysis(client.id, url, eyeAnalysis);
+    const preparedImage = await prepareImage(req.file.buffer);
+    const eyeAnalysis = await analyzeEye(preparedImage);
+    const uploaded = await uploadImage({
+      buffer: preparedImage,
+      ownerUserId: req.currentUser!.id,
+      clientProfileId: client.id,
+      purpose: "eye_analysis",
+    });
+    let updated;
+    try {
+      updated = await addPhotoAndEyeAnalysis(client.id, uploaded.url, eyeAnalysis);
+    } catch (error) {
+      await deleteStoredMediaAsset(uploaded.asset).catch(() => undefined);
+      throw error;
+    }
     await logUsageEvent(req.currentUser!.id, "eye_scan");
 
-    res.status(201).json({ photo_url: url, eye_analysis: updated.eye_analysis });
+    res.status(201).json({ photo_url: uploaded.url, eye_analysis: updated.eye_analysis });
   }),
 );
 
@@ -183,9 +197,21 @@ clientsRouter.post(
       return;
     }
 
-    const { url } = await uploadImage(req.file.buffer, req.file.originalname);
-    const feedback = await scoreLashPhoto(req.file.buffer);
-    const saved = await createPhotoFeedback(client.id, url, feedback);
+    const preparedImage = await prepareImage(req.file.buffer);
+    const feedback = await scoreLashPhoto(preparedImage);
+    const uploaded = await uploadImage({
+      buffer: preparedImage,
+      ownerUserId: req.currentUser!.id,
+      clientProfileId: client.id,
+      purpose: "photo_feedback",
+    });
+    let saved;
+    try {
+      saved = await createPhotoFeedback(client.id, uploaded.url, feedback);
+    } catch (error) {
+      await deleteStoredMediaAsset(uploaded.asset).catch(() => undefined);
+      throw error;
+    }
 
     res.status(201).json(saved);
   }),
@@ -200,6 +226,22 @@ clientsRouter.get(
 
     const feedback = await getPhotoFeedbackByClientProfileId(client.id);
     res.json(feedback);
+  }),
+);
+
+clientsRouter.delete(
+  "/:id",
+  requireUser,
+  asyncHandler(async (req, res) => {
+    const client = await loadOwnedClient(req, res);
+    if (!client) return;
+
+    const assets = await getMediaAssetsByClientProfileId(client.id);
+    for (const asset of assets) {
+      await deleteStoredMediaAsset(asset);
+    }
+    await deleteClientProfile(client.id);
+    res.status(204).send();
   }),
 );
 

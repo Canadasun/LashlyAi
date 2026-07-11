@@ -41,6 +41,10 @@ export async function getClientProfilesByOwner(ownerUserId: string): Promise<Cli
   return result.rows;
 }
 
+export async function deleteClientProfile(id: string): Promise<void> {
+  await pool.query("DELETE FROM client_profiles WHERE id = $1", [id]);
+}
+
 export async function addPhotoAndEyeAnalysis(
   id: string,
   photoUrl: string,

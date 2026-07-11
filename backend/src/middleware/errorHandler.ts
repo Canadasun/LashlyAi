@@ -2,6 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import { MulterError } from "multer";
 import OpenAI from "openai";
 import { logger } from "../utils/logger";
+import { ImageValidationError } from "../services/storage.service";
 
 const MULTER_ERROR_MESSAGES: Partial<Record<MulterError["code"], string>> = {
   LIMIT_FILE_SIZE: "Photo is too large. Maximum size is 10MB.",
@@ -29,6 +30,11 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
 
   if (err instanceof MulterError) {
     res.status(400).json({ error: MULTER_ERROR_MESSAGES[err.code] ?? err.message });
+    return;
+  }
+
+  if (err instanceof ImageValidationError) {
+    res.status(400).json({ error: err.message });
     return;
   }
 

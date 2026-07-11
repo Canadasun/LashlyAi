@@ -28,6 +28,13 @@ export function setAuthToken(token: string | undefined) {
   currentToken = token;
 }
 
+export function authenticatedImageSource(uri: string) {
+  return {
+    uri,
+    headers: currentToken ? { Authorization: `Bearer ${currentToken}` } : undefined,
+  };
+}
+
 // Lets AuthContext react to any 401 from anywhere in the app (e.g. an expired token)
 // by signing the user out and bouncing to the login screen, instead of leaving them
 // stuck on whatever screen they were on with a raw "invalid token" error.

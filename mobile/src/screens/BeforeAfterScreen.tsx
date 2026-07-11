@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { api } from '../services/api';
+import { api, authenticatedImageSource } from '../services/api';
 import { colors } from '../theme/colors';
 import { RootStackParamList } from '../navigation/types';
 import { ClientProfile, PhotoFeedback } from '../types/api';
@@ -74,7 +74,7 @@ export function BeforeAfterScreen({ route }: Props) {
             <View style={styles.column}>
               <Text style={styles.label}>Before</Text>
               {beforePhoto ? (
-                <Image source={{ uri: beforePhoto }} style={styles.photo} />
+                <Image source={authenticatedImageSource(beforePhoto)} style={styles.photo} />
               ) : (
                 <View style={styles.placeholder}>
                   <Text style={styles.placeholderText}>No eye photo yet</Text>
@@ -84,7 +84,7 @@ export function BeforeAfterScreen({ route }: Props) {
             <View style={styles.column}>
               <Text style={styles.label}>After</Text>
               {afterPhoto ? (
-                <Image source={{ uri: afterPhoto }} style={styles.photo} />
+                <Image source={authenticatedImageSource(afterPhoto)} style={styles.photo} />
               ) : (
                 <View style={styles.placeholder}>
                   <Text style={styles.placeholderText}>No completed-work photo yet</Text>

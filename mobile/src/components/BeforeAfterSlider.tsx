@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { Animated, Image, LayoutChangeEvent, PanResponder, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme/colors';
+import { authenticatedImageSource } from '../services/api';
 
 interface BeforeAfterSliderProps {
   beforeUri: string;
@@ -58,13 +59,13 @@ export function BeforeAfterSlider({ beforeUri, afterUri, height = 280 }: BeforeA
       {containerWidth > 0 && (
         <>
           <Image
-            source={{ uri: afterUri }}
+            source={authenticatedImageSource(afterUri)}
             style={{ width: containerWidth, height }}
             resizeMode="cover"
           />
           <Animated.View style={[styles.beforeClip, { width: clipWidth, height }]}>
             <Image
-              source={{ uri: beforeUri }}
+              source={authenticatedImageSource(beforeUri)}
               style={{ width: containerWidth, height }}
               resizeMode="cover"
             />

@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { api } from '../services/api';
+import { api, authenticatedImageSource } from '../services/api';
 import { colors } from '../theme/colors';
 import { RootStackParamList } from '../navigation/types';
 import { EyeAnalysis, LashMap } from '../types/api';
@@ -90,7 +90,7 @@ export function EyeAnalysisResultScreen({ route, navigation }: Props) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Image source={{ uri: photoUrl }} style={styles.photo} />
+      <Image source={authenticatedImageSource(photoUrl)} style={styles.photo} />
 
       {eyeAnalysis.mock && (
         <View style={styles.mockBadge}>

@@ -14,8 +14,8 @@ import { inventoryRouter } from "./routes/inventory.routes";
 import { marketingRouter } from "./routes/marketing.routes";
 import { lessonsRouter } from "./routes/lessons.routes";
 import { forumRouter } from "./routes/forum.routes";
+import { mediaRouter } from "./routes/media.routes";
 import { errorHandler, requestLogger } from "./middleware/errorHandler";
-import { localStorageDir } from "./services/storage.service";
 import { logger } from "./utils/logger";
 
 const app = express();
@@ -40,10 +40,6 @@ app.get("/health", (_req, res) => {
   res.json({ status: "ok", service: "lashlyai-backend", timestamp: new Date().toISOString() });
 });
 
-// Dev-only: serves images written by the local-disk storage stub. Swap for a real
-// S3 bucket + CDN before production.
-app.use("/local-storage", express.static(localStorageDir()));
-
 app.use("/auth", authRouter);
 app.use("/users", usersRouter);
 app.use("/clients", clientsRouter);
@@ -56,6 +52,7 @@ app.use("/inventory", inventoryRouter);
 app.use("/marketing", marketingRouter);
 app.use("/lessons", lessonsRouter);
 app.use("/forum", forumRouter);
+app.use("/media", mediaRouter);
 
 // Must be registered after all routes.
 app.use(errorHandler);

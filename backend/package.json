@@ -8,9 +8,11 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "migrate": "tsx src/db/migrate.ts"
+    "migrate": "tsx src/db/migrate.ts",
+    "test": "node --import tsx --test src/**/*.test.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1085.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
@@ -18,7 +20,8 @@
     "helmet": "^7.1.0",
     "multer": "^2.2.0",
     "openai": "^4.104.0",
-    "pg": "^8.12.0"
+    "pg": "^8.12.0",
+    "sharp": "^0.35.3"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
