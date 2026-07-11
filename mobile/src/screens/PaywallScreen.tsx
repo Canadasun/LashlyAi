@@ -1,50 +1,208 @@
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import {
+  finishTransaction,
+  requestPurchase,
+  useIAP,
+  validateReceiptIOS,
+  type ProductSubscription,
+  type Purchase,
+} from 'react-native-iap';
+import { api } from '../services/api';
 import { colors } from '../theme/colors';
 
-const featureRows = [
-  ['Client management', 'Free: 5 profiles', 'Pro: unlimited'],
-  ['AI Lash Coach', 'Free: 5 questions/day', 'Pro: unlimited'],
-  ['Eye scans', 'Free: 3/month', 'Pro: unlimited'],
-  ['Priority support', 'Not included', 'Included'],
-];
+const SUBSCRIPTION_SKUS = ['lashlyai_pro_monthly', 'lashlyai_pro_yearly'];
+
+type VerifiedSubscriptionResponse = {
+  plan: string;
+  status: string;
+  verified: boolean;
+};
+
+function getProductLabel(product: ProductSubscription) {
+  return product.id === 'lashlyai_pro_yearly' ? 'Pro Annual' : 'Pro Monthly';
+}
+
+function getProductFeatureCopy(product: ProductSubscription) {
+  return product.id === 'lashlyai_pro_yearly'
+    ? 'Best value for salons and established professionals.'
+    : 'Flexible monthly access for active artists and teams.';
+}
 
 export function PaywallScreen() {
+  const isIOS = Platform.OS === 'ios';
+  const [selectedSku, setSelectedSku] = useState<string>(SUBSCRIPTION_SKUS[0]);
+  const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const { connected, subscriptions, fetchProducts, restorePurchases } =
+    useIAP({
+      onError: (err) => setError(err.message),
+      onPurchaseError: (purchaseError) => {
+        setError(purchaseError.message);
+        setSubmitting(false);
+      },
+    onPurchaseSuccess: (purchase) => {
+      handlePurchaseSuccess(purchase).catch((err) => {
+        setError(err instanceof Error ? err.message : 'Failed to verify subscription');
+        setSubmitting(false);
+      });
+      },
+    });
+
+  useEffect(() => {
+    fetchProducts({ skus: SUBSCRIPTION_SKUS, type: 'subs' }).catch(() => undefined);
+  }, [fetchProducts]);
+
+  const selectedProduct = subscriptions.find((product) => product.id === selectedSku) ?? null;
+
+  const handlePurchaseSuccess = async (purchase: Purchase) => {
+    try {
+      const verification = await validateReceiptIOS({
+        apple: { sku: purchase.productId },
+      });
+
+      if (!verification.isValid || !verification.receiptData) {
+        throw new Error('Apple receipt verification failed');
+      }
+
+      const result = await api.post<VerifiedSubscriptionResponse>('/subscriptions/verify', {
+        receipt_data: verification.receiptData,
+      });
+
+      await finishTransaction({
+        purchase,
+        isConsumable: false,
+      });
+
+      setStatus(`Subscription updated: ${result.plan} (${result.status})`);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to verify subscription');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handlePurchase = async () => {
+    if (!selectedProduct) {
+      setError('Load a subscription product first.');
+      return;
+    }
+
+    setError(null);
+    setStatus(null);
+    setSubmitting(true);
+
+    try {
+      await requestPurchase({
+        request: {
+          apple: {
+            sku: selectedSku,
+            andDangerouslyFinishTransactionAutomatically: false,
+          },
+        },
+        type: 'subs',
+      });
+      setStatus('Complete the App Store purchase prompt.');
+    } catch (purchaseError) {
+      setError(purchaseError instanceof Error ? purchaseError.message : 'Failed to start purchase');
+      setSubmitting(false);
+    }
+  };
+
+  const handleRestore = async () => {
+    setError(null);
+    setStatus(null);
+    setSubmitting(true);
+    try {
+      await restorePurchases({ onlyIncludeActiveItemsIOS: true });
+      setStatus('Restore requested.');
+    } catch (restoreError) {
+      setError(restoreError instanceof Error ? restoreError.message : 'Failed to restore purchases');
+      setSubmitting(false);
+    }
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.hero}>
         <Text style={styles.kicker}>Upgrade path</Text>
         <Text style={styles.title}>Built for serious lash businesses</Text>
         <Text style={styles.subtitle}>
-          This build does not have StoreKit wired yet, so subscription purchase is
-          intentionally disabled instead of pretending to work.
+          Pick a plan, complete the App Store purchase, and the app will verify the
+          receipt against the backend before unlocking access.
         </Text>
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardLabel}>What the app already supports</Text>
-        {featureRows.map(([label, freeValue, proValue]) => (
-          <View key={label} style={styles.featureRow}>
-            <Text style={styles.featureName}>{label}</Text>
-            <Text style={styles.featureValue}>{freeValue}</Text>
-            <Text style={[styles.featureValue, styles.featureValueStrong]}>{proValue}</Text>
+        <Text style={styles.cardLabel}>Plans</Text>
+        {subscriptions.length === 0 ? (
+          <View style={styles.loadingState}>
+            <ActivityIndicator color={colors.primary} />
+            <Text style={styles.loadingText}>Loading App Store products…</Text>
           </View>
-        ))}
+        ) : (
+          subscriptions.map((product) => (
+            <TouchableOpacity
+              key={product.id}
+              style={[styles.planCard, selectedSku === product.id && styles.planCardSelected]}
+              onPress={() => setSelectedSku(product.id)}
+              activeOpacity={0.8}>
+              <Text style={styles.planName}>{getProductLabel(product)}</Text>
+              <Text style={styles.planPrice}>{product.displayPrice}</Text>
+              <Text style={styles.planCopy}>{getProductFeatureCopy(product)}</Text>
+            </TouchableOpacity>
+          ))
+        )}
       </View>
 
       <View style={styles.notice}>
-        <Text style={styles.noticeTitle}>Purchase flow status</Text>
+        <Text style={styles.noticeTitle}>Current state</Text>
         <Text style={styles.noticeBody}>
-          Real subscriptions now require Apple receipt verification on the backend.
-          Until a native purchase flow is added, the app should keep this screen read
-          only so users are not led into a dead-end flow.
+          {isIOS
+            ? connected
+              ? 'StoreKit is connected and ready.'
+              : 'Connecting to the App Store…'
+            : 'Subscriptions are currently wired for iOS only.'}
         </Text>
       </View>
 
+      {status && <Text style={styles.status}>{status}</Text>}
+      {error && <Text style={styles.error}>{error}</Text>}
+
+      <TouchableOpacity
+        style={[styles.button, submitting && styles.buttonDisabled]}
+        onPress={handlePurchase}
+        disabled={submitting || !isIOS || !connected || !selectedProduct}>
+        {submitting ? (
+          <ActivityIndicator color={colors.background} />
+        ) : (
+          <Text style={styles.buttonText}>{isIOS ? 'Subscribe' : 'iOS Only'}</Text>
+        )}
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.secondaryButton}
+        onPress={handleRestore}
+        disabled={submitting || !isIOS}>
+        <Text style={styles.secondaryButtonText}>Restore Purchases</Text>
+      </TouchableOpacity>
+
       <View style={styles.enterpriseCard}>
-        <Text style={styles.enterpriseTitle}>Enterprise-ready next step</Text>
+        <Text style={styles.enterpriseTitle}>What happens after purchase</Text>
         <Text style={styles.enterpriseBody}>
-          Connect StoreKit, pass the signed receipt to the API, and let the server
-          determine access from receipt status and expiry.
+          The app verifies the Apple receipt on the backend, stores the subscription
+          entitlement, and keeps access tied to the verified status and expiry date.
         </Text>
       </View>
     </ScrollView>
@@ -99,25 +257,43 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 12,
   },
-  featureRow: {
-    paddingVertical: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#EEF2F7',
+  loadingState: {
+    alignItems: 'center',
+    paddingVertical: 18,
   },
-  featureName: {
-    color: colors.text,
+  loadingText: {
+    color: colors.accent,
     fontSize: 13,
-    fontWeight: '700',
-    marginBottom: 4,
+    marginTop: 10,
   },
-  featureValue: {
+  planCard: {
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    backgroundColor: '#FAFBFD',
+  },
+  planCardSelected: {
+    borderColor: colors.primary,
+    backgroundColor: '#F4F7FF',
+  },
+  planName: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  planPrice: {
+    color: colors.primary,
+    fontSize: 18,
+    fontWeight: '800',
+    marginTop: 4,
+  },
+  planCopy: {
     color: colors.accent,
     fontSize: 13,
     lineHeight: 18,
-  },
-  featureValueStrong: {
-    color: colors.primary,
-    fontWeight: '700',
+    marginTop: 6,
   },
   notice: {
     backgroundColor: '#FFF7ED',
@@ -138,12 +314,49 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
   },
+  status: {
+    color: colors.text,
+    fontSize: 13,
+    marginBottom: 8,
+  },
+  error: {
+    color: '#B3261E',
+    fontSize: 13,
+    marginBottom: 8,
+  },
+  button: {
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  buttonDisabled: {
+    opacity: 0.7,
+  },
+  buttonText: {
+    color: colors.background,
+    fontWeight: '700',
+    fontSize: 15,
+  },
+  secondaryButton: {
+    backgroundColor: '#ffffff',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  secondaryButtonText: {
+    color: colors.text,
+    fontWeight: '600',
+  },
   enterpriseCard: {
     backgroundColor: '#F8FAFC',
     borderRadius: 18,
     padding: 16,
     borderWidth: 1,
     borderColor: '#DCE4F0',
+    marginTop: 16,
     marginBottom: 8,
   },
   enterpriseTitle: {
