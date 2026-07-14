@@ -13,16 +13,24 @@
 # build, which is deliberately NOT automated here since that's a real App Review
 # submission, not something to fire off unattended.
 #
-# BUG FIXED 2026-07-14: the builds lookup used to be `?limit=1` with no filter or
-# sort, trusting the API to return the just-uploaded build first. It doesn't — every
-# run from #27 onward silently re-attached an old, already-compliant build (proof: a
-# 409 "already declared" on the compliance PATCH, and a build reaching VALID 2-3
-# seconds after upload finished, which is not how long Apple processing actually
-# takes). The real new build never got compliance/group set, so it stayed invisible —
-# testers kept seeing whatever build was current before this script was introduced,
-# silently, across every push since. Fixed by filtering on the exact build number this
-# run just created (BUILD_NUMBER, passed from the workflow's `github.run_number`,
-# the same value used in "Bump build number") instead of trusting list order.
+# BUG FIXED 2026-07-14 (round 1): the builds lookup used to be `?limit=1` with no
+# filter or sort, trusting the API to return the just-uploaded build first. It
+# doesn't — every run from #27 onward silently re-attached an old, already-compliant
+# build (proof: a 409 "already declared" on the compliance PATCH, and a build
+# reaching VALID 2-3 seconds after upload finished, which is not how long Apple
+# processing actually takes). The real new build never got compliance/group set, so
+# it stayed invisible — testers kept seeing whatever build was current before this
+# script was introduced, silently, across every push since.
+#
+# BUG FIXED 2026-07-14 (round 2): the round-1 fix filtered
+# `/v1/preReleaseVersions/{id}/builds?filter[version]=...`, which isn't a supported
+# filter on that nested relationship endpoint — Apple returned an error body with no
+# "data" key, and the script had no status-code check, so it crashed with a bare
+# `KeyError` instead of a useful message (build #29). Fixed by querying the top-level
+# `/v1/builds` resource instead, which does document `filter[app]`/`filter[version]`
+# (the same pattern Fastlane and most CI integrations use), and by checking the HTTP
+# status before touching the response body so a future API surprise fails with the
+# actual error instead of a cryptic exception.
 
 require "jwt"
 require "net/http"
@@ -62,22 +70,23 @@ token = JWT.encode(
   { kid: key_id, typ: "JWT" },
 )
 
-# Only one marketing (preRelease) version exists for this app today, so grabbing the
-# first one is safe — if a second one is ever created, this needs a real lookup by
-# version string instead of just taking data.first.
-_, versions_body = api(:get, token, "/v1/apps/#{APP_ID}/preReleaseVersions?limit=1")
-version_id = JSON.parse(versions_body).fetch("data").fetch(0).fetch("id")
-
 build_id = nil
 state = nil
 
 MAX_POLL_ATTEMPTS.times do |attempt|
-  _, builds_body = api(
+  status, builds_body = api(
     :get,
     token,
-    "/v1/preReleaseVersions/#{version_id}/builds?filter[version]=#{build_number}&limit=1",
+    "/v1/builds?filter[app]=#{APP_ID}&filter[version]=#{build_number}&limit=1",
   )
-  data = JSON.parse(builds_body).fetch("data")
+  if status != 200
+    puts "[attach_testflight_build] attempt #{attempt + 1}/#{MAX_POLL_ATTEMPTS}: " \
+         "builds lookup failed with HTTP #{status}: #{builds_body}"
+    sleep POLL_INTERVAL_SECONDS
+    next
+  end
+
+  data = JSON.parse(builds_body)["data"] || []
   if data.empty?
     puts "[attach_testflight_build] attempt #{attempt + 1}/#{MAX_POLL_ATTEMPTS}: " \
          "build #{build_number} not visible in App Store Connect yet"
