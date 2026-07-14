@@ -1,9 +1,91 @@
 import { Router } from "express";
 import { requireAdmin } from "./middleware/requireAdmin";
+import { requireUser } from "./middleware/requireUser";
+import { requireAdminUser } from "./middleware/requireAdminUser";
 import { getAdminStats } from "../models/Admin";
 import { asyncHandler } from "../utils/asyncHandler";
+import { findUserByEmail } from "../models/User";
+import { getSubscriptionByUserId, SubscriptionPlan, upsertSubscription } from "../models/Subscription";
+import { createSubscriptionGrant } from "../models/SubscriptionGrant";
+import { createUserNotification } from "../models/UserNotification";
 
 export const adminRouter = Router();
+
+const GRANTABLE_PLANS: SubscriptionPlan[] = ["pro", "educator", "salon", "enterprise"];
+
+/**
+ * Grants a complimentary subscription (e.g. to an influencer) by email. Protected by
+ * real-user + is_admin auth (requireAdminUser), not the shared ADMIN_API_KEY used by
+ * the read-only stats dashboard below — this mutates billing state so it needs to be
+ * traceable to a specific admin account.
+ */
+adminRouter.post(
+  "/grants",
+  requireUser,
+  requireAdminUser,
+  asyncHandler(async (req, res) => {
+    const { email, plan, expires_at: expiresAt } = (req.body ?? {}) as {
+      email?: unknown;
+      plan?: unknown;
+      expires_at?: unknown;
+    };
+
+    if (typeof email !== "string" || !email.trim()) {
+      res.status(400).json({ error: "email is required" });
+      return;
+    }
+    if (typeof plan !== "string" || !GRANTABLE_PLANS.includes(plan as SubscriptionPlan)) {
+      res.status(400).json({ error: `plan must be one of: ${GRANTABLE_PLANS.join(", ")}` });
+      return;
+    }
+    const expiresAtDate = typeof expiresAt === "string" ? new Date(expiresAt) : null;
+    if (!expiresAtDate || Number.isNaN(expiresAtDate.getTime()) || expiresAtDate <= new Date()) {
+      res.status(400).json({ error: "expires_at must be a valid future ISO date" });
+      return;
+    }
+
+    const targetUser = await findUserByEmail(email);
+    if (!targetUser) {
+      res.status(404).json({ error: `No user found with email ${email}` });
+      return;
+    }
+
+    const existingSubscription = await getSubscriptionByUserId(targetUser.id);
+    if (
+      existingSubscription?.status === "active" &&
+      existingSubscription.apple_transaction_id
+    ) {
+      res.status(409).json({
+        error:
+          "This user already has an active paid subscription verified through Apple. Granting a comp subscription would overwrite it, so this was blocked.",
+      });
+      return;
+    }
+
+    const grantedPlan = plan as SubscriptionPlan;
+    const expiresAtIso = expiresAtDate.toISOString();
+
+    await upsertSubscription({
+      userId: targetUser.id,
+      plan: grantedPlan,
+      status: "active",
+      renewsAt: expiresAtIso,
+    });
+    await createSubscriptionGrant({
+      userId: targetUser.id,
+      grantedByAdminId: req.currentUser!.id,
+      plan: grantedPlan,
+      expiresAt: expiresAtIso,
+    });
+    await createUserNotification({
+      userId: targetUser.id,
+      type: "comp_subscription_grant",
+      payload: { plan: grantedPlan, expires_at: expiresAtIso },
+    });
+
+    res.status(201).json({ user_id: targetUser.id, plan: grantedPlan, expires_at: expiresAtIso });
+  }),
+);
 
 adminRouter.get(
   "/stats",

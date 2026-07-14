@@ -12,6 +12,7 @@ export interface User {
   location: string | null;
   preferred_styles: string[];
   firebase_uid: string | null;
+  is_admin: boolean;
   created_at: string;
 }
 
@@ -25,6 +26,7 @@ const SAFE_USER_COLUMNS = `
   location,
   preferred_styles,
   firebase_uid,
+  is_admin,
   created_at
 `;
 
@@ -43,6 +45,7 @@ function mapUserRow(row: UserRow): User {
     location: row.location,
     preferred_styles: row.preferred_styles,
     firebase_uid: row.firebase_uid,
+    is_admin: row.is_admin,
     created_at: row.created_at,
   };
 }
@@ -90,4 +93,25 @@ export async function updateUserPasswordHash(userId: string, passwordHash: strin
 
 export async function deleteUserById(userId: string): Promise<void> {
   await pool.query("DELETE FROM users WHERE id = $1", [userId]);
+}
+
+// Self-heals is_admin from the ADMIN_EMAILS allowlist on every authenticated request
+// (see requireUser middleware) so admin access doesn't depend on registration order
+// relative to when this env var/migration shipped — no separate seed script to run.
+export async function syncAdminFlagFromAllowlist(user: User): Promise<User> {
+  const allowlist = (process.env.ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+
+  const shouldBeAdmin = allowlist.includes(user.email.toLowerCase());
+  if (shouldBeAdmin === user.is_admin) {
+    return user;
+  }
+
+  const result = await pool.query<UserRow>(
+    `UPDATE users SET is_admin = $2 WHERE id = $1 RETURNING ${SAFE_USER_COLUMNS}, password_hash`,
+    [user.id, shouldBeAdmin],
+  );
+  return mapUserRow(result.rows[0]);
 }

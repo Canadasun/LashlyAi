@@ -11,6 +11,7 @@ import {
 import { deleteUserById } from "../models/User";
 import { getMediaAssetsByOwnerUserId } from "../models/MediaAsset";
 import { deleteStoredMediaAsset } from "../services/storage.service";
+import { getUnseenNotifications, markNotificationSeen } from "../models/UserNotification";
 
 export const usersRouter = Router();
 
@@ -55,5 +56,30 @@ usersRouter.get(
       coach_questions_today: coachQuestionsToday,
       eye_scans_this_month: eyeScansThisMonth,
     });
+  }),
+);
+
+// Polled on app foreground to show the comp-subscription banner (see
+// CompSubscriptionBanner.tsx on mobile). Only unseen notifications are ever returned;
+// once dismissed client-side, POST .../seen marks it so it never resurfaces.
+usersRouter.get(
+  "/me/notifications",
+  requireUser,
+  asyncHandler(async (req, res) => {
+    const notifications = await getUnseenNotifications(req.currentUser!.id);
+    res.json(notifications);
+  }),
+);
+
+usersRouter.post(
+  "/me/notifications/:id/seen",
+  requireUser,
+  asyncHandler(async (req, res) => {
+    const notification = await markNotificationSeen(req.currentUser!.id, req.params.id);
+    if (!notification) {
+      res.status(404).json({ error: "Notification not found" });
+      return;
+    }
+    res.json(notification);
   }),
 );

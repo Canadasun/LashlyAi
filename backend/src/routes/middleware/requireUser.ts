@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { verifySessionToken } from "../../services/auth.service";
-import { findUserById, User } from "../../models/User";
+import { findUserById, syncAdminFlagFromAllowlist, User } from "../../models/User";
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -31,7 +31,7 @@ export async function requireUser(req: Request, res: Response, next: NextFunctio
       res.status(404).json({ error: "No user record yet. Call POST /auth/register first." });
       return;
     }
-    req.currentUser = user;
+    req.currentUser = await syncAdminFlagFromAllowlist(user);
     next();
   } catch (err) {
     res.status(401).json({ error: "Invalid or expired token" });

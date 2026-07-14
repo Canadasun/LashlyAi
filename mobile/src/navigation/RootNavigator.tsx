@@ -9,6 +9,7 @@ import { CameraUploadScreen } from '../screens/CameraUploadScreen';
 import { ClientListScreen } from '../screens/ClientListScreen';
 import { ClientProfileScreen } from '../screens/ClientProfileScreen';
 import { CoachScreen } from '../screens/CoachScreen';
+import { CompSubscriptionBanner } from '../components/CompSubscriptionBanner';
 import { EyeAnalysisResultScreen } from '../screens/EyeAnalysisResultScreen';
 import { FeedbackScreen } from '../screens/FeedbackScreen';
 import { HomeDashboardScreen } from '../screens/HomeDashboardScreen';
@@ -39,110 +40,126 @@ export function RootNavigator() {
   }
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator
-        screenOptions={{
-          headerShadowVisible: false,
-          headerStyle: { backgroundColor: colors.background },
-          headerTintColor: colors.ink,
-          headerTitleStyle: { fontWeight: '700' },
-          contentStyle: { backgroundColor: colors.background },
-        }}>
-        {!session ? (
-          <Stack.Screen name="Auth" component={AuthScreen} options={{ headerShown: false }} />
-        ) : (
-          <>
+    <>
+      {session && <CompSubscriptionBanner />}
+      <NavigationContainer>
+        <Stack.Navigator
+          screenOptions={{
+            headerShadowVisible: false,
+            headerStyle: { backgroundColor: colors.background },
+            headerTintColor: colors.ink,
+            headerTitleStyle: { fontWeight: '700' },
+            contentStyle: { backgroundColor: colors.background },
+          }}
+        >
+          {!session ? (
             <Stack.Screen
-              name="Dashboard"
-              component={HomeDashboardScreen}
+              name="Auth"
+              component={AuthScreen}
               options={{ headerShown: false }}
             />
-            <Stack.Screen
-              name="ClientList"
-              component={ClientListScreen}
-              options={{ title: 'Clients' }}
-            />
-            <Stack.Screen
-              name="NewClient"
-              component={NewClientScreen}
-              options={{ title: 'New Client' }}
-            />
-            <Stack.Screen
-              name="ClientProfile"
-              component={ClientProfileScreen}
-              options={{ title: 'Client' }}
-            />
-            <Stack.Screen
-              name="CameraUpload"
-              component={CameraUploadScreen}
-              options={{ title: 'Photograph Eye' }}
-            />
-            <Stack.Screen
-              name="EyeAnalysisResult"
-              component={EyeAnalysisResultScreen}
-              options={{ title: 'Eye Analysis' }}
-            />
-            <Stack.Screen name="LashMap" component={LashMapScreen} options={{ title: 'Lash Map' }} />
-            <Stack.Screen name="Coach" component={CoachScreen} options={{ title: 'AI Lash Coach' }} />
-            <Stack.Screen
-              name="Feedback"
-              component={FeedbackScreen}
-              options={{ title: 'Report an Issue' }}
-            />
-            <Stack.Screen
-              name="Paywall"
-              component={PaywallScreen}
-              options={{ title: 'Subscription' }}
-            />
-            <Stack.Screen
-              name="PhotoFeedback"
-              component={PhotoFeedbackScreen}
-              options={{ title: 'Score My Work' }}
-            />
-            <Stack.Screen
-              name="Inventory"
-              component={InventoryScreen}
-              options={{ title: 'Inventory' }}
-            />
-            <Stack.Screen
-              name="MarketingTools"
-              component={MarketingToolsScreen}
-              options={{ title: 'Marketing Tools' }}
-            />
-            <Stack.Screen
-              name="GlueRecommendation"
-              component={GlueRecommendationScreen}
-              options={{ title: 'Glue & Humidity' }}
-            />
-            <Stack.Screen
-              name="LessonList"
-              component={LessonListScreen}
-              options={{ title: 'Lessons' }}
-            />
-            <Stack.Screen
-              name="LessonDetail"
-              component={LessonDetailScreen}
-              options={{ title: 'Lesson' }}
-            />
-            <Stack.Screen
-              name="ForumList"
-              component={ForumListScreen}
-              options={{ title: 'Community' }}
-            />
-            <Stack.Screen
-              name="ForumPostDetail"
-              component={ForumPostDetailScreen}
-              options={{ title: 'Post' }}
-            />
-            <Stack.Screen
-              name="BeforeAfter"
-              component={BeforeAfterScreen}
-              options={{ title: 'Before & After' }}
-            />
-          </>
-        )}
-      </Stack.Navigator>
-    </NavigationContainer>
+          ) : (
+            <>
+              <Stack.Screen
+                name="Dashboard"
+                component={HomeDashboardScreen}
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="ClientList"
+                component={ClientListScreen}
+                options={{ title: 'Clients' }}
+              />
+              <Stack.Screen
+                name="NewClient"
+                component={NewClientScreen}
+                options={{ title: 'New Client' }}
+              />
+              <Stack.Screen
+                name="ClientProfile"
+                component={ClientProfileScreen}
+                options={{ title: 'Client' }}
+              />
+              <Stack.Screen
+                name="CameraUpload"
+                component={CameraUploadScreen}
+                options={{ title: 'Photograph Eye' }}
+              />
+              <Stack.Screen
+                name="EyeAnalysisResult"
+                component={EyeAnalysisResultScreen}
+                options={{ title: 'Eye Analysis' }}
+              />
+              <Stack.Screen
+                name="LashMap"
+                component={LashMapScreen}
+                options={{ title: 'Lash Map' }}
+              />
+              <Stack.Screen
+                name="Coach"
+                component={CoachScreen}
+                options={{ title: 'AI Lash Coach' }}
+              />
+              <Stack.Screen
+                name="Feedback"
+                component={FeedbackScreen}
+                options={{ title: 'Report an Issue' }}
+              />
+              <Stack.Screen
+                name="Paywall"
+                component={PaywallScreen}
+                options={{ title: 'Subscription' }}
+              />
+              <Stack.Screen
+                name="PhotoFeedback"
+                component={PhotoFeedbackScreen}
+                options={{ title: 'Score My Work' }}
+              />
+              <Stack.Screen
+                name="Inventory"
+                component={InventoryScreen}
+                options={{ title: 'Inventory' }}
+              />
+              <Stack.Screen
+                name="MarketingTools"
+                component={MarketingToolsScreen}
+                options={{ title: 'Marketing Tools' }}
+              />
+              <Stack.Screen
+                name="GlueRecommendation"
+                component={GlueRecommendationScreen}
+                options={{ title: 'Glue & Humidity' }}
+              />
+              <Stack.Screen
+                name="LessonList"
+                component={LessonListScreen}
+                options={{ title: 'Lessons' }}
+              />
+              <Stack.Screen
+                name="LessonDetail"
+                component={LessonDetailScreen}
+                options={{ title: 'Lesson' }}
+              />
+              <Stack.Screen
+                name="ForumList"
+                component={ForumListScreen}
+                options={{ title: 'Community' }}
+              />
+              <Stack.Screen
+                name="ForumPostDetail"
+                component={ForumPostDetailScreen}
+                options={{ title: 'Post' }}
+              />
+              <Stack.Screen
+                name="BeforeAfter"
+                component={BeforeAfterScreen}
+                options={{ title: 'Before & After' }}
+              />
+            </>
+          )}
+        </Stack.Navigator>
+      </NavigationContainer>
+    </>
   );
 }
 
