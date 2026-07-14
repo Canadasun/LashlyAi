@@ -6,6 +6,7 @@ import { colors } from '../theme/colors';
 import { AuthScreen } from '../screens/AuthScreen';
 import { BeforeAfterScreen } from '../screens/BeforeAfterScreen';
 import { CameraUploadScreen } from '../screens/CameraUploadScreen';
+import { ChangePasswordScreen } from '../screens/ChangePasswordScreen';
 import { ClientListScreen } from '../screens/ClientListScreen';
 import { ClientProfileScreen } from '../screens/ClientProfileScreen';
 import { CoachScreen } from '../screens/CoachScreen';
@@ -38,6 +39,12 @@ export function RootNavigator() {
         <ActivityIndicator color={colors.primary} />
       </View>
     );
+  }
+
+  // Full gate — nothing else in the app (including the comp-subscription banner) is
+  // reachable until a temporary/default password has been changed.
+  if (session?.mustChangePassword) {
+    return <ChangePasswordScreen />;
   }
 
   return (

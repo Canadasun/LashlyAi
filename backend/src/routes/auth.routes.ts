@@ -1,6 +1,7 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { asyncHandler } from "../utils/asyncHandler";
+import { requireUser } from "./middleware/requireUser";
 import {
   createSessionToken,
   hashPassword,
@@ -35,6 +36,17 @@ const loginLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many login attempts. Try again later." },
+});
+
+// Tighter than login — a valid session token plus this endpoint is the shortest path
+// to hijacking an account's credentials if a token leaks, so brute-forcing the current
+// password shouldn't get many tries.
+const changePasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many password change attempts. Try again later." },
 });
 
 function normalizeEmail(email: string): string {
@@ -115,5 +127,41 @@ authRouter.post(
     }
 
     res.status(200).json(issueSession(user));
+  }),
+);
+
+/**
+ * Used both for the forced first-login change (accounts provisioned with a generated
+ * default password via scripts/seedAdmin.ts have must_change_password: true) and as a
+ * general-purpose "change my password" action — either way, a successful change always
+ * clears the flag.
+ */
+authRouter.post(
+  "/change-password",
+  requireUser,
+  changePasswordLimiter,
+  asyncHandler(async (req, res) => {
+    const { current_password: currentPassword, new_password: newPassword } = (req.body ?? {}) as {
+      current_password?: unknown;
+      new_password?: unknown;
+    };
+
+    if (typeof currentPassword !== "string" || typeof newPassword !== "string") {
+      res.status(400).json({ error: "current_password and new_password are required" });
+      return;
+    }
+    if (newPassword.length < 6) {
+      res.status(400).json({ error: "Password must be at least 6 characters" });
+      return;
+    }
+
+    const user = await findUserByEmail(req.currentUser!.email);
+    if (!user?.password_hash || !verifyPassword(currentPassword, user.password_hash)) {
+      res.status(401).json({ error: "Current password is incorrect" });
+      return;
+    }
+
+    const updated = await updateUserPasswordHash(user.id, hashPassword(newPassword), false);
+    res.status(200).json(issueSession(updated));
   }),
 );

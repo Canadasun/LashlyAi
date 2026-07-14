@@ -1,4 +1,5 @@
 import { pool } from "../db";
+import { getRecentErrorLogs, getErrorLogCountSince, ErrorLog } from "./ErrorLog";
 
 export interface AdminStats {
   totalUsers: number;
@@ -8,6 +9,19 @@ export interface AdminStats {
   mockEyeAnalysisCount: number;
   recentFeedback: { id: string; message: string; is_priority: boolean; created_at: string }[];
   subscriptionsByPlan: { plan: string; count: number }[];
+  errorCountLast24h: number;
+  recentErrors: ErrorLog[];
+  usageEventTotals: { event_type: string; count: number }[];
+  recentSubscriptionGrants: {
+    id: string;
+    user_id: string;
+    granted_by_admin_id: string;
+    plan: string;
+    expires_at: string;
+    created_at: string;
+    grantee_email: string;
+    granter_email: string;
+  }[];
 }
 
 export async function getAdminStats(): Promise<AdminStats> {
@@ -19,6 +33,10 @@ export async function getAdminStats(): Promise<AdminStats> {
     mockEyeAnalysisResult,
     recentFeedbackResult,
     subscriptionsByPlanResult,
+    errorCountLast24hResult,
+    recentErrorsResult,
+    usageEventTotalsResult,
+    recentSubscriptionGrantsResult,
   ] = await Promise.all([
     pool.query("SELECT COUNT(*)::int AS count FROM users"),
     pool.query(
@@ -33,6 +51,20 @@ export async function getAdminStats(): Promise<AdminStats> {
       "SELECT id, message, is_priority, created_at FROM feedback ORDER BY is_priority DESC, created_at DESC LIMIT 20",
     ),
     pool.query("SELECT plan, COUNT(*)::int AS count FROM subscriptions GROUP BY plan"),
+    getErrorLogCountSince(24),
+    getRecentErrorLogs(30),
+    pool.query(
+      "SELECT event_type, COUNT(*)::int AS count FROM usage_events GROUP BY event_type ORDER BY count DESC",
+    ),
+    pool.query(
+      `SELECT g.id, g.user_id, g.granted_by_admin_id, g.plan, g.expires_at, g.created_at,
+              grantee.email AS grantee_email, granter.email AS granter_email
+       FROM subscription_grants g
+       JOIN users grantee ON grantee.id = g.user_id
+       JOIN users granter ON granter.id = g.granted_by_admin_id
+       ORDER BY g.created_at DESC
+       LIMIT 20`,
+    ),
   ]);
 
   return {
@@ -43,5 +75,9 @@ export async function getAdminStats(): Promise<AdminStats> {
     mockEyeAnalysisCount: mockEyeAnalysisResult.rows[0].count,
     recentFeedback: recentFeedbackResult.rows,
     subscriptionsByPlan: subscriptionsByPlanResult.rows,
+    errorCountLast24h: errorCountLast24hResult,
+    recentErrors: recentErrorsResult,
+    usageEventTotals: usageEventTotalsResult.rows,
+    recentSubscriptionGrants: recentSubscriptionGrantsResult.rows,
   };
 }

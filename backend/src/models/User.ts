@@ -13,6 +13,7 @@ export interface User {
   preferred_styles: string[];
   firebase_uid: string | null;
   is_admin: boolean;
+  must_change_password: boolean;
   created_at: string;
 }
 
@@ -27,6 +28,7 @@ const SAFE_USER_COLUMNS = `
   preferred_styles,
   firebase_uid,
   is_admin,
+  must_change_password,
   created_at
 `;
 
@@ -46,6 +48,7 @@ function mapUserRow(row: UserRow): User {
     preferred_styles: row.preferred_styles,
     firebase_uid: row.firebase_uid,
     is_admin: row.is_admin,
+    must_change_password: row.must_change_password,
     created_at: row.created_at,
   };
 }
@@ -70,23 +73,38 @@ export async function createUser(input: {
   passwordHash: string;
   role: UserRole;
   firebaseUid?: string | null;
+  mustChangePassword?: boolean;
 }): Promise<User> {
   const result = await pool.query<UserRow>(
-    `INSERT INTO users (email, password_hash, role, firebase_uid)
-     VALUES ($1, $2, $3, $4)
+    `INSERT INTO users (email, password_hash, role, firebase_uid, must_change_password)
+     VALUES ($1, $2, $3, $4, $5)
      RETURNING ${SAFE_USER_COLUMNS}, password_hash`,
-    [input.email, input.passwordHash, input.role, input.firebaseUid ?? null],
+    [
+      input.email,
+      input.passwordHash,
+      input.role,
+      input.firebaseUid ?? null,
+      input.mustChangePassword ?? false,
+    ],
   );
   return mapUserRow(result.rows[0]);
 }
 
-export async function updateUserPasswordHash(userId: string, passwordHash: string): Promise<User> {
+// mustChangePassword defaults to clearing the flag — any deliberate password change
+// (including the user completing the forced first-login change) should turn it off;
+// only backend/src/scripts/seedAdmin.ts sets it back to true when provisioning a
+// generated default password.
+export async function updateUserPasswordHash(
+  userId: string,
+  passwordHash: string,
+  mustChangePassword = false,
+): Promise<User> {
   const result = await pool.query<UserRow>(
     `UPDATE users
-     SET password_hash = $2
+     SET password_hash = $2, must_change_password = $3
      WHERE id = $1
      RETURNING ${SAFE_USER_COLUMNS}, password_hash`,
-    [userId, passwordHash],
+    [userId, passwordHash, mustChangePassword],
   );
   return mapUserRow(result.rows[0]);
 }

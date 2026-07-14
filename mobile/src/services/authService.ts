@@ -4,12 +4,14 @@ import { api } from './api';
 export interface Session {
   email: string;
   token: string;
+  mustChangePassword: boolean;
 }
 
 interface AuthResponse {
   token: string;
   user: {
     email: string;
+    must_change_password: boolean;
   };
 }
 
@@ -19,12 +21,20 @@ function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
+function toSession(response: AuthResponse): Session {
+  return {
+    email: response.user.email,
+    token: response.token,
+    mustChangePassword: response.user.must_change_password,
+  };
+}
+
 export async function signUp(email: string, password: string): Promise<Session> {
   const response = await api.post<AuthResponse>('/auth/register', {
     email: normalizeEmail(email),
     password,
   });
-  return { email: response.user.email, token: response.token };
+  return toSession(response);
 }
 
 export async function signIn(email: string, password: string): Promise<Session> {
@@ -32,7 +42,18 @@ export async function signIn(email: string, password: string): Promise<Session> 
     email: normalizeEmail(email),
     password,
   });
-  return { email: response.user.email, token: response.token };
+  return toSession(response);
+}
+
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string,
+): Promise<Session> {
+  const response = await api.post<AuthResponse>('/auth/change-password', {
+    current_password: currentPassword,
+    new_password: newPassword,
+  });
+  return toSession(response);
 }
 
 export async function signOut(): Promise<void> {
@@ -52,7 +73,11 @@ export async function loadPersistedSession(): Promise<Session | null> {
   try {
     const parsed = JSON.parse(raw) as Partial<Session>;
     if (typeof parsed.email === 'string' && typeof parsed.token === 'string') {
-      return { email: parsed.email, token: parsed.token };
+      return {
+        email: parsed.email,
+        token: parsed.token,
+        mustChangePassword: parsed.mustChangePassword ?? false,
+      };
     }
     return null;
   } catch {

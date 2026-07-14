@@ -23,11 +23,16 @@ describe('authService session persistence', () => {
   });
 
   it('round-trips a session through persist/load/clear', async () => {
-    await persistSession({ email: 'artist@example.com', token: 'abc.def.ghi' });
+    await persistSession({
+      email: 'artist@example.com',
+      token: 'abc.def.ghi',
+      mustChangePassword: false,
+    });
 
     expect(await loadPersistedSession()).toEqual({
       email: 'artist@example.com',
       token: 'abc.def.ghi',
+      mustChangePassword: false,
     });
 
     await clearPersistedSession();
@@ -42,7 +47,7 @@ describe('authService session persistence', () => {
   it('signUp calls /auth/register and returns a session from the response', async () => {
     (api.post as jest.Mock).mockResolvedValue({
       token: 'new-token',
-      user: { email: 'new@example.com' },
+      user: { email: 'new@example.com', must_change_password: false },
     });
 
     const session = await signUp('New@Example.com', 'correcthorse');
@@ -51,13 +56,17 @@ describe('authService session persistence', () => {
       email: 'new@example.com',
       password: 'correcthorse',
     });
-    expect(session).toEqual({ email: 'new@example.com', token: 'new-token' });
+    expect(session).toEqual({
+      email: 'new@example.com',
+      token: 'new-token',
+      mustChangePassword: false,
+    });
   });
 
   it('signIn calls /auth/login and returns a session from the response', async () => {
     (api.post as jest.Mock).mockResolvedValue({
       token: 'existing-token',
-      user: { email: 'existing@example.com' },
+      user: { email: 'existing@example.com', must_change_password: true },
     });
 
     const session = await signIn('existing@example.com', 'correcthorse');
@@ -66,6 +75,10 @@ describe('authService session persistence', () => {
       email: 'existing@example.com',
       password: 'correcthorse',
     });
-    expect(session).toEqual({ email: 'existing@example.com', token: 'existing-token' });
+    expect(session).toEqual({
+      email: 'existing@example.com',
+      token: 'existing-token',
+      mustChangePassword: true,
+    });
   });
 });

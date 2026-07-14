@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { setAuthToken, setUnauthorizedHandler } from '../services/api';
 import {
+  changePassword as doChangePassword,
   loadPersistedSession,
   persistSession,
   Session,
@@ -16,6 +17,7 @@ interface AuthContextValue {
   signUp: (email: string, password: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -74,9 +76,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setSession(null);
   }, []);
 
+  const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {
+    const s = await doChangePassword(currentPassword, newPassword);
+    await persistSession(s);
+    setAuthToken(s.token);
+    setSession(s);
+  }, []);
+
   return (
     <AuthContext.Provider
-      value={{ session, restoringSession, sessionExpiredMessage, signUp, signIn, signOut }}>
+      value={{
+        session,
+        restoringSession,
+        sessionExpiredMessage,
+        signUp,
+        signIn,
+        signOut,
+        changePassword,
+      }}>
       {children}
     </AuthContext.Provider>
   );
