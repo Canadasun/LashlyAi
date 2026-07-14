@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { api } from '../services/api';
+import { ScanningProgress } from '../components/ScanningProgress';
 import { colors } from '../theme/colors';
 import { RootStackParamList } from '../navigation/types';
 import { EyeAnalysis } from '../types/api';
@@ -93,7 +94,9 @@ export function CameraUploadScreen({ route, navigation }: Props) {
         </Text>
       )}
 
-      {photo?.uri ? (
+      {analyzing ? (
+        <ScanningProgress />
+      ) : photo?.uri ? (
         <Image source={{ uri: photo.uri }} style={styles.preview} />
       ) : (
         <View style={styles.placeholder}>
