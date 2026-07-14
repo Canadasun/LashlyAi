@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   ScrollView,
   StyleSheet,
@@ -10,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { api, authenticatedImageSource } from '../services/api';
+import { saveImageToDevice } from '../services/saveToDevice';
 import { colors } from '../theme/colors';
 import { RootStackParamList } from '../navigation/types';
 import { ClientProfile, EyeAnalysis, LashMap } from '../types/api';
@@ -73,6 +75,21 @@ export function EyeAnalysisResultScreen({ route, navigation }: Props) {
   const [eyeAnalysis, setEyeAnalysis] = useState<EyeAnalysis | null>(route.params.eyeAnalysis ?? null);
   const [photoUrl, setPhotoUrl] = useState(route.params.photoUrl ?? null);
   const [error, setError] = useState<string | null>(null);
+  const [savingPhoto, setSavingPhoto] = useState(false);
+
+  const handleSavePhoto = async () => {
+    if (!photoUrl) {
+      return;
+    }
+    setSavingPhoto(true);
+    const result = await saveImageToDevice(photoUrl);
+    setSavingPhoto(false);
+    if (result.success) {
+      Alert.alert('Saved', 'Photo saved to your photo library.');
+    } else {
+      Alert.alert('Could not save photo', result.error);
+    }
+  };
 
   const loadClient = useCallback(async () => {
     try {
@@ -129,7 +146,21 @@ export function EyeAnalysisResultScreen({ route, navigation }: Props) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {photoUrl ? <Image source={authenticatedImageSource(photoUrl)} style={styles.photo} /> : null}
+      {photoUrl ? (
+        <>
+          <Image source={authenticatedImageSource(photoUrl)} style={styles.photo} />
+          <TouchableOpacity
+            style={styles.saveButton}
+            onPress={handleSavePhoto}
+            disabled={savingPhoto}>
+            {savingPhoto ? (
+              <ActivityIndicator color={colors.text} size="small" />
+            ) : (
+              <Text style={styles.saveButtonText}>Save to Photos</Text>
+            )}
+          </TouchableOpacity>
+        </>
+      ) : null}
 
       {eyeAnalysis.mock && (
         <View style={styles.mockBadge}>
@@ -208,7 +239,16 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: 20 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background },
-  photo: { width: '100%', height: 220, borderRadius: 12, marginBottom: 16 },
+  photo: { width: '100%', height: 220, borderRadius: 12 },
+  saveButton: {
+    backgroundColor: '#ffffff',
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  saveButtonText: { color: colors.text, fontWeight: '600', fontSize: 12 },
   mockBadge: {
     backgroundColor: '#FFF3CD',
     borderRadius: 8,

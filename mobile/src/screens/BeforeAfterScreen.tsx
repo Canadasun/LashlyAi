@@ -1,12 +1,47 @@
 import { useCallback, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { api, authenticatedImageSource } from '../services/api';
+import { saveImageToDevice } from '../services/saveToDevice';
 import { colors } from '../theme/colors';
 import { RootStackParamList } from '../navigation/types';
 import { ClientProfile, PhotoFeedback } from '../types/api';
 import { BeforeAfterSlider } from '../components/BeforeAfterSlider';
+
+function SavePhotoButton({ uri, label }: { uri: string; label: string }) {
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    const result = await saveImageToDevice(uri);
+    setSaving(false);
+    if (result.success) {
+      Alert.alert('Saved', `${label} saved to your photo library.`);
+    } else {
+      Alert.alert('Could not save photo', result.error);
+    }
+  };
+
+  return (
+    <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={saving}>
+      {saving ? (
+        <ActivityIndicator color={colors.text} size="small" />
+      ) : (
+        <Text style={styles.saveButtonText}>Save {label} to Photos</Text>
+      )}
+    </TouchableOpacity>
+  );
+}
 
 type Props = NativeStackScreenProps<RootStackParamList, 'BeforeAfter'>;
 
@@ -67,6 +102,10 @@ export function BeforeAfterScreen({ route }: Props) {
         <>
           <BeforeAfterSlider beforeUri={beforePhoto} afterUri={afterPhoto} />
           <Text style={styles.hint}>Drag the handle to compare.</Text>
+          <View style={styles.row}>
+            <SavePhotoButton uri={beforePhoto} label="Before" />
+            <SavePhotoButton uri={afterPhoto} label="After" />
+          </View>
         </>
       ) : (
         <>
@@ -74,7 +113,10 @@ export function BeforeAfterScreen({ route }: Props) {
             <View style={styles.column}>
               <Text style={styles.label}>Before</Text>
               {beforePhoto ? (
-                <Image source={authenticatedImageSource(beforePhoto)} style={styles.photo} />
+                <>
+                  <Image source={authenticatedImageSource(beforePhoto)} style={styles.photo} />
+                  <SavePhotoButton uri={beforePhoto} label="Before" />
+                </>
               ) : (
                 <View style={styles.placeholder}>
                   <Text style={styles.placeholderText}>No eye photo yet</Text>
@@ -84,7 +126,10 @@ export function BeforeAfterScreen({ route }: Props) {
             <View style={styles.column}>
               <Text style={styles.label}>After</Text>
               {afterPhoto ? (
-                <Image source={authenticatedImageSource(afterPhoto)} style={styles.photo} />
+                <>
+                  <Image source={authenticatedImageSource(afterPhoto)} style={styles.photo} />
+                  <SavePhotoButton uri={afterPhoto} label="After" />
+                </>
               ) : (
                 <View style={styles.placeholder}>
                   <Text style={styles.placeholderText}>No completed-work photo yet</Text>
@@ -125,4 +170,14 @@ const styles = StyleSheet.create({
   },
   placeholderText: { color: colors.accent, fontSize: 11, textAlign: 'center' },
   hint: { fontSize: 12, color: colors.text, opacity: 0.7, marginTop: 20, textAlign: 'center' },
+  saveButton: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+    marginTop: 8,
+    marginHorizontal: 4,
+  },
+  saveButtonText: { color: colors.text, fontWeight: '600', fontSize: 12 },
 });

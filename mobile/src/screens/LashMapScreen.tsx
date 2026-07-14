@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   ActivityIndicator,
+  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -9,8 +10,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import ViewShot, { ViewShotRef } from 'react-native-view-shot';
 import { LashMapZoneDiagram } from '../components/LashMapZoneDiagram';
 import { api } from '../services/api';
+import { saveLocalImageToDevice } from '../services/saveToDevice';
 import { colors } from '../theme/colors';
 import { RootStackParamList } from '../navigation/types';
 
@@ -45,6 +48,31 @@ export function LashMapScreen({ route, navigation }: Props) {
   const [advice, setAdvice] = useState<{ advice: string; mock: boolean } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [savingDiagram, setSavingDiagram] = useState(false);
+  const diagramRef = useRef<ViewShotRef>(null);
+
+  const saveDiagram = async () => {
+    if (!diagramRef.current?.capture) {
+      return;
+    }
+    setSavingDiagram(true);
+    try {
+      const uri = await diagramRef.current.capture();
+      const result = await saveLocalImageToDevice(uri);
+      if (result.success) {
+        Alert.alert('Saved', 'Lash map diagram saved to your photo library.');
+      } else {
+        Alert.alert('Could not save diagram', result.error);
+      }
+    } catch (err) {
+      Alert.alert(
+        'Could not save diagram',
+        err instanceof Error ? err.message : 'Failed to capture diagram.',
+      );
+    } finally {
+      setSavingDiagram(false);
+    }
+  };
 
   const toggleSymptom = (symptom: string) => {
     setSymptoms((prev) =>
@@ -90,9 +118,22 @@ export function LashMapScreen({ route, navigation }: Props) {
       <Text style={styles.title}>Lash Map</Text>
       <Text style={styles.savedNote}>Saved to this client's history</Text>
 
-      <View style={styles.diagramCard}>
-        <LashMapZoneDiagram zones={lashMap.visual_map.zones} />
-      </View>
+      <ViewShot ref={diagramRef} options={{ format: 'png', quality: 1 }}>
+        <View style={styles.diagramCard}>
+          <LashMapZoneDiagram zones={lashMap.visual_map.zones} />
+        </View>
+      </ViewShot>
+
+      <TouchableOpacity
+        style={styles.secondaryButton}
+        onPress={saveDiagram}
+        disabled={savingDiagram}>
+        {savingDiagram ? (
+          <ActivityIndicator color={colors.text} size="small" />
+        ) : (
+          <Text style={styles.secondaryButtonText}>Save Diagram to Photos</Text>
+        )}
+      </TouchableOpacity>
 
       <View style={styles.statsRow}>
         <Stat label="Style" value={lashMap.style_label} />
