@@ -469,13 +469,22 @@ export async function generateLashPreview(
     `look. No text, watermarks, or unrelated changes to the rest of the photo.`;
 
   const file = await toFile(baseImageBuffer, "eye.jpg", { type: "image/jpeg" });
-  const response = await client.images.edit({
-    image: file,
-    prompt,
-    model: "gpt-image-1",
-    size: "1024x1024",
-    quality: "high",
-  });
+  // Image generation legitimately takes much longer than the chat/vision calls above
+  // (gpt-image-1 commonly takes 30-60s+, especially at "high" quality) — the shared
+  // client's 30s timeout was tuned for fast calls, so this needs its own longer
+  // per-call budget rather than inheriting that timeout and failing before OpenAI
+  // even finishes. "medium" quality trades a little fidelity for meaningfully lower
+  // latency/failure risk; fewer retries since each one adds a long wait on top.
+  const response = await client.images.edit(
+    {
+      image: file,
+      prompt,
+      model: "gpt-image-1",
+      size: "1024x1024",
+      quality: "medium",
+    },
+    { timeout: 120_000, maxRetries: 1 },
+  );
 
   const b64 = response.data?.[0]?.b64_json;
   if (!b64) {
