@@ -11,6 +11,7 @@ import {
   checkMarketingQuota,
   checkPhotoEditQuota,
   checkPhotoFeedbackQuota,
+  checkPhotoRetouchQuota,
   checkRetentionCheckQuota,
   ENFORCEMENT_ENABLED,
   getUserPlan,
@@ -61,6 +62,7 @@ usersRouter.get(
       marketingGenerationsToday,
       lashPreviewsThisMonth,
       photoEditsToday,
+      photoRetouchesThisMonth,
     ] = await Promise.all([
       getUserPlan(userId),
       checkClientProfileQuota(userId),
@@ -73,6 +75,7 @@ usersRouter.get(
       checkMarketingQuota(userId),
       checkLashPreviewQuota(userId),
       checkPhotoEditQuota(userId),
+      checkPhotoRetouchQuota(userId),
     ]);
 
     res.json({
@@ -88,6 +91,7 @@ usersRouter.get(
       marketing_generations_today: marketingGenerationsToday,
       lash_previews_this_month: lashPreviewsThisMonth,
       photo_edits_today: photoEditsToday,
+      photo_retouches_this_month: photoRetouchesThisMonth,
     });
   }),
 );

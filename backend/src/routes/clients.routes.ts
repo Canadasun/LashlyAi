@@ -24,6 +24,7 @@ import {
   generateLashPreview,
   isValidEyeShape,
   isValidLashDensity,
+  retouchPhoto,
   scoreLashPhoto,
   troubleshootRetention,
 } from "../services/ai.service";
@@ -42,6 +43,7 @@ import {
   checkLashPreviewQuota,
   checkPhotoEditQuota,
   checkPhotoFeedbackQuota,
+  checkPhotoRetouchQuota,
   checkRetentionCheckQuota,
 } from "../services/planLimits.service";
 import { logUsageEvent } from "../models/UsageEvent";
@@ -363,6 +365,55 @@ clientsRouter.post(
     await logUsageEvent(req.currentUser!.id, "photo_edit");
 
     res.status(201).json({ photo_url: uploaded.url });
+  }),
+);
+
+// AI-based skin retouch (smooth rough skin, reduce blemishes/redness) via a real
+// OpenAI image-edit call — distinct from photo-edit above (that's a free client-side
+// Skia filter export with no AI cost). Requires explicit consent, same as lash-preview,
+// since it's an AI-altered image of the client's face.
+clientsRouter.post(
+  "/:id/photo-retouch",
+  requireUser,
+  upload.single("photo"),
+  asyncHandler(async (req, res) => {
+    const client = await loadOwnedClient(req, res);
+    if (!client) return;
+
+    if (!req.file) {
+      res.status(400).json({ error: 'Missing "photo" file in multipart body' });
+      return;
+    }
+    if (req.body?.consented !== "true") {
+      res.status(400).json({
+        error: "consented must be true — confirm the client consented before AI-retouching their photo.",
+      });
+      return;
+    }
+
+    const quota = await checkPhotoRetouchQuota(req.currentUser!.id);
+    if (!quota.allowed) {
+      res.status(403).json({
+        error:
+          quota.limit === 0
+            ? "AI retouch is a Pro feature. Upgrade to Pro to use it."
+            : `Free plan is limited to ${quota.limit} AI retouches per month. Upgrade to Pro for unlimited access.`,
+      });
+      return;
+    }
+
+    const preparedImage = await prepareImage(req.file.buffer);
+    const { imageBuffer, mock } = await retouchPhoto(preparedImage);
+    const uploaded = await uploadImage({
+      buffer: imageBuffer,
+      ownerUserId: req.currentUser!.id,
+      clientProfileId: client.id,
+      purpose: "photo_retouch",
+      consentedByUserId: req.currentUser!.id,
+    });
+    await logUsageEvent(req.currentUser!.id, "photo_retouch_generation");
+
+    res.status(201).json({ photo_url: uploaded.url, mock });
   }),
 );
 

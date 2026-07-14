@@ -494,6 +494,53 @@ export async function generateLashPreview(
   return { imageBuffer: Buffer.from(b64, "base64"), mock: false };
 }
 
+/**
+ * AI skin retouch — smooths rough/uneven skin texture and reduces blemishes/redness on
+ * a client photo via image *edit* (not generation), so identity, eye shape, and any
+ * lash extensions already applied are preserved exactly. Same mock-fallback and
+ * long-timeout conventions as generateLashPreview (also a gpt-image-1 edit call), gated
+ * separately via planLimits.service.ts checkPhotoRetouchQuota since it's a real,
+ * costlier-than-text OpenAI call distinct from the free client-side Skia photo editor.
+ */
+export async function retouchPhoto(baseImageBuffer: Buffer): Promise<{ imageBuffer: Buffer; mock: boolean }> {
+  if (!client) {
+    // No real retouch possible without a key — return the original photo back tagged
+    // as mock rather than fabricating an edit.
+    return { imageBuffer: baseImageBuffer, mock: true };
+  }
+
+  const prompt =
+    "Subtly retouch this photo of a lash client for a rough/uneven complexion: smooth " +
+    "rough or textured skin, soften visible blemishes, redness, and minor under-eye " +
+    "puffiness. Keep it photorealistic and natural, not airbrushed or plastic-looking. " +
+    "Do not change the person's identity, face shape, eye shape, eyebrows, or any " +
+    "eyelash extensions/lash work visible in the photo — those must stay pixel-for-pixel " +
+    "as close to the original as possible. Do not change lighting, background, hair, or " +
+    "add/remove makeup. No text, watermarks, or unrelated changes.";
+
+  const file = await toFile(baseImageBuffer, "photo.jpg", { type: "image/jpeg" });
+  // Same rationale as generateLashPreview: gpt-image-1 edits commonly take 30-60s+, so
+  // this needs its own longer per-call timeout budget rather than the shared client's
+  // 30s default tuned for fast text calls.
+  const response = await client.images.edit(
+    {
+      image: file,
+      prompt,
+      model: "gpt-image-1",
+      size: "1024x1024",
+      quality: "medium",
+    },
+    { timeout: 120_000, maxRetries: 1 },
+  );
+
+  const b64 = response.data?.[0]?.b64_json;
+  if (!b64) {
+    throw new Error("OpenAI image edit call returned no image data");
+  }
+
+  return { imageBuffer: Buffer.from(b64, "base64"), mock: false };
+}
+
 const CLIENT_REPLY_SYSTEM_PROMPT =
   "You draft short, warm, professional reply suggestions for a lash artist responding " +
   "to a client message (e.g. booking questions, aftercare questions, rescheduling). " +

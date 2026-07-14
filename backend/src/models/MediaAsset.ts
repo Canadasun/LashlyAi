@@ -1,6 +1,11 @@
 import { pool } from "../db";
 
-export type MediaPurpose = "eye_analysis" | "photo_feedback" | "lash_preview" | "photo_edit";
+export type MediaPurpose =
+  | "eye_analysis"
+  | "photo_feedback"
+  | "lash_preview"
+  | "photo_edit"
+  | "photo_retouch";
 
 export interface MediaAsset {
   id: string;
@@ -10,8 +15,9 @@ export interface MediaAsset {
   content_type: "image/jpeg" | "image/png" | "image/webp";
   byte_size: number;
   purpose: MediaPurpose;
-  // Only set for purpose = 'lash_preview' — which technician confirmed the client
-  // consented to this AI-generated preview being created from their photo.
+  // Only set for purpose = 'lash_preview' or 'photo_retouch' — which technician
+  // confirmed the client consented to this AI-generated/edited image being created
+  // from their photo.
   consented_by_user_id: string | null;
   consented_at: string | null;
   created_at: string;

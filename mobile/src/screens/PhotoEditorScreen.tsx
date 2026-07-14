@@ -67,6 +67,9 @@ export function PhotoEditorScreen({ route, navigation }: Props) {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [checkingAccess, setCheckingAccess] = useState(true);
+  const [retouchConsented, setRetouchConsented] = useState(false);
+  const [retouching, setRetouching] = useState(false);
+  const [lastRetouchWasMock, setLastRetouchWasMock] = useState(false);
 
   // Free tier gets zero access to this feature (not a reduced quota) — check plan
   // before loading the photo at all rather than letting a free user in and only
@@ -200,6 +203,56 @@ export function PhotoEditorScreen({ route, navigation }: Props) {
     }
   };
 
+  const handleAiRetouch = async () => {
+    if (!retouchConsented) {
+      setError('Confirm the client consented before AI-retouching this photo.');
+      return;
+    }
+    setRetouching(true);
+    setError(null);
+    try {
+      const path = await writeExportToTempFile();
+      const form = new FormData();
+      form.append('photo', {
+        uri: `file://${path}`,
+        name: 'retouch-input.jpg',
+        type: 'image/jpeg',
+      } as unknown as Blob);
+      form.append('consented', 'true');
+      const result = await api.postForm<{ photo_url: string; mock: boolean }>(
+        `/clients/${clientId}/photo-retouch`,
+        form,
+      );
+      const { uri, headers } = authenticatedImageSource(result.photo_url);
+      const response = await fetch(uri, { headers });
+      if (!response.ok) {
+        throw new Error('Failed to load retouched photo');
+      }
+      const buffer = await response.arrayBuffer();
+      setImageBytes(new Uint8Array(buffer));
+      // The retouch input was rendered through the current slider adjustments (see
+      // writeExportToTempFile), so they're now baked into the retouched pixels —
+      // reset the sliders or they'd visually double-apply on top of the new baseline
+      // and bake in a second time on the next Save/Upload.
+      setAdjustments(NEUTRAL_ADJUSTMENTS);
+      setLastRetouchWasMock(result.mock);
+      if (result.mock) {
+        Alert.alert(
+          'Preview mode',
+          'No OPENAI_API_KEY is configured on the backend yet, so this is the original photo, not a real AI retouch.',
+        );
+      }
+    } catch (err) {
+      if (isQuotaExceededError(err)) {
+        showQuotaExceededAlert(err, navigation);
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to retouch photo');
+      }
+    } finally {
+      setRetouching(false);
+    }
+  };
+
   const handleGenerateCaption = async () => {
     if (!captionDescription.trim()) {
       setError('Describe the post to generate a caption (e.g. "mega volume set, dramatic cat-eye")');
@@ -253,6 +306,36 @@ export function PhotoEditorScreen({ route, navigation }: Props) {
             <ColorMatrix matrix={matrix} />
           </SkiaImage>
         </Canvas>
+      </View>
+
+      <View style={styles.retouchCard}>
+        <Text style={styles.sectionTitle}>AI Retouch</Text>
+        <Text style={styles.retouchHint}>
+          Smooth rough or uneven skin texture and soften blemishes/redness with AI —
+          keeps the client's identity, eye shape, and lash work unchanged.
+        </Text>
+
+        <TouchableOpacity
+          style={styles.consentRow}
+          onPress={() => setRetouchConsented((v) => !v)}
+          activeOpacity={0.7}>
+          <View style={[styles.checkbox, retouchConsented && styles.checkboxChecked]}>
+            {retouchConsented && <Text style={styles.checkboxMark}>✓</Text>}
+          </View>
+          <Text style={styles.consentText}>Client consented to this AI-edited photo</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.secondaryButton, (!retouchConsented || retouching) && styles.buttonDisabled]}
+          onPress={handleAiRetouch}
+          disabled={!retouchConsented || retouching}>
+          {retouching ? (
+            <ActivityIndicator color={colors.text} size="small" />
+          ) : (
+            <Text style={styles.secondaryButtonText}>Retouch Skin</Text>
+          )}
+        </TouchableOpacity>
+        {lastRetouchWasMock && <Text style={styles.mockTag}>LAST RETOUCH WAS MOCK</Text>}
       </View>
 
       <View style={styles.presetRow}>
@@ -349,6 +432,30 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   canvas: { width: PREVIEW_SIZE, height: PREVIEW_SIZE },
+  retouchCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    width: '100%',
+  },
+  retouchHint: { fontSize: 12, color: colors.text, opacity: 0.7, marginTop: 4, marginBottom: 12 },
+  consentRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    borderColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  checkboxChecked: { backgroundColor: colors.primary, borderColor: colors.primary },
+  checkboxMark: { color: colors.background, fontSize: 12, fontWeight: '700' },
+  consentText: { flex: 1, fontSize: 12, color: colors.text },
+  buttonDisabled: { opacity: 0.5 },
+  mockTag: { fontSize: 10, color: colors.accent, fontWeight: '700', marginTop: 8 },
   presetRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, width: '100%', marginBottom: 16 },
   presetChip: {
     backgroundColor: '#ffffff',
