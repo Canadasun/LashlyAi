@@ -15,3 +15,7 @@ gem 'logger'
 gem 'benchmark'
 gem 'mutex_m'
 gem 'nkf'
+
+# Signs the JWT used to call the App Store Connect API directly after upload — see
+# ios/scripts/attach_testflight_build.rb.
+gem 'jwt'

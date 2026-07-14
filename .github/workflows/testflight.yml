@@ -107,3 +107,15 @@ jobs:
             -authenticationKeyPath ~/private_keys/AuthKey_${{ secrets.ASC_KEY_ID }}.p8 \
             -authenticationKeyID ${{ secrets.ASC_KEY_ID }} \
             -authenticationKeyIssuerID ${{ secrets.ASC_ISSUER_ID }}
+
+      # A successful upload above is NOT enough to make a build visible/installable in
+      # TestFlight — Apple still needs export compliance declared and a beta group
+      # attached per build, neither automatic (see scripts/attach_testflight_build.rb
+      # for the full story). Without this step, every build silently "uploads fine"
+      # but stays invisible to testers.
+      - name: Attach build to TestFlight internal testers
+        working-directory: mobile/ios
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: bundle exec ruby scripts/attach_testflight_build.rb
