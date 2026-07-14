@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireAdmin } from "./middleware/requireAdmin";
+import { requireAdminAccount } from "./middleware/requireAdminAccount";
 import { requireUser } from "./middleware/requireUser";
 import { requireAdminUser } from "./middleware/requireAdminUser";
 import { getAdminStats } from "../models/Admin";
@@ -15,9 +15,9 @@ const GRANTABLE_PLANS: SubscriptionPlan[] = ["pro", "educator", "salon", "enterp
 
 /**
  * Grants a complimentary subscription (e.g. to an influencer) by email. Protected by
- * real-user + is_admin auth (requireAdminUser), not the shared ADMIN_API_KEY used by
- * the read-only stats dashboard below — this mutates billing state so it needs to be
- * traceable to a specific admin account.
+ * real-user + is_admin auth (requireAdminUser, Bearer token) — the same admin-account
+ * gating the dashboard below now uses too, just via HTTP Basic Auth instead since this
+ * one's called from the mobile app, not a browser.
  */
 adminRouter.post(
   "/grants",
@@ -89,7 +89,7 @@ adminRouter.post(
 
 adminRouter.get(
   "/stats",
-  requireAdmin,
+  requireAdminAccount,
   asyncHandler(async (_req, res) => {
     const stats = await getAdminStats();
     res.json(stats);
@@ -106,7 +106,7 @@ function escapeHtml(value: string): string {
 
 adminRouter.get(
   "/",
-  requireAdmin,
+  requireAdminAccount,
   asyncHandler(async (_req, res) => {
     const stats = await getAdminStats();
 

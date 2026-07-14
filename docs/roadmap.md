@@ -152,11 +152,13 @@ what could be built independently of that.
 
 Done:
 - **Admin dashboard** — `GET /admin` (HTML) and `GET /admin/stats` (JSON), protected by
-  HTTP Basic Auth against a dedicated `ADMIN_API_KEY` (not tied to any user account —
-  there is no `503` fallback like other dev-mode bypasses in this repo; admin data is
-  never reachable without a key configured). Shows total users + recent signups, client
-  profile/lash map counts, subscriptions by plan, a count of "unverified" (mock) AI
-  outputs, and recent feedback submissions. Verified locally end-to-end.
+  HTTP Basic Auth checked against a real admin account's own login credentials +
+  is_admin flag (`requireAdminAccount.ts`) — the older shared `ADMIN_API_KEY` secret
+  was retired in favor of this once admin accounts got real passwords (see
+  `scripts/seedAdmin.ts`). Shows total users + recent signups, client profile/lash map
+  counts, subscriptions by plan, a count of "unverified" (mock) AI outputs, recent
+  feedback submissions, a 24h error-log health card with full recent-error detail,
+  all-time usage totals by feature, and a subscription-grants audit log.
 - **Monitoring/alerting** — owner chose to rely on Railway's own observability
   (`railway status`, `railway logs`, `railway metrics`) rather than a new external
   uptime-monitoring account. Note: Railway does support email/Slack notifications on
