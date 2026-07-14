@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Keychain from 'react-native-keychain';
 import { api } from './api';
 
 export interface Session {
@@ -15,7 +16,23 @@ interface AuthResponse {
   };
 }
 
-const SESSION_STORAGE_KEY = 'lashlyai.session';
+// Keychain (iOS Keychain / Android Keystore-backed) rather than AsyncStorage — the
+// session token is a bearer credential and AsyncStorage is plain, unencrypted on-disk
+// storage (a plist/SQLite file readable on a jailbroken/rooted or backed-up device).
+// WHEN_UNLOCKED_THIS_DEVICE_ONLY: never synced to iCloud Keychain, and unreadable
+// before the device's first unlock, but doesn't prompt Face ID/Touch ID on every read
+// (that would fight the "restore session on launch" goal, not just secure it).
+const KEYCHAIN_SERVICE = 'com.lashlyai.session';
+const KEYCHAIN_OPTIONS: Keychain.SetOptions = {
+  service: KEYCHAIN_SERVICE,
+  accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+};
+
+// Legacy storage key from before the Keychain migration — kept only so existing
+// installs (e.g. current TestFlight testers) don't get silently signed out the first
+// time they open the app after this update. Migrated into Keychain on first read, then
+// deleted; nothing new is ever written here.
+const LEGACY_ASYNC_STORAGE_KEY = 'lashlyai.session';
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -27,6 +44,22 @@ function toSession(response: AuthResponse): Session {
     token: response.token,
     mustChangePassword: response.user.must_change_password,
   };
+}
+
+function parseSession(raw: string): Session | null {
+  try {
+    const parsed = JSON.parse(raw) as Partial<Session>;
+    if (typeof parsed.email === 'string' && typeof parsed.token === 'string') {
+      return {
+        email: parsed.email,
+        token: parsed.token,
+        mustChangePassword: parsed.mustChangePassword ?? false,
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 export async function signUp(email: string, password: string): Promise<Session> {
@@ -64,27 +97,38 @@ export async function signOut(): Promise<void> {
 // backgrounding it) signed everyone out every time, since nothing survived a fresh
 // launch. Restored by AuthContext on mount.
 export async function persistSession(session: Session): Promise<void> {
-  await AsyncStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+  await Keychain.setGenericPassword(session.email, JSON.stringify(session), KEYCHAIN_OPTIONS);
 }
 
 export async function loadPersistedSession(): Promise<Session | null> {
-  const raw = await AsyncStorage.getItem(SESSION_STORAGE_KEY);
-  if (!raw) return null;
+  // Keychain is a native module with real failure modes AsyncStorage never had (no
+  // device passcode set, entitlement misconfiguration, restore-from-backup edge cases)
+  // — fail closed to "no session" (forces a normal re-login) instead of throwing and
+  // leaving AuthContext's restore effect with an unhandled rejection.
+  let credentials: false | Keychain.UserCredentials;
   try {
-    const parsed = JSON.parse(raw) as Partial<Session>;
-    if (typeof parsed.email === 'string' && typeof parsed.token === 'string') {
-      return {
-        email: parsed.email,
-        token: parsed.token,
-        mustChangePassword: parsed.mustChangePassword ?? false,
-      };
-    }
-    return null;
+    credentials = await Keychain.getGenericPassword(KEYCHAIN_OPTIONS);
   } catch {
-    return null;
+    credentials = false;
   }
+  if (credentials) {
+    return parseSession(credentials.password);
+  }
+
+  // Nothing in Keychain yet — check for a pre-migration session in AsyncStorage so an
+  // existing install doesn't get signed out by this upgrade.
+  const legacyRaw = await AsyncStorage.getItem(LEGACY_ASYNC_STORAGE_KEY);
+  if (!legacyRaw) return null;
+
+  const legacySession = parseSession(legacyRaw);
+  await AsyncStorage.removeItem(LEGACY_ASYNC_STORAGE_KEY);
+  if (!legacySession) return null;
+
+  await persistSession(legacySession);
+  return legacySession;
 }
 
 export async function clearPersistedSession(): Promise<void> {
-  await AsyncStorage.removeItem(SESSION_STORAGE_KEY);
+  await Keychain.resetGenericPassword(KEYCHAIN_OPTIONS);
+  await AsyncStorage.removeItem(LEGACY_ASYNC_STORAGE_KEY);
 }

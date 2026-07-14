@@ -40,7 +40,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  // Sessions live in AsyncStorage (services/authService.ts), not just React state —
+  // Sessions live in the OS Keychain (services/authService.ts), not just React state —
   // restore whatever was persisted on the previous launch instead of forcing a
   // re-login every time the app is closed and reopened.
   useEffect(() => {

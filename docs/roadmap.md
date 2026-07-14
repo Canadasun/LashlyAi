@@ -210,7 +210,11 @@ regression across all ~30 endpoints (0 failures) plus mobile tsc/lint/jest, on
   (`PhotoEditorScreen`), `POST /clients/:id/photo-edit`. Reachable from a client's
   profile directly, or via a "Photo Editor" quick action on the Dashboard and Client
   List that opens a client picker first (editing is always scoped to one client's
-  photo).
+  photo). Also includes AI Retouch (2026-07-14) — a real OpenAI `images.edit` call
+  (`POST /clients/:id/photo-retouch`) that smooths rough/uneven skin and softens
+  blemishes/redness while preserving identity, eye shape, and lash work, gated behind
+  its own consent checkbox and Pro-only monthly quota (verified end-to-end against a
+  live OpenAI call during this session, including the free-tier 403 block).
 - Client history with photos — done since Phase 1.
 - Before-and-after comparisons — mobile screen pairing the most recent eye-analysis
   photo ("before") with the most recent photo-feedback photo ("after").

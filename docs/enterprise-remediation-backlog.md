@@ -11,8 +11,9 @@ tests, deployment, and production verification are all finished.
     decoded/normalized uploads, authenticated delivery, client deletion, and account deletion.
 - [ ] Production StoreKit purchase flow and entitlement verification
 - [ ] Accurate iOS privacy manifest, reviewed legal documents, consent, export, and account deletion
-- [ ] Hardened authentication: secure device storage, password reset, email verification,
-  session revocation, admin identities, MFA, and audit trail
+- [ ] Hardened authentication: ~~secure device storage~~ (done 2026-07-14 — see below),
+  password reset, email verification, session revocation, admin identities, MFA, and
+  audit trail
 - [ ] Billing-grade transactional quotas and rate limits for every AI/cost-bearing endpoint
 
 ## P1 — correctness and deployment safety
@@ -62,6 +63,54 @@ tests, deployment, and production verification are all finished.
   tokens already used on the Dashboard — reconciled onto the same token set, plus added
   photo-thumbnail (or letter-initial fallback) avatars per row, matching the pattern
   already used on the Dashboard's recent-clients list.
+- [x] **Photo Editor had no AI retouch capability** — only local Skia color filters
+  (brightness/contrast/saturation/presets), despite being positioned as an important,
+  AI-forward feature of the app. Added a real AI retouch (skin-smoothing/blemish
+  reduction via `gpt-image-1` `images.edit`, `retouchPhoto()` in `ai.service.ts`,
+  mirroring the existing `generateLashPreview` pattern exactly): its own DB migration
+  (`0021_photo_retouch.sql`), media purpose, usage-event type, monthly quota
+  (`checkPhotoRetouchQuota`, free: 0 / paid: unlimited), route
+  (`POST /clients/:id/photo-retouch`, consent-gated), and a mobile "AI Retouch" card
+  with its own consent checkbox at the top of `PhotoEditorScreen`. Verified end-to-end
+  against the real (not mocked) OpenAI API in this dev environment: registered a test
+  user, hit the route with and without consent, confirmed the free-tier 403 quota block
+  fires *before* the OpenAI call (so denials don't cost anything), and visually
+  confirmed the returned image was a genuine photorealistic retouch result, not a
+  passthrough or error. Migration applied and verified against the local Postgres
+  schema (`media_assets_purpose_check` / `usage_events_event_type_check` constraints
+  confirmed via `pg_get_constraintdef`). Test data cleaned up after verification.
+
+## 2026-07-14 audit — cryptography and session handling (same day, third session)
+
+- [x] **Session tokens were persisted in plain AsyncStorage** — unencrypted on-disk
+  storage (a plist/SQLite-backed file inside the app sandbox, readable on a
+  jailbroken/rooted device or from an unencrypted device backup), for a 30-day bearer
+  credential. Migrated to `react-native-keychain` (`ACCESSIBLE.WHEN_UNLOCKED_THIS_DEVICE_ONLY`
+  — OS Keychain-backed, never synced to iCloud, unreadable before first unlock, no
+  biometric prompt on every read since that would fight session persistence rather than
+  just secure it). `authService.ts` migrates any pre-upgrade session out of the legacy
+  AsyncStorage key into Keychain on first read after the upgrade, so existing installs
+  (e.g. current TestFlight testers) aren't silently signed out. Covered by new tests
+  (round-trip via Keychain, corrupted-Keychain handling, legacy-migration path) — mobile
+  suite went from 19 to 21 tests, all passing.
+- [x] **Server-side password/session cryptography re-verified, no issues found**:
+  `scryptSync` with a random 16-byte salt + `timingSafeEqual` comparison for passwords;
+  HMAC-SHA256-signed session tokens with `timingSafeEqual` verification, explicit `exp`
+  checking, and the fail-closed dev-secret fallback (only `development`/`test`/unset
+  `NODE_ENV`) from the 2026-07-10 IAM audit still in place. Repo-wide sweep for
+  MD5/SHA1/`Math.random()`-for-security/hardcoded secrets in source — none found.
+  `.env` confirmed gitignored.
+- [x] **Real UX/security bug**: tapping the profile-letter avatar on the Dashboard (and
+  the "Sign out" link on the Client List) signed the user out **instantly**, with zero
+  confirmation — a single mis-tap loses the current session. Both now show a
+  confirm/cancel dialog before signing out.
+- [x] **Confirmed, not changed**: no push-notification code exists anywhere in the repo
+  (no `@react-native-firebase/messaging`, no `PushNotificationIOS`, nothing) — CLAUDE.md
+  lists Firebase Cloud Messaging as a planned-but-unbuilt tech choice, not something
+  live. No streak/gamification/login-bonus/manufactured-urgency code found in a
+  repo-wide sweep. `CompSubscriptionBanner.tsx` (the one existing "notification" UI) was
+  reviewed and is a one-time, dismissible, factual notice about an admin-granted comp
+  subscription — not a manipulative retention pattern.
 
 ## 2026-07-14 audit — still open (confirmed, not addressed this pass)
 

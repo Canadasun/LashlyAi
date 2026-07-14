@@ -3,6 +3,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   ActivityIndicator,
+  Alert,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -61,6 +62,13 @@ function quotaText(field?: QuotaField) {
 export function HomeDashboardScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { session, signOut } = useAuth();
+
+  const confirmSignOut = () => {
+    Alert.alert('Sign out?', "You'll need to sign back in to access your clients and lash maps.", [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Sign Out', style: 'destructive', onPress: signOut },
+    ]);
+  };
   const [clients, setClients] = useState<ClientProfile[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [usage, setUsage] = useState<UsageSummary | null>(null);
@@ -133,7 +141,7 @@ export function HomeDashboardScreen({ navigation }: Props) {
             <View style={styles.brandMark}><Text style={styles.brandMarkText}>L</Text></View>
             <Text style={styles.brand}>Lashly<Text style={styles.brandAccent}>AI</Text></Text>
           </View>
-          <TouchableOpacity accessibilityRole="button" onPress={signOut} style={styles.avatar}>
+          <TouchableOpacity accessibilityRole="button" onPress={confirmSignOut} style={styles.avatar}>
             <Text style={styles.avatarText}>{displayName.charAt(0)}</Text>
           </TouchableOpacity>
         </View>

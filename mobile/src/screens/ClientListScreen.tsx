@@ -3,6 +3,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Image,
   ScrollView,
@@ -53,6 +54,13 @@ export function ClientListScreen({ route, navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { signOut } = useAuth();
   const pickerMode = route.params?.pickerMode === 'photoEdit';
+
+  const confirmSignOut = () => {
+    Alert.alert('Sign out?', "You'll need to sign back in to access your clients and lash maps.", [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Sign Out', style: 'destructive', onPress: signOut },
+    ]);
+  };
   const [clients, setClients] = useState<ClientProfile[]>([]);
   const [usage, setUsage] = useState<UsageSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -113,7 +121,7 @@ export function ClientListScreen({ route, navigation }: Props) {
           <Text style={styles.headerTitle}>{pickerMode ? 'Photo Editor' : 'LashlyAI'}</Text>
           {pickerMode && <Text style={styles.headerSubtitle}>Choose a client to edit a photo</Text>}
         </View>
-        <TouchableOpacity onPress={pickerMode ? () => navigation.goBack() : signOut}>
+        <TouchableOpacity onPress={pickerMode ? () => navigation.goBack() : confirmSignOut}>
           <Text style={styles.link}>{pickerMode ? 'Cancel' : 'Sign out'}</Text>
         </TouchableOpacity>
       </View>

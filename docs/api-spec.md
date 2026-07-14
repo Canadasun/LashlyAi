@@ -120,6 +120,25 @@ Response `201`:
 { "photo_url": "string" }
 ```
 
+### `POST /clients/:id/photo-retouch`
+Pro tier (zero access on free — 403 with an upgrade prompt, not a reduced quota).
+Multipart upload (`photo`) + `consented: "true"` → AI skin retouch (smooths rough/uneven
+texture, softens blemishes/redness) via a real OpenAI `images.edit` (`gpt-image-1`)
+call, prompted to preserve the client's identity, eye shape, and any lash extensions
+already visible in the photo unchanged. Requires explicit consent (400 without it) since
+it's an AI-altered image of the client's face, same as `lash-preview`. A real,
+per-call-billed AI request — distinct from the free client-side `photo-edit` above —
+gated by its own monthly quota (`checkPhotoRetouchQuota`, free: 0, paid: unlimited while
+`ENFORCE_PLAN_LIMITS` is on). Falls back to returning the original photo tagged
+`"mock": true` when `OPENAI_API_KEY` isn't configured. Reachable from the "AI Retouch"
+card at the top of the mobile Photo Editor screen, gated behind its own consent
+checkbox distinct from the photo-edit/upload consent implied by opening the editor.
+
+Response `201`:
+```json
+{ "photo_url": "string", "mock": false }
+```
+
 ### `POST /clients/:id/lash-maps/:mapId/retention-check`
 Pro tier: reports symptoms of a retention problem and gets AI troubleshooting advice.
 Persists `retention_pct` onto the referenced `LashMap` row.

@@ -9,6 +9,7 @@ module.exports = {
     '^react-native-blob-util$': '<rootDir>/__mocks__/reactNativeBlobUtil.js',
     '^react-native-view-shot$': '<rootDir>/__mocks__/reactNativeViewShot.js',
     '^react-native-iap$': '<rootDir>/__mocks__/reactNativeIap.js',
+    '^react-native-keychain$': '<rootDir>/__mocks__/reactNativeKeychain.js',
   },
   transformIgnorePatterns: [
     'node_modules/(?!((jest-)?react-native|@react-native(-community)?|@react-navigation|@shopify/react-native-skia|react-native-.*)/)',
