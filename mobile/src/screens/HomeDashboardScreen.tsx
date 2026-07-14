@@ -44,6 +44,8 @@ const QUICK_ACTIONS: {
   { title: 'Glue check', caption: 'Match conditions', symbol: '%', screen: 'GlueRecommendation' },
 ];
 
+const QUICK_ACTION_ROWS = [QUICK_ACTIONS.slice(0, 2), QUICK_ACTIONS.slice(2, 4)];
+
 function quotaText(field?: QuotaField) {
   if (!field) return '—';
   return field.limit === null ? `${field.used}` : `${field.used} / ${field.limit}`;
@@ -126,7 +128,7 @@ export function HomeDashboardScreen({ navigation }: Props) {
         </View>
 
         <View style={styles.welcomeRow}>
-          <View>
+          <View style={styles.welcomeCopy}>
             <Text style={styles.eyebrow}>YOUR BUSINESS, AT A GLANCE</Text>
             <Text style={styles.greeting}>Good to see you, {displayName}.</Text>
           </View>
@@ -159,15 +161,23 @@ export function HomeDashboardScreen({ navigation }: Props) {
             <Text style={styles.sectionTitle}>Run your day</Text>
             <Text style={styles.sectionSubtitle}>The things you reach for most, one tap away.</Text>
             <View style={styles.actionGrid}>
-              {QUICK_ACTIONS.map((action) => (
-                <TouchableOpacity key={action.screen} style={styles.actionCard} onPress={() => navigation.navigate(action.screen)}>
-                  <View style={styles.actionIcon}><Text style={styles.actionIconText}>{action.symbol}</Text></View>
-                  <View style={styles.actionCopy}>
-                    <Text style={styles.actionTitle}>{action.title}</Text>
-                    <Text style={styles.actionCaption}>{action.caption}</Text>
-                  </View>
-                  <Text style={styles.chevron}>›</Text>
-                </TouchableOpacity>
+              {QUICK_ACTION_ROWS.map((row, rowIndex) => (
+                <View key={rowIndex} style={styles.actionRow}>
+                  {row.map((action) => (
+                    <TouchableOpacity
+                      key={action.screen}
+                      accessibilityRole="button"
+                      style={styles.actionCard}
+                      onPress={() => navigation.navigate(action.screen)}>
+                      <View style={styles.actionIcon}><Text style={styles.actionIconText}>{action.symbol}</Text></View>
+                      <View style={styles.actionCopy}>
+                        <Text style={styles.actionTitle}>{action.title}</Text>
+                        <Text style={styles.actionCaption}>{action.caption}</Text>
+                      </View>
+                      <Text style={styles.chevron}>›</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               ))}
             </View>
 
@@ -238,15 +248,16 @@ const styles = StyleSheet.create({
   brandAccent: { color: colors.primary },
   avatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
   avatarText: { color: colors.primaryDark, fontWeight: '800', fontSize: 14 },
-  welcomeRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 34, marginBottom: 20 },
+  welcomeRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 28, marginBottom: 20 },
+  welcomeCopy: { flex: 1, minWidth: 0, marginRight: 12 },
   eyebrow: { color: colors.primary, fontSize: 10, fontWeight: '800', letterSpacing: 1.2, marginBottom: 7 },
   greeting: { color: colors.ink, fontSize: 24, fontWeight: '700', letterSpacing: -0.6 },
   planPill: { color: colors.accent, backgroundColor: colors.accentSoft, fontSize: 9, fontWeight: '800', letterSpacing: 0.7, overflow: 'hidden', borderRadius: 10, paddingHorizontal: 9, paddingVertical: 6 },
   errorBanner: { backgroundColor: '#FBE8E8', borderRadius: 12, padding: 12, marginBottom: 14 },
   errorText: { color: colors.danger, fontSize: 12, fontWeight: '600' },
   loader: { marginVertical: 70 },
-  metricsGrid: { flexDirection: 'row', marginHorizontal: -5 },
-  metricCard: { flex: 1, minHeight: 138, marginHorizontal: 5, padding: 16, borderRadius: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  metricsGrid: { flexDirection: 'row', gap: 10 },
+  metricCard: { flex: 1, minWidth: 0, minHeight: 138, padding: 16, borderRadius: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   metricCardPrimary: { backgroundColor: colors.primaryDark, borderColor: colors.primaryDark },
   metricLabel: { color: colors.muted, fontSize: 9, fontWeight: '800', letterSpacing: 0.8 },
   metricLabelLight: { color: '#E9C8D3', fontSize: 9, fontWeight: '800', letterSpacing: 0.8 },
@@ -257,8 +268,9 @@ const styles = StyleSheet.create({
   metricCaptionLight: { color: '#F2DCE3', fontSize: 11, marginTop: 3 },
   sectionTitle: { color: colors.ink, fontSize: 17, fontWeight: '700', letterSpacing: -0.25, marginTop: 28 },
   sectionSubtitle: { color: colors.muted, fontSize: 12, marginTop: 4 },
-  actionGrid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -5, marginTop: 12 },
-  actionCard: { width: '47.35%', flexGrow: 1, minHeight: 76, margin: 5, borderRadius: 15, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, padding: 12, flexDirection: 'row', alignItems: 'center' },
+  actionGrid: { marginTop: 12, gap: 10 },
+  actionRow: { flexDirection: 'row', gap: 10 },
+  actionCard: { flex: 1, minWidth: 0, minHeight: 76, borderRadius: 15, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, padding: 12, flexDirection: 'row', alignItems: 'center' },
   actionIcon: { width: 34, height: 34, borderRadius: 11, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center', marginRight: 9 },
   actionIconText: { color: colors.primaryDark, fontSize: 12, fontWeight: '800' },
   actionCopy: { flex: 1 },

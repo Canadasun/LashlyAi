@@ -7,6 +7,7 @@ module.exports = {
     '^@react-native-camera-roll/camera-roll$': '<rootDir>/__mocks__/cameraRoll.js',
     '^react-native-blob-util$': '<rootDir>/__mocks__/reactNativeBlobUtil.js',
     '^react-native-view-shot$': '<rootDir>/__mocks__/reactNativeViewShot.js',
+    '^react-native-iap$': '<rootDir>/__mocks__/reactNativeIap.js',
   },
   transformIgnorePatterns: [
     'node_modules/(?!((jest-)?react-native|@react-native(-community)?|@react-navigation|react-native-.*)/)',
