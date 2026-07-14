@@ -19,6 +19,9 @@ const FREE_LIMITS = {
   retentionChecksPerMonth: 5,
   forumPostsPerMonth: 5,
   marketingGenerationsPerDay: 5,
+  // AI preview costs a real image-generation call (pricier than the text-based
+  // features above) — free tier doesn't get it at all, only Pro and above.
+  lashPreviewsPerMonth: 0,
 };
 
 const ACTIVE_SUBSCRIPTION_STATUSES = new Set(["active", "trialing", "grace_period"]);
@@ -117,5 +120,12 @@ export async function checkMarketingQuota(userId: string): Promise<QuotaStatus> 
   const plan = await getUserPlan(userId);
   const used = await countEventsToday(userId, "marketing_generation");
   const limit = plan === "free" ? FREE_LIMITS.marketingGenerationsPerDay : null;
+  return quotaStatus(used, limit);
+}
+
+export async function checkLashPreviewQuota(userId: string): Promise<QuotaStatus> {
+  const plan = await getUserPlan(userId);
+  const used = await countEventsThisMonth(userId, "lash_preview_generation");
+  const limit = plan === "free" ? FREE_LIMITS.lashPreviewsPerMonth : null;
   return quotaStatus(used, limit);
 }

@@ -21,18 +21,25 @@ import {
 } from "../models/PhotoFeedback";
 import {
   analyzeEye,
+  generateLashPreview,
   isValidEyeShape,
   isValidLashDensity,
   scoreLashPhoto,
   troubleshootRetention,
 } from "../services/ai.service";
 import { generateLashMap } from "../services/lashmap.service";
-import { deleteStoredMediaAsset, prepareImage, uploadImage } from "../services/storage.service";
+import {
+  deleteStoredMediaAsset,
+  prepareImage,
+  readStoredObject,
+  uploadImage,
+} from "../services/storage.service";
 import { asyncHandler } from "../utils/asyncHandler";
 import {
   checkClientProfileQuota,
   checkEyeScanQuota,
   checkLashMapQuota,
+  checkLashPreviewQuota,
   checkPhotoFeedbackQuota,
   checkRetentionCheckQuota,
 } from "../services/planLimits.service";
@@ -186,6 +193,68 @@ clientsRouter.post(
     await logUsageEvent(req.currentUser!.id, "lash_map_generation");
 
     res.status(201).json(saved);
+  }),
+);
+
+clientsRouter.post(
+  "/:id/lash-preview",
+  requireUser,
+  asyncHandler(async (req, res) => {
+    const client = await loadOwnedClient(req, res);
+    if (!client) return;
+
+    const {
+      lash_set_label: lashSetLabel,
+      lash_style_label: lashStyleLabel,
+      consented,
+    } = req.body ?? {};
+
+    if (!consented) {
+      res.status(400).json({
+        error: "consented must be true — confirm the client consented before generating a preview.",
+      });
+      return;
+    }
+    if (!lashSetLabel || typeof lashSetLabel !== "string") {
+      res.status(400).json({ error: "lash_set_label is required" });
+      return;
+    }
+
+    const quota = await checkLashPreviewQuota(req.currentUser!.id);
+    if (!quota.allowed) {
+      res.status(403).json({
+        error:
+          quota.limit === 0
+            ? "AI after-look previews are a Pro feature. Upgrade to Pro to generate one."
+            : `Free plan is limited to ${quota.limit} AI previews per month. Upgrade to Pro for unlimited access.`,
+      });
+      return;
+    }
+
+    const assets = await getMediaAssetsByClientProfileId(client.id);
+    const eyePhotoAsset = [...assets].reverse().find((asset) => asset.purpose === "eye_analysis");
+    if (!eyePhotoAsset) {
+      res.status(400).json({ error: "No eye scan photo available for this client yet." });
+      return;
+    }
+
+    const baseImage = Buffer.from(await readStoredObject(eyePhotoAsset.object_key));
+    const { imageBuffer, mock } = await generateLashPreview(
+      baseImage,
+      lashSetLabel,
+      typeof lashStyleLabel === "string" ? lashStyleLabel : "natural finish",
+    );
+
+    const uploaded = await uploadImage({
+      buffer: imageBuffer,
+      ownerUserId: req.currentUser!.id,
+      clientProfileId: client.id,
+      purpose: "lash_preview",
+      consentedByUserId: req.currentUser!.id,
+    });
+    await logUsageEvent(req.currentUser!.id, "lash_preview_generation");
+
+    res.status(201).json({ preview_url: uploaded.url, mock });
   }),
 );
 

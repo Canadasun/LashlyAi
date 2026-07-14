@@ -7,6 +7,7 @@ import {
   checkEyeScanQuota,
   checkForumPostQuota,
   checkLashMapQuota,
+  checkLashPreviewQuota,
   checkMarketingQuota,
   checkPhotoFeedbackQuota,
   checkRetentionCheckQuota,
@@ -57,6 +58,7 @@ usersRouter.get(
       retentionChecksThisMonth,
       forumPostsThisMonth,
       marketingGenerationsToday,
+      lashPreviewsThisMonth,
     ] = await Promise.all([
       getUserPlan(userId),
       checkClientProfileQuota(userId),
@@ -67,6 +69,7 @@ usersRouter.get(
       checkRetentionCheckQuota(userId),
       checkForumPostQuota(userId),
       checkMarketingQuota(userId),
+      checkLashPreviewQuota(userId),
     ]);
 
     res.json({
@@ -80,6 +83,7 @@ usersRouter.get(
       retention_checks_this_month: retentionChecksThisMonth,
       forum_posts_this_month: forumPostsThisMonth,
       marketing_generations_today: marketingGenerationsToday,
+      lash_previews_this_month: lashPreviewsThisMonth,
     });
   }),
 );

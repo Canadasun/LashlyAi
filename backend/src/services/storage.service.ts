@@ -96,6 +96,7 @@ export async function uploadImage(input: {
   ownerUserId: string;
   clientProfileId: string;
   purpose: MediaPurpose;
+  consentedByUserId?: string;
 }): Promise<{ key: string; url: string; asset: MediaAsset }> {
   const contentType = validateImage(input.buffer);
   const key = `${input.ownerUserId}/${input.clientProfileId}/${crypto.randomUUID()}${extensionFor(contentType)}`;
@@ -125,6 +126,7 @@ export async function uploadImage(input: {
       contentType,
       byteSize: input.buffer.length,
       purpose: input.purpose,
+      consentedByUserId: input.consentedByUserId,
     });
     return { key, asset, url: `${PUBLIC_BASE_URL}/media/${asset.id}` };
   } catch (error) {

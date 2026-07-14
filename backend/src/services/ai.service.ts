@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import OpenAI, { toFile } from "openai";
 import { recommendGlue } from "./glueRecommendation.service";
 
 export type EyeShape =
@@ -441,6 +441,48 @@ export async function generateCaption(
   const hashtags = (hashtagPart ?? "").match(/#\w+/g) ?? [];
 
   return { caption: (captionPart ?? raw).trim(), hashtags, mock: false };
+}
+
+/**
+ * AI "after look" preview — image *edit* (not pure generation) of the client's own eye
+ * photo, so the result plausibly resembles the same client rather than a generic
+ * synthetic face. Same client/mock-fallback convention as the rest of this file. Costs
+ * a real gpt-image-1 call, gated separately (see planLimits.service.ts
+ * checkLashPreviewQuota) since image generation is pricier than the text calls above.
+ */
+export async function generateLashPreview(
+  baseImageBuffer: Buffer,
+  lashSetLabel: string,
+  lashStyleLabel: string,
+): Promise<{ imageBuffer: Buffer; mock: boolean }> {
+  if (!client) {
+    // No real preview possible without a key — return the original photo back
+    // tagged as mock rather than fabricating an image.
+    return { imageBuffer: baseImageBuffer, mock: true };
+  }
+
+  const prompt =
+    `Edit this client's eye photo to show a realistic, photorealistic preview of ` +
+    `finished eyelash extensions in the "${lashSetLabel}" lash set with a "${lashStyleLabel}" ` +
+    `finished eye look. Keep the client's actual eye shape, skin, lighting, and facial ` +
+    `features unchanged — only add the lash extensions matching the requested set and ` +
+    `look. No text, watermarks, or unrelated changes to the rest of the photo.`;
+
+  const file = await toFile(baseImageBuffer, "eye.jpg", { type: "image/jpeg" });
+  const response = await client.images.edit({
+    image: file,
+    prompt,
+    model: "gpt-image-1",
+    size: "1024x1024",
+    quality: "high",
+  });
+
+  const b64 = response.data?.[0]?.b64_json;
+  if (!b64) {
+    throw new Error("OpenAI image edit call returned no image data");
+  }
+
+  return { imageBuffer: Buffer.from(b64, "base64"), mock: false };
 }
 
 const CLIENT_REPLY_SYSTEM_PROMPT =

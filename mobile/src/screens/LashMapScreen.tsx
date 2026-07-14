@@ -3,6 +3,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,8 +13,8 @@ import {
 } from 'react-native';
 import ViewShot, { ViewShotRef } from 'react-native-view-shot';
 import { LashMapZoneDiagram } from '../components/LashMapZoneDiagram';
-import { api } from '../services/api';
-import { saveLocalImageToDevice } from '../services/saveToDevice';
+import { api, authenticatedImageSource } from '../services/api';
+import { saveImageToDevice, saveLocalImageToDevice } from '../services/saveToDevice';
 import { isQuotaExceededError, showQuotaExceededAlert } from '../services/quotaError';
 import { colors } from '../theme/colors';
 import { RootStackParamList } from '../navigation/types';
@@ -51,6 +52,11 @@ export function LashMapScreen({ route, navigation }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [savingDiagram, setSavingDiagram] = useState(false);
   const diagramRef = useRef<ViewShotRef>(null);
+  const [consented, setConsented] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<{ url: string; mock: boolean } | null>(null);
+  const [savingPreview, setSavingPreview] = useState(false);
 
   const saveDiagram = async () => {
     if (!diagramRef.current?.capture) {
@@ -118,6 +124,46 @@ export function LashMapScreen({ route, navigation }: Props) {
     }
   };
 
+  const createAiPreview = async () => {
+    if (!consented) {
+      setPreviewError('Confirm the client consented before generating a preview.');
+      return;
+    }
+    setPreviewLoading(true);
+    setPreviewError(null);
+    try {
+      const result = await api.post<{ preview_url: string; mock: boolean }>(
+        `/clients/${clientId}/lash-preview`,
+        {
+          lash_set_label: lashMap.lash_set_label ?? lashMap.style_label,
+          lash_style_label: lashMap.lash_style_label,
+          consented: true,
+        },
+      );
+      setPreview({ url: result.preview_url, mock: result.mock });
+    } catch (err) {
+      if (isQuotaExceededError(err)) {
+        showQuotaExceededAlert(err, navigation);
+      } else {
+        setPreviewError(err instanceof Error ? err.message : 'Failed to generate preview');
+      }
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const savePreview = async () => {
+    if (!preview) return;
+    setSavingPreview(true);
+    const result = await saveImageToDevice(preview.url);
+    setSavingPreview(false);
+    if (result.success) {
+      Alert.alert('Saved', 'AI preview saved to your photo library.');
+    } else {
+      Alert.alert('Could not save preview', result.error);
+    }
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>Lash Map</Text>
@@ -179,6 +225,57 @@ export function LashMapScreen({ route, navigation }: Props) {
           <Text style={styles.spikeLengths}>
             Spike lengths: {lashMap.spike_lengths.join(', ')}
           </Text>
+        )}
+      </View>
+
+      <View style={styles.retentionCard}>
+        <Text style={styles.mappingTitle}>AI After-Look Preview</Text>
+        <Text style={styles.previewHint}>
+          Generate a realistic preview of the finished lash look on this client's own
+          eye photo.
+        </Text>
+
+        <TouchableOpacity
+          style={styles.consentRow}
+          onPress={() => setConsented((v) => !v)}
+          activeOpacity={0.7}>
+          <View style={[styles.checkbox, consented && styles.checkboxChecked]}>
+            {consented && <Text style={styles.checkboxMark}>✓</Text>}
+          </View>
+          <Text style={styles.consentText}>Client consented to this AI-generated preview</Text>
+        </TouchableOpacity>
+
+        {previewError && <Text style={styles.error}>{previewError}</Text>}
+
+        <TouchableOpacity
+          style={[styles.button, (!consented || previewLoading) && styles.buttonDisabled]}
+          onPress={createAiPreview}
+          disabled={!consented || previewLoading}>
+          {previewLoading ? (
+            <ActivityIndicator color={colors.background} />
+          ) : (
+            <Text style={styles.buttonText}>Create</Text>
+          )}
+        </TouchableOpacity>
+
+        {preview && (
+          <View style={styles.previewResult}>
+            {preview.mock && <Text style={styles.mockTag}>MOCK PREVIEW</Text>}
+            <Image
+              source={authenticatedImageSource(preview.url)}
+              style={styles.previewImage}
+            />
+            <TouchableOpacity
+              style={styles.secondaryButton}
+              onPress={savePreview}
+              disabled={savingPreview}>
+              {savingPreview ? (
+                <ActivityIndicator color={colors.text} size="small" />
+              ) : (
+                <Text style={styles.secondaryButtonText}>Save to Photos</Text>
+              )}
+            </TouchableOpacity>
+          </View>
         )}
       </View>
 
@@ -357,4 +454,22 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   buttonText: { color: colors.background, fontWeight: '700', fontSize: 15 },
+  buttonDisabled: { opacity: 0.5 },
+  previewHint: { fontSize: 12, color: colors.text, opacity: 0.7, marginBottom: 12 },
+  consentRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    borderColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  checkboxChecked: { backgroundColor: colors.primary, borderColor: colors.primary },
+  checkboxMark: { color: colors.background, fontSize: 12, fontWeight: '700' },
+  consentText: { flex: 1, fontSize: 12, color: colors.text },
+  previewResult: { marginTop: 16, width: '100%', alignItems: 'center' },
+  previewImage: { width: '100%', height: 260, borderRadius: 12 },
 });

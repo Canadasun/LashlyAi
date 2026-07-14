@@ -1,6 +1,6 @@
 import { pool } from "../db";
 
-export type MediaPurpose = "eye_analysis" | "photo_feedback";
+export type MediaPurpose = "eye_analysis" | "photo_feedback" | "lash_preview";
 
 export interface MediaAsset {
   id: string;
@@ -10,6 +10,10 @@ export interface MediaAsset {
   content_type: "image/jpeg" | "image/png" | "image/webp";
   byte_size: number;
   purpose: MediaPurpose;
+  // Only set for purpose = 'lash_preview' — which technician confirmed the client
+  // consented to this AI-generated preview being created from their photo.
+  consented_by_user_id: string | null;
+  consented_at: string | null;
   created_at: string;
 }
 
@@ -20,13 +24,22 @@ export async function createMediaAsset(input: {
   contentType: MediaAsset["content_type"];
   byteSize: number;
   purpose: MediaPurpose;
+  consentedByUserId?: string;
 }): Promise<MediaAsset> {
   const result = await pool.query<MediaAsset>(
     `INSERT INTO media_assets
-       (owner_user_id, client_profile_id, object_key, content_type, byte_size, purpose)
-     VALUES ($1, $2, $3, $4, $5, $6)
+       (owner_user_id, client_profile_id, object_key, content_type, byte_size, purpose, consented_by_user_id, consented_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, CASE WHEN $7::uuid IS NULL THEN NULL ELSE now() END)
      RETURNING *`,
-    [input.ownerUserId, input.clientProfileId, input.objectKey, input.contentType, input.byteSize, input.purpose],
+    [
+      input.ownerUserId,
+      input.clientProfileId,
+      input.objectKey,
+      input.contentType,
+      input.byteSize,
+      input.purpose,
+      input.consentedByUserId ?? null,
+    ],
   );
   return result.rows[0];
 }
