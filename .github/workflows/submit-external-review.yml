@@ -1,0 +1,38 @@
+name: Submit External Beta Review
+
+# Deliberately workflow_dispatch only — this submits a build to Apple's real Beta App
+# Review queue, which is a genuine review request (not something to fire on every
+# push the way internal-tester attachment is). Run from the Actions tab, or:
+#   gh workflow run submit-external-review.yml -f build_number=<N>
+on:
+  workflow_dispatch:
+    inputs:
+      build_number:
+        description: "Build number (CFBundleVersion) to submit, e.g. 31"
+        required: true
+
+jobs:
+  submit:
+    runs-on: macos-26
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Ruby dependencies
+        working-directory: mobile/ios
+        run: bundle install
+
+      - name: Set up App Store Connect API key
+        run: |
+          mkdir -p ~/private_keys
+          echo "${{ secrets.ASC_API_KEY_P8 }}" > ~/private_keys/AuthKey_${{ secrets.ASC_KEY_ID }}.p8
+
+      - name: Submit build for External Beta Review
+        working-directory: mobile/ios
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          BUILD_NUMBER: ${{ inputs.build_number }}
+          REVIEW_DEMO_EMAIL: ${{ secrets.REVIEW_DEMO_EMAIL }}
+          REVIEW_DEMO_PASSWORD: ${{ secrets.REVIEW_DEMO_PASSWORD }}
+        run: bundle exec ruby scripts/submit_external_review.rb
