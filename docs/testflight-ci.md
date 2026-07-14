@@ -1,9 +1,9 @@
 # TestFlight builds via GitHub Actions
 
 This repo builds and uploads to TestFlight using a GitHub-hosted macOS runner
-(`.github/workflows/testflight.yml`) instead of a local Xcode install — GitHub's
-`macos-15` runners come with Xcode 16.0–16.4 pre-installed, which covers React
-Native 0.86's requirement (16.1+).
+(`.github/workflows/testflight.yml`) instead of a local Xcode install — `macos-26`
+runners ship Xcode 26.5, which includes the iOS 26 SDK that App Store Connect now
+requires (Xcode 16.4/iOS 18.5 SDK builds are rejected).
 
 ## One-time setup: GitHub repo secrets
 
@@ -21,40 +21,58 @@ profiles and upload builds.
 
 ## Running a build
 
-Go to the repo's Actions tab → "iOS TestFlight" workflow → Run workflow. It's
-manual-trigger only (`workflow_dispatch`), not run on every push — uploading a build
-is a visible, real action (testers may get notified), so it should be a deliberate
-choice, not a side effect of pushing code.
+Auto-triggers on every push to `main` that touches `mobile/**` or the workflow file
+itself — this is the single source of truth for iOS builds (an earlier parallel EAS
+pipeline was retired after it collided with this one on build numbers). It can also be
+run on demand from the repo's Actions tab → "iOS TestFlight" → Run workflow
+(`workflow_dispatch`), which rebuilds the current `main` HEAD.
 
 ## What the workflow does
 
-1. Checks out the repo, selects Xcode 16.4.
-2. Installs mobile npm dependencies and CocoaPods.
-3. Writes the API key to a temp file from the `ASC_API_KEY_P8` secret.
-4. Bumps `CURRENT_PROJECT_VERSION` to the GitHub Actions run number via `agvtool` —
+1. Checks out the repo, selects Xcode 26.5.
+2. Installs mobile npm dependencies, runs `npm run build`/`lint`/`test` (fails fast
+   before the slow signing/archive stages if JS/TS is broken).
+3. Installs CocoaPods.
+4. Writes the API key to a temp file from the `ASC_API_KEY_P8` secret.
+5. Imports a pre-issued Distribution certificate + App Store provisioning profile into
+   a temporary CI keychain (manual signing — see the P0 troubleshooting item below for
+   why, not `-allowProvisioningUpdates` automatic signing).
+6. Bumps `CURRENT_PROJECT_VERSION` to the GitHub Actions run number via `agvtool` —
    Apple rejects re-uploading the same build number for a given marketing version, so
-   this needs to keep increasing across runs.
-5. Archives with `-allowProvisioningUpdates` and the API key — Xcode automatically
-   creates/fetches the needed distribution certificate and provisioning profile using
-   the key's permissions, no manually-managed certs needed.
-6. Exports with `destination: upload` in `mobile/ios/ExportOptions.plist`, which makes
-   `xcodebuild -exportArchive` upload directly to App Store Connect as its last step.
+   this needs to keep increasing across runs. This exact number is also what
+   `scripts/attach_testflight_build.rb` uses afterward to find the build it just
+   uploaded (see below) — don't change how it's derived without updating that script.
+7. Archives, then exports with `-authenticationKeyPath`/`-ID`/`-IssuerID` pointed at
+   the API key, which makes `xcodebuild -exportArchive` upload directly to App Store
+   Connect as its last step.
+8. Runs `scripts/attach_testflight_build.rb` (see below) to make the upload actually
+   visible to testers.
 
-## Known unknowns (nothing here has been run yet)
+## Known gotchas (check these first if a build silently doesn't reach testers)
 
-This workflow was written and YAML/plist-validated but **has not been run for real**
-— there's no local Xcode/simulator in this dev environment to test it against first.
-The first real run may need adjustments, most likely:
-- **Xcode 16.4 not being the exact version needed** — if the build fails on
-  React Native/Swift version mismatches, try a different 16.x version, or move to a
-  `macos-26` runner (has Xcode 26.x) if RN's actual requirement turns out higher than
-  expected.
-- **Automatic signing needing the API key's role bumped** to Admin if App Manager
-  turns out insufficient for creating a brand-new provisioning profile on the very
-  first run.
-- **CocoaPods native modules** (react-native-svg, react-native-screens, etc.) — these
-  installed cleanly in this dev environment despite no Xcode, but have never actually
-  compiled through `xcodebuild`.
+A successful CI run (green checkmark, upload succeeded) does **not** mean testers can
+see the new build — Apple requires export compliance + a beta group attached per
+build, and getting either of those wrong fails silently: the workflow still goes
+green, nothing errors, and the app in TestFlight just... doesn't update.
 
-Report back the exact failure if the first run doesn't succeed — CI logs from a real
-Xcode toolchain will surface issues no amount of `tsc`/`pod install` here could catch.
+- **The build-selection bug (fixed 2026-07-14).** `attach_testflight_build.rb` used to
+  fetch `/v1/preReleaseVersions/{id}/builds?limit=1` with no sort or filter, assuming
+  the API returns the just-uploaded build first. It doesn't reliably — from the build
+  right after this script was introduced onward, every run silently re-attached an
+  **old, already-processed build** instead of the new one (caught via a `409` "already
+  declared" on the compliance PATCH, and a build reaching `VALID` 2-3 seconds after
+  upload finished, which is not how long real Apple processing takes). The real new
+  build never got compliance/group set and stayed invisible — testers kept seeing
+  whatever build predated this script, across every push, with no error anywhere.
+  Fixed by filtering on the exact build number the workflow just created
+  (`BUILD_NUMBER` env var, same value as the `agvtool` bump) instead of trusting list
+  order. **If a future build still doesn't reach testers after a green CI run, check
+  the "Attach build to TestFlight internal testers" step's log first** — it prints the
+  exact build number/ID it operated on and the compliance/group HTTP status codes.
+- **Export compliance and beta group attachment aren't automatic on upload** — a build
+  can show `processingState: VALID` in App Store Connect and still not be installable
+  until both are set. This is what the script above exists to automate for internal
+  testers.
+- **External testers need a separate, manual Beta App Review submission per build** —
+  deliberately not automated, since that's a real App Review submission to Apple, not
+  something to fire off unattended alongside every push.

@@ -12,6 +12,17 @@
 # external-tester groups additionally need a fresh Beta App Review submission per
 # build, which is deliberately NOT automated here since that's a real App Review
 # submission, not something to fire off unattended.
+#
+# BUG FIXED 2026-07-14: the builds lookup used to be `?limit=1` with no filter or
+# sort, trusting the API to return the just-uploaded build first. It doesn't — every
+# run from #27 onward silently re-attached an old, already-compliant build (proof: a
+# 409 "already declared" on the compliance PATCH, and a build reaching VALID 2-3
+# seconds after upload finished, which is not how long Apple processing actually
+# takes). The real new build never got compliance/group set, so it stayed invisible —
+# testers kept seeing whatever build was current before this script was introduced,
+# silently, across every push since. Fixed by filtering on the exact build number this
+# run just created (BUILD_NUMBER, passed from the workflow's `github.run_number`,
+# the same value used in "Bump build number") instead of trusting list order.
 
 require "jwt"
 require "net/http"
@@ -41,6 +52,7 @@ end
 
 key_id = ENV.fetch("ASC_KEY_ID")
 issuer_id = ENV.fetch("ASC_ISSUER_ID")
+build_number = ENV.fetch("BUILD_NUMBER")
 private_key = OpenSSL::PKey::EC.new(File.read(File.expand_path("~/private_keys/AuthKey_#{key_id}.p8")))
 
 token = JWT.encode(
@@ -60,11 +72,24 @@ build_id = nil
 state = nil
 
 MAX_POLL_ATTEMPTS.times do |attempt|
-  _, builds_body = api(:get, token, "/v1/preReleaseVersions/#{version_id}/builds?limit=1")
-  build = JSON.parse(builds_body).fetch("data").fetch(0)
+  _, builds_body = api(
+    :get,
+    token,
+    "/v1/preReleaseVersions/#{version_id}/builds?filter[version]=#{build_number}&limit=1",
+  )
+  data = JSON.parse(builds_body).fetch("data")
+  if data.empty?
+    puts "[attach_testflight_build] attempt #{attempt + 1}/#{MAX_POLL_ATTEMPTS}: " \
+         "build #{build_number} not visible in App Store Connect yet"
+    sleep POLL_INTERVAL_SECONDS
+    next
+  end
+
+  build = data.fetch(0)
   build_id = build["id"]
   state = build.dig("attributes", "processingState")
-  puts "[attach_testflight_build] attempt #{attempt + 1}/#{MAX_POLL_ATTEMPTS}: build #{build_id} processingState=#{state}"
+  puts "[attach_testflight_build] attempt #{attempt + 1}/#{MAX_POLL_ATTEMPTS}: " \
+       "build #{build_number} (id #{build_id}) processingState=#{state}"
   break if %w[VALID INVALID FAILED].include?(state)
 
   sleep POLL_INTERVAL_SECONDS
