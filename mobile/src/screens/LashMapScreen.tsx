@@ -143,6 +143,12 @@ export function LashMapScreen({ route, navigation }: Props) {
       <View style={styles.statsRow}>
         <Stat label="Fan Type" value={lashMap.fan_type} />
       </View>
+      {(lashMap.lash_set_label || lashMap.lash_style_label) && (
+        <View style={styles.statsRow}>
+          {lashMap.lash_set_label && <Stat label="Lash Set" value={lashMap.lash_set_label} />}
+          {lashMap.lash_style_label && <Stat label="Lash Style" value={lashMap.lash_style_label} />}
+        </View>
+      )}
 
       <View style={styles.mappingCard}>
         <Text style={styles.mappingTitle}>Mapping</Text>

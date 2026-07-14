@@ -22,11 +22,23 @@ export interface LashMap {
   curl_label: string;
   spike_lengths?: number[];
   zone_summary: ZoneSummary;
+  lash_set?: string;
+  lash_style?: string;
+  lash_set_label?: string;
+  lash_style_label?: string;
 }
 
 type LashMapPresentation = Pick<
   LashMap,
-  "technique" | "style_label" | "curl_label" | "spike_lengths" | "zone_summary"
+  | "technique"
+  | "style_label"
+  | "curl_label"
+  | "spike_lengths"
+  | "zone_summary"
+  | "lash_set"
+  | "lash_style"
+  | "lash_set_label"
+  | "lash_style_label"
 >;
 
 interface LashMapRow {
@@ -72,6 +84,10 @@ export async function createLashMap(
     curl_label: map.curl_label,
     spike_lengths: map.spike_lengths,
     zone_summary: map.zone_summary,
+    lash_set: map.lash_set,
+    lash_style: map.lash_style,
+    lash_set_label: map.lash_set_label,
+    lash_style_label: map.lash_style_label,
   };
   const result = await pool.query<LashMapRow>(
     `INSERT INTO lash_maps (client_profile_id, style, curl, lengths, diameter, fan_type, visual_map, presentation)

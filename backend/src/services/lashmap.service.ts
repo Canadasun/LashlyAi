@@ -6,7 +6,15 @@ import {
   CURL_BUMP,
   DIAMETER_BY_DENSITY,
   FAN_TYPE_BY_DENSITY,
+  isLashSetOption,
+  isLashStyleOption,
+  LASH_SET_CURL,
+  LASH_SET_LABELS,
+  LASH_SET_ZONE_LENGTHS_MM,
+  LASH_STYLE_LABELS,
   LashCurl,
+  LashSetOption,
+  LashStyleOption,
   LashTechnique,
   STYLE_CURL_BY_EYE_SHAPE,
   STYLE_LABELS,
@@ -53,6 +61,13 @@ export interface GeneratedLashMap {
   curl_label: string;
   spike_lengths?: number[];
   zone_summary: ZoneSummary;
+  // New, additive axis (see lashMapRules.data.ts) — only set when the artist picks a
+  // Lash Set / Lash Style from the mobile UI's replacement for the old Style (Pro) /
+  // Technique pickers.
+  lash_set?: LashSetOption;
+  lash_style?: LashStyleOption;
+  lash_set_label?: string;
+  lash_style_label?: string;
 }
 
 const ZONE_ORDER: ZoneName[] = ["inner", "inner_mid", "center", "outer_mid", "outer"];
@@ -137,12 +152,24 @@ export function generateLashMap(
   eyeAnalysis: Pick<EyeAnalysis, "eye_shape" | "lash_density">,
   requestedStyle?: string,
   requestedTechnique?: string,
+  requestedLashSet?: string,
+  requestedLashStyle?: string,
 ): GeneratedLashMap {
   const eyeShapeDefault = STYLE_CURL_BY_EYE_SHAPE[eyeAnalysis.eye_shape];
+  const lashSet = isLashSetOption(requestedLashSet) ? requestedLashSet : undefined;
+  const lashStyle = isLashStyleOption(requestedLashStyle) ? requestedLashStyle : undefined;
 
-  const style = isAdvancedStyle(requestedStyle) ? requestedStyle : eyeShapeDefault.style;
-  const curl = isAdvancedStyle(requestedStyle) ? ADVANCED_STYLE_CURL[requestedStyle] : eyeShapeDefault.curl;
-  const lengths = ZONE_LENGTHS_MM[style];
+  // A recognized Lash Set takes precedence over the legacy eye-shape/advanced-style
+  // derivation below — it's a direct artist choice, same precedence rule the old
+  // requestedStyle already had over the eye-shape default.
+  const legacyStyle = isAdvancedStyle(requestedStyle) ? requestedStyle : eyeShapeDefault.style;
+  const legacyCurl = isAdvancedStyle(requestedStyle)
+    ? ADVANCED_STYLE_CURL[requestedStyle]
+    : eyeShapeDefault.curl;
+
+  const style: string = lashSet ?? legacyStyle;
+  const curl: LashCurl = lashSet ? LASH_SET_CURL[lashSet] : legacyCurl;
+  const lengths = lashSet ? LASH_SET_ZONE_LENGTHS_MM[lashSet] : ZONE_LENGTHS_MM[legacyStyle];
   const diameter = DIAMETER_BY_DENSITY[eyeAnalysis.lash_density];
   const fanType = FAN_TYPE_BY_DENSITY[eyeAnalysis.lash_density];
   const technique = isLashTechnique(requestedTechnique) ? requestedTechnique : "classic";
@@ -164,9 +191,11 @@ export function generateLashMap(
     fan_type: fanType,
     visual_map: { zones },
     technique,
-    style_label: buildStyleLabel(style, technique),
+    style_label: lashSet ? LASH_SET_LABELS[lashSet] : buildStyleLabel(style, technique),
     curl_label: buildCurlLabel(curl, technique),
     ...(spikeLengths ? { spike_lengths: spikeLengths } : {}),
     zone_summary: zoneSummary,
+    ...(lashSet ? { lash_set: lashSet, lash_set_label: LASH_SET_LABELS[lashSet] } : {}),
+    ...(lashStyle ? { lash_style: lashStyle, lash_style_label: LASH_STYLE_LABELS[lashStyle] } : {}),
   };
 }

@@ -64,6 +64,10 @@ export interface LashMap {
   curl_label: string;
   spike_lengths?: number[];
   zone_summary: ZoneSummary;
+  lash_set?: string;
+  lash_style?: string;
+  lash_set_label?: string;
+  lash_style_label?: string;
 }
 
 export interface PhotoFeedback {

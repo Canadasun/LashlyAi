@@ -113,3 +113,120 @@ export const CURL_BUMP: Record<LashCurl, LashCurl> = {
   CC: "D",
   D: "D",
 };
+
+/**
+ * "Lash sets" and "Lash styles" (added 2026-07) replace the old "Style (Pro)" /
+ * "Technique" picker labels in the mobile UI with lash-industry-standard vocabulary.
+ * They are a NEW, additive axis — not a renaming of BasicLashStyle/AdvancedLashStyle
+ * above, whose values don't map 1:1 onto these (existing lash_maps rows keep their
+ * original style/curl/technique; new rows additionally carry lash_set/lash_style, see
+ * lashmap.service.ts and LashMap.ts's `presentation` JSONB column).
+ *
+ * STATUS: PLACEHOLDER, same caveat as the rest of this file — zone lengths/curls for
+ * each Lash Set below are conservative guesses, not verified lash-artist standards.
+ * Flagged for owner review before treating as accurate.
+ */
+export type LashSetOption =
+  | "classic"
+  | "hybrid"
+  | "volume"
+  | "megavolume"
+  | "wet_set"
+  | "wet_wispy_set"
+  | "medusa_set"
+  | "anime_set"
+  | "angel_set"
+  | "yy_set";
+
+export type LashStyleOption =
+  | "cateye"
+  | "kitten_eye"
+  | "doll_eye"
+  | "open_eye"
+  | "squirrel_eye"
+  | "fox_eye"
+  | "natural_eye";
+
+export const LASH_SET_OPTIONS: LashSetOption[] = [
+  "classic",
+  "hybrid",
+  "volume",
+  "megavolume",
+  "wet_set",
+  "wet_wispy_set",
+  "medusa_set",
+  "anime_set",
+  "angel_set",
+  "yy_set",
+];
+
+export const LASH_STYLE_OPTIONS: LashStyleOption[] = [
+  "cateye",
+  "kitten_eye",
+  "doll_eye",
+  "open_eye",
+  "squirrel_eye",
+  "fox_eye",
+  "natural_eye",
+];
+
+export const LASH_SET_LABELS: Record<LashSetOption, string> = {
+  classic: "Classic",
+  hybrid: "Hybrid",
+  volume: "Volume",
+  megavolume: "Megavolume",
+  wet_set: "Wet Set",
+  wet_wispy_set: "Wet Wispy Set",
+  medusa_set: "Medusa Set",
+  anime_set: "Anime Set",
+  angel_set: "Angel Set",
+  yy_set: "YY Set",
+};
+
+export const LASH_STYLE_LABELS: Record<LashStyleOption, string> = {
+  cateye: "Cat Eye",
+  kitten_eye: "Kitten Eye",
+  doll_eye: "Doll Eye",
+  open_eye: "Open Eye",
+  squirrel_eye: "Squirrel Eye",
+  fox_eye: "Fox Eye",
+  natural_eye: "Natural Eye",
+};
+
+// PLACEHOLDER — progression from Classic (thin/short, natural fan) through Megavolume
+// (fullest fans, longer), with the named "sets" (Wet Set, Medusa, Anime, Angel, YY)
+// approximated from their typical finished look. Owner review required.
+export const LASH_SET_ZONE_LENGTHS_MM: Record<LashSetOption, Record<ZoneName, number>> = {
+  classic: { inner: 8, inner_mid: 9, center: 10, outer_mid: 10, outer: 9 },
+  hybrid: { inner: 8, inner_mid: 10, center: 11, outer_mid: 11, outer: 10 },
+  volume: { inner: 9, inner_mid: 11, center: 12, outer_mid: 12, outer: 11 },
+  megavolume: { inner: 10, inner_mid: 12, center: 14, outer_mid: 14, outer: 12 },
+  wet_set: { inner: 6, inner_mid: 7, center: 8, outer_mid: 8, outer: 7 },
+  wet_wispy_set: { inner: 7, inner_mid: 9, center: 11, outer_mid: 11, outer: 10 },
+  medusa_set: { inner: 6, inner_mid: 11, center: 8, outer_mid: 13, outer: 9 },
+  anime_set: { inner: 10, inner_mid: 12, center: 15, outer_mid: 14, outer: 11 },
+  angel_set: { inner: 9, inner_mid: 10, center: 12, outer_mid: 11, outer: 9 },
+  yy_set: { inner: 8, inner_mid: 10, center: 11, outer_mid: 11, outer: 10 },
+};
+
+// PLACEHOLDER curl per Lash Set — owner review required.
+export const LASH_SET_CURL: Record<LashSetOption, LashCurl> = {
+  classic: "C",
+  hybrid: "CC",
+  volume: "CC",
+  megavolume: "D",
+  wet_set: "C",
+  wet_wispy_set: "CC",
+  medusa_set: "CC",
+  anime_set: "D",
+  angel_set: "CC",
+  yy_set: "CC",
+};
+
+export function isLashSetOption(value: unknown): value is LashSetOption {
+  return LASH_SET_OPTIONS.includes(value as LashSetOption);
+}
+
+export function isLashStyleOption(value: unknown): value is LashStyleOption {
+  return LASH_STYLE_OPTIONS.includes(value as LashStyleOption);
+}

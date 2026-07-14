@@ -53,24 +53,35 @@ const BROW_FIELDS: { label: string; key: keyof EyeAnalysis }[] = [
   { label: 'Brow hair direction', key: 'brow_hair_direction' },
 ];
 
-const ADVANCED_STYLES: { label: string; value: string | null }[] = [
+const LASH_SETS: { label: string; value: string | null }[] = [
   { label: 'Auto (from eye shape)', value: null },
-  { label: 'Anime', value: 'anime' },
-  { label: 'Medusa', value: 'medusa' },
-  { label: 'Wet Set', value: 'wet-set' },
-  { label: 'Kim K', value: 'kim-k' },
-  { label: 'Strip Lash Effect', value: 'strip-lash-effect' },
+  { label: 'Classic', value: 'classic' },
+  { label: 'Hybrid', value: 'hybrid' },
+  { label: 'Volume', value: 'volume' },
+  { label: 'Megavolume', value: 'megavolume' },
+  { label: 'Wet Set', value: 'wet_set' },
+  { label: 'Wet Wispy Set', value: 'wet_wispy_set' },
+  { label: 'Medusa Set', value: 'medusa_set' },
+  { label: 'Anime Set', value: 'anime_set' },
+  { label: 'Angel Set', value: 'angel_set' },
+  { label: 'YY Set', value: 'yy_set' },
 ];
 
-const TECHNIQUES: { label: string; value: 'classic' | 'wispy' }[] = [
-  { label: 'Classic', value: 'classic' },
-  { label: 'Wispy', value: 'wispy' },
+const LASH_STYLES: { label: string; value: string | null }[] = [
+  { label: 'Auto (from eye shape)', value: null },
+  { label: 'Cat Eye', value: 'cateye' },
+  { label: 'Kitten Eye', value: 'kitten_eye' },
+  { label: 'Doll Eye', value: 'doll_eye' },
+  { label: 'Open Eye', value: 'open_eye' },
+  { label: 'Squirrel Eye', value: 'squirrel_eye' },
+  { label: 'Fox Eye', value: 'fox_eye' },
+  { label: 'Natural Eye', value: 'natural_eye' },
 ];
 
 export function EyeAnalysisResultScreen({ route, navigation }: Props) {
   const { clientId } = route.params;
-  const [requestedStyle, setRequestedStyle] = useState<string | null>(null);
-  const [technique, setTechnique] = useState<'classic' | 'wispy'>('classic');
+  const [requestedLashSet, setRequestedLashSet] = useState<string | null>(null);
+  const [requestedLashStyle, setRequestedLashStyle] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [eyeAnalysis, setEyeAnalysis] = useState<EyeAnalysis | null>(route.params.eyeAnalysis ?? null);
   const [photoUrl, setPhotoUrl] = useState(route.params.photoUrl ?? null);
@@ -116,8 +127,8 @@ export function EyeAnalysisResultScreen({ route, navigation }: Props) {
     setError(null);
     try {
       const lashMap = await api.post<LashMap>(`/clients/${clientId}/lash-map`, {
-        requested_style: requestedStyle ?? undefined,
-        requested_technique: technique,
+        requested_lash_set: requestedLashSet ?? undefined,
+        requested_lash_style: requestedLashStyle ?? undefined,
         eye_analysis: eyeAnalysis,
       });
       navigation.replace('LashMap', { clientId, lashMap });
@@ -186,17 +197,17 @@ export function EyeAnalysisResultScreen({ route, navigation }: Props) {
       ))}
       {eyeAnalysis.notes ? <Text style={styles.notes}>{eyeAnalysis.notes}</Text> : null}
 
-      <Text style={styles.styleLabel}>Style (Pro)</Text>
+      <Text style={styles.styleLabel}>Lash Sets</Text>
       <View style={styles.styleChips}>
-        {ADVANCED_STYLES.map((option) => (
+        {LASH_SETS.map((option) => (
           <TouchableOpacity
             key={option.label}
-            style={[styles.chip, requestedStyle === option.value && styles.chipSelected]}
-            onPress={() => setRequestedStyle(option.value)}>
+            style={[styles.chip, requestedLashSet === option.value && styles.chipSelected]}
+            onPress={() => setRequestedLashSet(option.value)}>
             <Text
               style={[
                 styles.chipText,
-                requestedStyle === option.value && styles.chipTextSelected,
+                requestedLashSet === option.value && styles.chipTextSelected,
               ]}>
               {option.label}
             </Text>
@@ -204,15 +215,18 @@ export function EyeAnalysisResultScreen({ route, navigation }: Props) {
         ))}
       </View>
 
-      <Text style={styles.styleLabel}>Technique</Text>
+      <Text style={styles.styleLabel}>Lash Styles</Text>
       <View style={styles.styleChips}>
-        {TECHNIQUES.map((option) => (
+        {LASH_STYLES.map((option) => (
           <TouchableOpacity
-            key={option.value}
-            style={[styles.chip, technique === option.value && styles.chipSelected]}
-            onPress={() => setTechnique(option.value)}>
+            key={option.label}
+            style={[styles.chip, requestedLashStyle === option.value && styles.chipSelected]}
+            onPress={() => setRequestedLashStyle(option.value)}>
             <Text
-              style={[styles.chipText, technique === option.value && styles.chipTextSelected]}>
+              style={[
+                styles.chipText,
+                requestedLashStyle === option.value && styles.chipTextSelected,
+              ]}>
               {option.label}
             </Text>
           </TouchableOpacity>
