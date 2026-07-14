@@ -8,5 +8,7 @@ module.exports = {
         path: '.env',
       },
     ],
+    // Reanimated 4 moved its Babel plugin into react-native-worklets — must stay last.
+    'react-native-worklets/plugin',
   ],
 };

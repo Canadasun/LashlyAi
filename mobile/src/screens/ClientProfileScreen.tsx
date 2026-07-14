@@ -92,7 +92,22 @@ export function ClientProfileScreen({ route, navigation }: Props) {
       {client.notes ? <Text style={styles.notes}>{client.notes}</Text> : null}
 
       {client.photos.length > 0 && (
-        <Image source={authenticatedImageSource(client.photos[client.photos.length - 1])} style={styles.photo} />
+        <>
+          <Image
+            source={authenticatedImageSource(client.photos[client.photos.length - 1])}
+            style={styles.photo}
+          />
+          <TouchableOpacity
+            style={styles.secondaryButton}
+            onPress={() =>
+              navigation.navigate('PhotoEditor', {
+                clientId,
+                photoUri: client.photos[client.photos.length - 1],
+              })
+            }>
+            <Text style={styles.secondaryButtonText}>Edit Photo (Pro)</Text>
+          </TouchableOpacity>
+        </>
       )}
 
       <TouchableOpacity

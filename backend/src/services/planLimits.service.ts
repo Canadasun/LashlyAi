@@ -24,6 +24,12 @@ const FREE_LIMITS = {
   lashPreviewsPerMonth: 0,
 };
 
+// Photo editor is paid-tier only (free gets zero, not a reduced quota) — but unlike
+// every other feature above, paid tiers get a flat daily cap rather than unlimited,
+// since exports are high-res and this is a distinct monetized feature, not a taste of
+// an eventually-unlimited one.
+const PAID_PHOTO_EDIT_DAILY_CAP = 10;
+
 const ACTIVE_SUBSCRIPTION_STATUSES = new Set(["active", "trialing", "grace_period"]);
 
 function isNonExpiredRenewal(renewsAt: string | null, now: number) {
@@ -127,5 +133,12 @@ export async function checkLashPreviewQuota(userId: string): Promise<QuotaStatus
   const plan = await getUserPlan(userId);
   const used = await countEventsThisMonth(userId, "lash_preview_generation");
   const limit = plan === "free" ? FREE_LIMITS.lashPreviewsPerMonth : null;
+  return quotaStatus(used, limit);
+}
+
+export async function checkPhotoEditQuota(userId: string): Promise<QuotaStatus> {
+  const plan = await getUserPlan(userId);
+  const used = await countEventsToday(userId, "photo_edit");
+  const limit = plan === "free" ? 0 : PAID_PHOTO_EDIT_DAILY_CAP;
   return quotaStatus(used, limit);
 }

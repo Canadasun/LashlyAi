@@ -23,6 +23,7 @@ import { LessonListScreen } from '../screens/LessonListScreen';
 import { MarketingToolsScreen } from '../screens/MarketingToolsScreen';
 import { NewClientScreen } from '../screens/NewClientScreen';
 import { PaywallScreen } from '../screens/PaywallScreen';
+import { PhotoEditorScreen } from '../screens/PhotoEditorScreen';
 import { PhotoFeedbackScreen } from '../screens/PhotoFeedbackScreen';
 import { RootStackParamList } from './types';
 
@@ -154,6 +155,11 @@ export function RootNavigator() {
                 name="BeforeAfter"
                 component={BeforeAfterScreen}
                 options={{ title: 'Before & After' }}
+              />
+              <Stack.Screen
+                name="PhotoEditor"
+                component={PhotoEditorScreen}
+                options={{ title: 'Photo Editor' }}
               />
             </>
           )}

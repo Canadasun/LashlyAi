@@ -1,6 +1,6 @@
 import { pool } from "../db";
 
-export type MediaPurpose = "eye_analysis" | "photo_feedback" | "lash_preview";
+export type MediaPurpose = "eye_analysis" | "photo_feedback" | "lash_preview" | "photo_edit";
 
 export interface MediaAsset {
   id: string;

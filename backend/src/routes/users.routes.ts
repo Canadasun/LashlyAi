@@ -9,6 +9,7 @@ import {
   checkLashMapQuota,
   checkLashPreviewQuota,
   checkMarketingQuota,
+  checkPhotoEditQuota,
   checkPhotoFeedbackQuota,
   checkRetentionCheckQuota,
   ENFORCEMENT_ENABLED,
@@ -59,6 +60,7 @@ usersRouter.get(
       forumPostsThisMonth,
       marketingGenerationsToday,
       lashPreviewsThisMonth,
+      photoEditsToday,
     ] = await Promise.all([
       getUserPlan(userId),
       checkClientProfileQuota(userId),
@@ -70,6 +72,7 @@ usersRouter.get(
       checkForumPostQuota(userId),
       checkMarketingQuota(userId),
       checkLashPreviewQuota(userId),
+      checkPhotoEditQuota(userId),
     ]);
 
     res.json({
@@ -84,6 +87,7 @@ usersRouter.get(
       forum_posts_this_month: forumPostsThisMonth,
       marketing_generations_today: marketingGenerationsToday,
       lash_previews_this_month: lashPreviewsThisMonth,
+      photo_edits_today: photoEditsToday,
     });
   }),
 );

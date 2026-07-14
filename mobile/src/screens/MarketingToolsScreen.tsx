@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { api } from '../services/api';
+import { generateCaption } from '../services/marketing';
 import { isQuotaExceededError, showQuotaExceededAlert } from '../services/quotaError';
 import { colors } from '../theme/colors';
 import { RootStackParamList } from '../navigation/types';
@@ -37,10 +38,7 @@ export function MarketingToolsScreen() {
     setReply(null);
     try {
       if (mode === 'caption') {
-        const result = await api.post<{ caption: string; hashtags: string[] }>(
-          '/marketing/caption',
-          { post_description: input.trim() },
-        );
+        const result = await generateCaption(input.trim());
         setCaption(result);
       } else {
         const result = await api.post<{ reply: string }>('/marketing/reply', {

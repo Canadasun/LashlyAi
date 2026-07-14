@@ -40,6 +40,7 @@ import {
   checkEyeScanQuota,
   checkLashMapQuota,
   checkLashPreviewQuota,
+  checkPhotoEditQuota,
   checkPhotoFeedbackQuota,
   checkRetentionCheckQuota,
 } from "../services/planLimits.service";
@@ -321,6 +322,46 @@ clientsRouter.get(
 
     const feedback = await getPhotoFeedbackByClientProfileId(client.id);
     res.json(feedback);
+  }),
+);
+
+// Persists the final high-res export from the mobile photo editor (filters/presets
+// applied client-side via Skia) — a distinct paid feature from photo_feedback (AI
+// scoring), so it gets its own media purpose and quota.
+clientsRouter.post(
+  "/:id/photo-edit",
+  requireUser,
+  upload.single("photo"),
+  asyncHandler(async (req, res) => {
+    const client = await loadOwnedClient(req, res);
+    if (!client) return;
+
+    if (!req.file) {
+      res.status(400).json({ error: 'Missing "photo" file in multipart body' });
+      return;
+    }
+
+    const quota = await checkPhotoEditQuota(req.currentUser!.id);
+    if (!quota.allowed) {
+      res.status(403).json({
+        error:
+          quota.limit === 0
+            ? "Photo editing is a Pro feature. Upgrade to Pro to use it."
+            : `Photo editing is limited to ${quota.limit} exports per day. Try again tomorrow.`,
+      });
+      return;
+    }
+
+    const preparedImage = await prepareImage(req.file.buffer);
+    const uploaded = await uploadImage({
+      buffer: preparedImage,
+      ownerUserId: req.currentUser!.id,
+      clientProfileId: client.id,
+      purpose: "photo_edit",
+    });
+    await logUsageEvent(req.currentUser!.id, "photo_edit");
+
+    res.status(201).json({ photo_url: uploaded.url });
   }),
 );
 

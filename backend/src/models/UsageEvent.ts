@@ -8,7 +8,8 @@ export type UsageEventType =
   | "lash_map_generation"
   | "forum_post"
   | "marketing_generation"
-  | "lash_preview_generation";
+  | "lash_preview_generation"
+  | "photo_edit";
 
 export async function logUsageEvent(userId: string, eventType: UsageEventType): Promise<void> {
   await pool.query("INSERT INTO usage_events (user_id, event_type) VALUES ($1, $2)", [
