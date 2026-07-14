@@ -326,13 +326,13 @@ export function PhotoEditorScreen({ route, navigation }: Props) {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.secondaryButton, (!retouchConsented || retouching) && styles.buttonDisabled]}
+          style={[styles.retouchButton, (!retouchConsented || retouching) && styles.buttonDisabled]}
           onPress={handleAiRetouch}
           disabled={!retouchConsented || retouching}>
           {retouching ? (
-            <ActivityIndicator color={colors.text} size="small" />
+            <ActivityIndicator color={colors.ink} size="small" />
           ) : (
-            <Text style={styles.secondaryButtonText}>Retouch Skin</Text>
+            <Text style={styles.retouchButtonText}>Retouch Skin</Text>
           )}
         </TouchableOpacity>
         {lastRetouchWasMock && <Text style={styles.mockTag}>LAST RETOUCH WAS MOCK</Text>}
@@ -438,6 +438,10 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 16,
     width: '100%',
+    // A bright secondary accent stripe (not the muted primary) marks this out as the
+    // app's AI-forward feature, without recoloring the whole card.
+    borderLeftWidth: 3,
+    borderLeftColor: colors.secondary,
   },
   retouchHint: { fontSize: 12, color: colors.text, opacity: 0.7, marginTop: 4, marginBottom: 12 },
   consentRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
@@ -451,10 +455,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 10,
   },
-  checkboxChecked: { backgroundColor: colors.primary, borderColor: colors.primary },
-  checkboxMark: { color: colors.background, fontSize: 12, fontWeight: '700' },
+  checkboxChecked: { backgroundColor: colors.secondary, borderColor: colors.secondary },
+  checkboxMark: { color: colors.ink, fontSize: 12, fontWeight: '700' },
   consentText: { flex: 1, fontSize: 12, color: colors.text },
   buttonDisabled: { opacity: 0.5 },
+  retouchButton: {
+    backgroundColor: colors.secondary,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 10,
+    width: '100%',
+  },
+  // Ink, not the near-white buttonText used on the muted primary elsewhere — #FF66CC
+  // is bright enough that light text on it fails contrast.
+  retouchButtonText: { color: colors.ink, fontWeight: '700' },
   mockTag: { fontSize: 10, color: colors.accent, fontWeight: '700', marginTop: 8 },
   presetRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, width: '100%', marginBottom: 16 },
   presetChip: {
