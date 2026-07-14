@@ -1,7 +1,9 @@
-import { useCallback, useState } from 'react';
-import { useFocusEffect } from '@react-navigation/native';
+import { useCallback, useRef, useState } from 'react';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -12,7 +14,9 @@ import {
   View,
 } from 'react-native';
 import { api } from '../services/api';
+import { isQuotaExceededError } from '../services/quotaError';
 import { colors } from '../theme/colors';
+import { RootStackParamList } from '../navigation/types';
 
 interface Message {
   id: string;
@@ -29,10 +33,15 @@ interface QuotaField {
 let nextId = 0;
 
 export function CoachScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [messages, setMessages] = useState<Message[]>([]);
   const [question, setQuestion] = useState('');
   const [sending, setSending] = useState(false);
   const [quota, setQuota] = useState<QuotaField | null>(null);
+  // TouchableOpacity's `disabled={sending}` only takes effect after the state update
+  // re-renders — a fast double-tap in the same tick can slip both calls through
+  // before that happens. This ref closes that gap synchronously.
+  const sendingRef = useRef(false);
 
   const loadQuota = useCallback(async () => {
     try {
@@ -51,7 +60,8 @@ export function CoachScreen() {
 
   const send = async () => {
     const trimmed = question.trim();
-    if (!trimmed) return;
+    if (!trimmed || sendingRef.current) return;
+    sendingRef.current = true;
 
     const userMessage: Message = { id: String(nextId++), role: 'user', text: trimmed };
     setMessages((prev) => [...prev, userMessage]);
@@ -67,15 +77,26 @@ export function CoachScreen() {
         { id: String(nextId++), role: 'coach', text: result.answer, mock: result.mock },
       ]);
     } catch (err) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: String(nextId++),
-          role: 'coach',
-          text: err instanceof Error ? err.message : 'Something went wrong',
-        },
-      ]);
+      if (isQuotaExceededError(err)) {
+        // Drop the failed question out of the transcript rather than leaving it
+        // sitting there with no answer — the Paywall prompt explains why.
+        setMessages((prev) => prev.filter((m) => m.id !== userMessage.id));
+        Alert.alert('Daily limit reached', err.message, [
+          { text: 'Not now', style: 'cancel' },
+          { text: 'Upgrade', onPress: () => navigation.navigate('Paywall') },
+        ]);
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: String(nextId++),
+            role: 'coach',
+            text: err instanceof Error ? err.message : 'Something went wrong',
+          },
+        ]);
+      }
     } finally {
+      sendingRef.current = false;
       setSending(false);
       loadQuota();
     }

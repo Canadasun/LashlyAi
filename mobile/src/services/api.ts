@@ -35,6 +35,19 @@ export function authenticatedImageSource(uri: string) {
   };
 }
 
+// Carries the HTTP status alongside the message so callers can distinguish e.g. a
+// 403 quota-exceeded response from any other failure without parsing message text
+// (see services/quotaError.ts).
+export class ApiError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
 // Lets AuthContext react to any 401 from anywhere in the app (e.g. an expired token)
 // by signing the user out and bouncing to the login screen, instead of leaving them
 // stuck on whatever screen they were on with a raw "invalid token" error.
@@ -79,7 +92,10 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   if (!response.ok) {
     const message = (body as { error?: string } | undefined)?.error;
-    throw new Error(message ?? `Request to ${path} failed with status ${response.status}`);
+    throw new ApiError(
+      message ?? `Request to ${path} failed with status ${response.status}`,
+      response.status,
+    );
   }
   return body as T;
 }
