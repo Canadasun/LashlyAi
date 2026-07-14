@@ -14,6 +14,11 @@ const FREE_LIMITS = {
   clientProfiles: 5,
   coachQuestionsPerDay: 5,
   eyeScansPerMonth: 3,
+  photoFeedbackPerMonth: 5,
+  lashMapGenerationsPerMonth: 5,
+  retentionChecksPerMonth: 5,
+  forumPostsPerMonth: 5,
+  marketingGenerationsPerDay: 5,
 };
 
 const ACTIVE_SUBSCRIPTION_STATUSES = new Set(["active", "trialing", "grace_period"]);
@@ -77,5 +82,40 @@ export async function checkEyeScanQuota(userId: string): Promise<QuotaStatus> {
   const plan = await getUserPlan(userId);
   const used = await countEventsThisMonth(userId, "eye_scan");
   const limit = plan === "free" ? FREE_LIMITS.eyeScansPerMonth : null;
+  return quotaStatus(used, limit);
+}
+
+export async function checkPhotoFeedbackQuota(userId: string): Promise<QuotaStatus> {
+  const plan = await getUserPlan(userId);
+  const used = await countEventsThisMonth(userId, "photo_feedback");
+  const limit = plan === "free" ? FREE_LIMITS.photoFeedbackPerMonth : null;
+  return quotaStatus(used, limit);
+}
+
+export async function checkLashMapQuota(userId: string): Promise<QuotaStatus> {
+  const plan = await getUserPlan(userId);
+  const used = await countEventsThisMonth(userId, "lash_map_generation");
+  const limit = plan === "free" ? FREE_LIMITS.lashMapGenerationsPerMonth : null;
+  return quotaStatus(used, limit);
+}
+
+export async function checkRetentionCheckQuota(userId: string): Promise<QuotaStatus> {
+  const plan = await getUserPlan(userId);
+  const used = await countEventsThisMonth(userId, "retention_check");
+  const limit = plan === "free" ? FREE_LIMITS.retentionChecksPerMonth : null;
+  return quotaStatus(used, limit);
+}
+
+export async function checkForumPostQuota(userId: string): Promise<QuotaStatus> {
+  const plan = await getUserPlan(userId);
+  const used = await countEventsThisMonth(userId, "forum_post");
+  const limit = plan === "free" ? FREE_LIMITS.forumPostsPerMonth : null;
+  return quotaStatus(used, limit);
+}
+
+export async function checkMarketingQuota(userId: string): Promise<QuotaStatus> {
+  const plan = await getUserPlan(userId);
+  const used = await countEventsToday(userId, "marketing_generation");
+  const limit = plan === "free" ? FREE_LIMITS.marketingGenerationsPerDay : null;
   return quotaStatus(used, limit);
 }

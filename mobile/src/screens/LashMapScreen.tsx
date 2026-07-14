@@ -14,6 +14,7 @@ import ViewShot, { ViewShotRef } from 'react-native-view-shot';
 import { LashMapZoneDiagram } from '../components/LashMapZoneDiagram';
 import { api } from '../services/api';
 import { saveLocalImageToDevice } from '../services/saveToDevice';
+import { isQuotaExceededError, showQuotaExceededAlert } from '../services/quotaError';
 import { colors } from '../theme/colors';
 import { RootStackParamList } from '../navigation/types';
 
@@ -107,7 +108,11 @@ export function LashMapScreen({ route, navigation }: Props) {
       );
       setAdvice(result);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to get retention advice');
+      if (isQuotaExceededError(err)) {
+        showQuotaExceededAlert(err, navigation);
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to get retention advice');
+      }
     } finally {
       setLoading(false);
     }

@@ -8,6 +8,8 @@ import {
   getForumPosts,
 } from "../models/Forum";
 import { asyncHandler } from "../utils/asyncHandler";
+import { checkForumPostQuota } from "../services/planLimits.service";
+import { logUsageEvent } from "../models/UsageEvent";
 
 export const forumRouter = Router();
 
@@ -20,7 +22,17 @@ forumRouter.post(
       res.status(400).json({ error: "title and body are required" });
       return;
     }
+
+    const quota = await checkForumPostQuota(req.currentUser!.id);
+    if (!quota.allowed) {
+      res.status(403).json({
+        error: `Free plan is limited to ${quota.limit} forum posts per month. Upgrade to Pro for unlimited access.`,
+      });
+      return;
+    }
+
     const post = await createForumPost({ userId: req.currentUser!.id, title, body });
+    await logUsageEvent(req.currentUser!.id, "forum_post");
     res.status(201).json(post);
   }),
 );

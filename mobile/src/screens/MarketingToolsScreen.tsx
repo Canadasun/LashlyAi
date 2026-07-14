@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   ActivityIndicator,
   ScrollView,
@@ -9,11 +11,14 @@ import {
   View,
 } from 'react-native';
 import { api } from '../services/api';
+import { isQuotaExceededError, showQuotaExceededAlert } from '../services/quotaError';
 import { colors } from '../theme/colors';
+import { RootStackParamList } from '../navigation/types';
 
 type Mode = 'caption' | 'reply';
 
 export function MarketingToolsScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [mode, setMode] = useState<Mode>('caption');
   const [input, setInput] = useState('');
   const [caption, setCaption] = useState<{ caption: string; hashtags: string[] } | null>(null);
@@ -44,7 +49,11 @@ export function MarketingToolsScreen() {
         setReply(result.reply);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to generate');
+      if (isQuotaExceededError(err)) {
+        showQuotaExceededAlert(err, navigation);
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to generate');
+      }
     } finally {
       setLoading(false);
     }

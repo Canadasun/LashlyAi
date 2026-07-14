@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { api, authenticatedImageSource } from '../services/api';
 import { saveImageToDevice } from '../services/saveToDevice';
+import { isQuotaExceededError, showQuotaExceededAlert } from '../services/quotaError';
 import { colors } from '../theme/colors';
 import { RootStackParamList } from '../navigation/types';
 import { ClientProfile, EyeAnalysis, LashMap } from '../types/api';
@@ -133,7 +134,11 @@ export function EyeAnalysisResultScreen({ route, navigation }: Props) {
       });
       navigation.replace('LashMap', { clientId, lashMap });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to generate lash map');
+      if (isQuotaExceededError(err)) {
+        showQuotaExceededAlert(err, navigation);
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to generate lash map');
+      }
     } finally {
       setLoading(false);
     }

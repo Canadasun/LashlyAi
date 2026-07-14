@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { api } from '../services/api';
+import { isQuotaExceededError, showQuotaExceededAlert } from '../services/quotaError';
 import { colors } from '../theme/colors';
 import { RootStackParamList } from '../navigation/types';
 import { PhotoFeedback } from '../types/api';
@@ -31,7 +32,7 @@ function ScoreBar({ label, score }: { label: string; score: number }) {
   );
 }
 
-export function PhotoFeedbackScreen({ route }: Props) {
+export function PhotoFeedbackScreen({ route, navigation }: Props) {
   const { clientId } = route.params;
   const [photo, setPhoto] = useState<Asset | null>(null);
   const [feedback, setFeedback] = useState<PhotoFeedback | null>(null);
@@ -72,7 +73,11 @@ export function PhotoFeedbackScreen({ route }: Props) {
       );
       setFeedback(result);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Scoring failed');
+      if (isQuotaExceededError(err)) {
+        showQuotaExceededAlert(err, navigation);
+      } else {
+        setError(err instanceof Error ? err.message : 'Scoring failed');
+      }
     } finally {
       setLoading(false);
     }

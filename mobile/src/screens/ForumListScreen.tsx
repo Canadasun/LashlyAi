@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { api } from '../services/api';
+import { isQuotaExceededError, showQuotaExceededAlert } from '../services/quotaError';
 import { colors } from '../theme/colors';
 import { RootStackParamList } from '../navigation/types';
 import { ForumPost } from '../types/api';
@@ -55,7 +56,11 @@ export function ForumListScreen({ navigation }: Props) {
       setShowNewPost(false);
       load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create post');
+      if (isQuotaExceededError(err)) {
+        showQuotaExceededAlert(err, navigation);
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to create post');
+      }
     }
   };
 

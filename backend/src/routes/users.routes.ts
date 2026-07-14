@@ -5,6 +5,11 @@ import {
   checkClientProfileQuota,
   checkCoachQuota,
   checkEyeScanQuota,
+  checkForumPostQuota,
+  checkLashMapQuota,
+  checkMarketingQuota,
+  checkPhotoFeedbackQuota,
+  checkRetentionCheckQuota,
   ENFORCEMENT_ENABLED,
   getUserPlan,
 } from "../services/planLimits.service";
@@ -42,11 +47,26 @@ usersRouter.get(
   requireUser,
   asyncHandler(async (req, res) => {
     const userId = req.currentUser!.id;
-    const [plan, clientProfiles, coachQuestionsToday, eyeScansThisMonth] = await Promise.all([
+    const [
+      plan,
+      clientProfiles,
+      coachQuestionsToday,
+      eyeScansThisMonth,
+      photoFeedbackThisMonth,
+      lashMapGenerationsThisMonth,
+      retentionChecksThisMonth,
+      forumPostsThisMonth,
+      marketingGenerationsToday,
+    ] = await Promise.all([
       getUserPlan(userId),
       checkClientProfileQuota(userId),
       checkCoachQuota(userId),
       checkEyeScanQuota(userId),
+      checkPhotoFeedbackQuota(userId),
+      checkLashMapQuota(userId),
+      checkRetentionCheckQuota(userId),
+      checkForumPostQuota(userId),
+      checkMarketingQuota(userId),
     ]);
 
     res.json({
@@ -55,6 +75,11 @@ usersRouter.get(
       client_profiles: clientProfiles,
       coach_questions_today: coachQuestionsToday,
       eye_scans_this_month: eyeScansThisMonth,
+      photo_feedback_this_month: photoFeedbackThisMonth,
+      lash_map_generations_this_month: lashMapGenerationsThisMonth,
+      retention_checks_this_month: retentionChecksThisMonth,
+      forum_posts_this_month: forumPostsThisMonth,
+      marketing_generations_today: marketingGenerationsToday,
     });
   }),
 );

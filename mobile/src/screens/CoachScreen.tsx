@@ -3,7 +3,6 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -14,7 +13,7 @@ import {
   View,
 } from 'react-native';
 import { api } from '../services/api';
-import { isQuotaExceededError } from '../services/quotaError';
+import { isQuotaExceededError, showQuotaExceededAlert } from '../services/quotaError';
 import { colors } from '../theme/colors';
 import { RootStackParamList } from '../navigation/types';
 
@@ -81,10 +80,7 @@ export function CoachScreen() {
         // Drop the failed question out of the transcript rather than leaving it
         // sitting there with no answer — the Paywall prompt explains why.
         setMessages((prev) => prev.filter((m) => m.id !== userMessage.id));
-        Alert.alert('Daily limit reached', err.message, [
-          { text: 'Not now', style: 'cancel' },
-          { text: 'Upgrade', onPress: () => navigation.navigate('Paywall') },
-        ]);
+        showQuotaExceededAlert(err, navigation);
       } else {
         setMessages((prev) => [
           ...prev,

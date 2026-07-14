@@ -29,7 +29,13 @@ import {
 import { generateLashMap } from "../services/lashmap.service";
 import { deleteStoredMediaAsset, prepareImage, uploadImage } from "../services/storage.service";
 import { asyncHandler } from "../utils/asyncHandler";
-import { checkClientProfileQuota, checkEyeScanQuota } from "../services/planLimits.service";
+import {
+  checkClientProfileQuota,
+  checkEyeScanQuota,
+  checkLashMapQuota,
+  checkPhotoFeedbackQuota,
+  checkRetentionCheckQuota,
+} from "../services/planLimits.service";
 import { logUsageEvent } from "../models/UsageEvent";
 import { getMediaAssetsByClientProfileId } from "../models/MediaAsset";
 
@@ -156,6 +162,14 @@ clientsRouter.post(
       return;
     }
 
+    const quota = await checkLashMapQuota(req.currentUser!.id);
+    if (!quota.allowed) {
+      res.status(403).json({
+        error: `Free plan is limited to ${quota.limit} lash map generations per month. Upgrade to Pro for unlimited access.`,
+      });
+      return;
+    }
+
     const generated = generateLashMap(
       eyeAnalysis,
       req.body?.requested_style,
@@ -169,6 +183,7 @@ clientsRouter.post(
       style: saved.style,
       created_at: saved.created_at,
     });
+    await logUsageEvent(req.currentUser!.id, "lash_map_generation");
 
     res.status(201).json(saved);
   }),
@@ -199,6 +214,14 @@ clientsRouter.post(
       return;
     }
 
+    const quota = await checkPhotoFeedbackQuota(req.currentUser!.id);
+    if (!quota.allowed) {
+      res.status(403).json({
+        error: `Free plan is limited to ${quota.limit} photo feedback scores per month. Upgrade to Pro for unlimited access.`,
+      });
+      return;
+    }
+
     const preparedImage = await prepareImage(req.file.buffer);
     const feedback = await scoreLashPhoto(preparedImage);
     const uploaded = await uploadImage({
@@ -214,6 +237,7 @@ clientsRouter.post(
       await deleteStoredMediaAsset(uploaded.asset).catch(() => undefined);
       throw error;
     }
+    await logUsageEvent(req.currentUser!.id, "photo_feedback");
 
     res.status(201).json(saved);
   }),
@@ -279,6 +303,14 @@ clientsRouter.post(
     }
     if (retentionPct < 0 || retentionPct > 100) {
       res.status(400).json({ error: "retention_pct must be between 0 and 100" });
+      return;
+    }
+
+    const quota = await checkRetentionCheckQuota(req.currentUser!.id);
+    if (!quota.allowed) {
+      res.status(403).json({
+        error: `Free plan is limited to ${quota.limit} retention checks per month. Upgrade to Pro for unlimited access.`,
+      });
       return;
     }
 
