@@ -3,7 +3,7 @@ import { EyeAnalysis, LashMap, Lesson } from '../types/api';
 export type RootStackParamList = {
   Auth: undefined;
   Dashboard: undefined;
-  ClientList: undefined;
+  ClientList: { pickerMode?: 'photoEdit' } | undefined;
   NewClient: undefined;
   ClientProfile: { clientId: string };
   CameraUpload: { clientId: string };
@@ -19,7 +19,6 @@ export type RootStackParamList = {
   PhotoFeedback: { clientId: string };
   Inventory: undefined;
   MarketingTools: undefined;
-  GlueRecommendation: undefined;
   LessonList: undefined;
   LessonDetail: { lesson: Lesson };
   ForumList: undefined;

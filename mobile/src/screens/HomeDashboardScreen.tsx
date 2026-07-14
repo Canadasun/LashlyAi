@@ -36,12 +36,19 @@ const QUICK_ACTIONS: {
   title: string;
   caption: string;
   symbol: string;
-  screen: 'NewClient' | 'Coach' | 'MarketingTools' | 'GlueRecommendation';
+  screen: 'NewClient' | 'Coach' | 'MarketingTools' | 'ClientList';
+  params?: { pickerMode: 'photoEdit' };
 }[] = [
   { title: 'Add client', caption: 'Start a profile', symbol: '+', screen: 'NewClient' },
   { title: 'Ask AI coach', caption: 'Get guidance', symbol: 'AI', screen: 'Coach' },
   { title: 'Create content', caption: 'Caption or reply', symbol: 'Aa', screen: 'MarketingTools' },
-  { title: 'Glue check', caption: 'Match conditions', symbol: '%', screen: 'GlueRecommendation' },
+  {
+    title: 'Photo editor',
+    caption: 'Retouch a photo',
+    symbol: '✎',
+    screen: 'ClientList',
+    params: { pickerMode: 'photoEdit' },
+  },
 ];
 
 const QUICK_ACTION_ROWS = [QUICK_ACTIONS.slice(0, 2), QUICK_ACTIONS.slice(2, 4)];
@@ -60,6 +67,8 @@ export function HomeDashboardScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [clientsError, setClientsError] = useState(false);
+  const [inventoryError, setInventoryError] = useState(false);
 
   const loadDashboard = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -71,6 +80,8 @@ export function HomeDashboardScreen({ navigation }: Props) {
         api.get<InventoryItem[]>('/inventory'),
       ]);
 
+      setClientsError(results[0].status === 'rejected');
+      setInventoryError(results[2].status === 'rejected');
       if (results[0].status === 'fulfilled') setClients(results[0].value);
       if (results[1].status === 'fulfilled') setUsage(results[1].value);
       if (results[2].status === 'fulfilled') setInventory(results[2].value);
@@ -148,13 +159,21 @@ export function HomeDashboardScreen({ navigation }: Props) {
             <View style={styles.metricsGrid}>
               <TouchableOpacity style={[styles.metricCard, styles.metricCardPrimary]} onPress={() => navigation.navigate('ClientList')}>
                 <Text style={styles.metricLabelLight}>CLIENT RELATIONSHIPS</Text>
-                <Text style={styles.metricValueLight}>{clients.length}</Text>
+                {clientsError ? (
+                  <Text style={styles.metricUnavailableLight}>Unable to load</Text>
+                ) : (
+                  <Text style={styles.metricValueLight}>{clients.length}</Text>
+                )}
                 <Text style={styles.metricCaptionLight}>active profiles  →</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.metricCard} onPress={() => navigation.navigate('Inventory')}>
                 <Text style={styles.metricLabel}>STOCK ATTENTION</Text>
-                <Text style={[styles.metricValue, stockAlerts.length > 0 && styles.alertValue]}>{stockAlerts.length}</Text>
-                <Text style={styles.metricCaption}>{stockAlerts.length === 1 ? 'item needs action' : 'items need action'}  →</Text>
+                {inventoryError ? (
+                  <Text style={styles.metricUnavailable}>Unable to load</Text>
+                ) : (
+                  <Text style={[styles.metricValue, stockAlerts.length > 0 && styles.alertValue]}>{stockAlerts.length}</Text>
+                )}
+                <Text style={styles.metricCaption}>{inventoryError ? 'pull to refresh' : stockAlerts.length === 1 ? 'item needs action' : 'items need action'}  →</Text>
               </TouchableOpacity>
             </View>
 
@@ -168,7 +187,7 @@ export function HomeDashboardScreen({ navigation }: Props) {
                       key={action.screen}
                       accessibilityRole="button"
                       style={styles.actionCard}
-                      onPress={() => navigation.navigate(action.screen)}>
+                      onPress={() => (navigation.navigate as (screen: string, params?: object) => void)(action.screen, action.params)}>
                       <View style={styles.actionIcon}><Text style={styles.actionIconText}>{action.symbol}</Text></View>
                       <View style={styles.actionCopy}>
                         <Text style={styles.actionTitle}>{action.title}</Text>
@@ -264,6 +283,8 @@ const styles = StyleSheet.create({
   metricValue: { color: colors.ink, fontSize: 38, fontWeight: '700', marginTop: 12, letterSpacing: -1 },
   metricValueLight: { color: '#FFFFFF', fontSize: 38, fontWeight: '700', marginTop: 12, letterSpacing: -1 },
   alertValue: { color: colors.danger },
+  metricUnavailable: { color: colors.danger, fontSize: 14, fontWeight: '700', marginTop: 16 },
+  metricUnavailableLight: { color: '#F6D9DF', fontSize: 14, fontWeight: '700', marginTop: 16 },
   metricCaption: { color: colors.muted, fontSize: 11, marginTop: 3 },
   metricCaptionLight: { color: '#F2DCE3', fontSize: 11, marginTop: 3 },
   sectionTitle: { color: colors.ink, fontSize: 17, fontWeight: '700', letterSpacing: -0.25, marginTop: 28 },

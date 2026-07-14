@@ -201,8 +201,16 @@ regression across all ~30 endpoints (0 failures) plus mobile tsc/lint/jest, on
 - Retention troubleshooting — `POST /clients/:id/lash-maps/:mapId/retention-check`,
   persists `retention_pct` (a field that existed since Phase 0 but was never used until
   now), mobile UI on the Lash Map screen.
-- Glue & humidity recommendations — deterministic (not AI) rules table
-  (`docs/lash-rules.md` §8) + mobile tool screen.
+- Glue & humidity recommendations — the deterministic (not AI) rules table
+  (`docs/lash-rules.md` §8) is still used internally by retention troubleshooting for
+  humidity context, but the standalone "Glue Guide" mobile tool screen and
+  `POST /tools/glue-recommendation` route were removed (2026-07-14) in favor of the
+  Photo Editor as a dashboard/client-list quick action.
+- Photo editor — Skia-based filters/adjustments + caption generation
+  (`PhotoEditorScreen`), `POST /clients/:id/photo-edit`. Reachable from a client's
+  profile directly, or via a "Photo Editor" quick action on the Dashboard and Client
+  List that opens a client picker first (editing is always scoped to one client's
+  photo).
 - Client history with photos — done since Phase 1.
 - Before-and-after comparisons — mobile screen pairing the most recent eye-analysis
   photo ("before") with the most recent photo-feedback photo ("after").

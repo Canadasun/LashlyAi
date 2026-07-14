@@ -33,7 +33,17 @@ export async function getClientProfileById(id: string): Promise<ClientProfile | 
   return result.rows[0] ?? null;
 }
 
-export async function getClientProfilesByOwner(ownerUserId: string): Promise<ClientProfile[]> {
+export async function getClientProfilesByOwner(
+  ownerUserId: string,
+  search?: string,
+): Promise<ClientProfile[]> {
+  if (search) {
+    const result = await pool.query<ClientProfile>(
+      "SELECT * FROM client_profiles WHERE owner_user_id = $1 AND name ILIKE $2 ORDER BY created_at DESC",
+      [ownerUserId, `%${search}%`],
+    );
+    return result.rows;
+  }
   const result = await pool.query<ClientProfile>(
     "SELECT * FROM client_profiles WHERE owner_user_id = $1 ORDER BY created_at DESC",
     [ownerUserId],

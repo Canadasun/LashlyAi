@@ -90,7 +90,8 @@ clientsRouter.get(
   "/",
   requireUser,
   asyncHandler(async (req, res) => {
-    const clients = await getClientProfilesByOwner(req.currentUser!.id);
+    const search = typeof req.query.q === "string" ? req.query.q.trim().slice(0, 200) : undefined;
+    const clients = await getClientProfilesByOwner(req.currentUser!.id, search || undefined);
     res.json(clients);
   }),
 );

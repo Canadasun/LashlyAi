@@ -55,7 +55,9 @@ Request:
 ```
 
 ### `GET /clients`
-Returns all `ClientProfile` records owned by the current user, newest first.
+Returns all `ClientProfile` records owned by the current user, newest first. Optional
+`?q=<text>` query param filters by name (case-insensitive substring match), used by the
+client directory's search box.
 
 ### `GET /clients/:id`
 Returns a `ClientProfile` including photos, eye_analysis, lash_history, notes.
@@ -104,6 +106,20 @@ Response `201`:
 ### `GET /clients/:id/photo-feedback`
 Returns array of saved `PhotoFeedback` records for the client, newest first.
 
+### `POST /clients/:id/photo-edit`
+Pro tier (zero access on free — 403 with an upgrade prompt, not a reduced quota).
+Multipart upload (`photo`) of a client-side-edited image (filters/adjustments applied
+in the mobile app via Skia) → stored as the client's final high-res export. Distinct
+from `photo-feedback` (AI-scored) — this is a manual editing tool, reachable from the
+client profile's "Edit Photo" button and from the dashboard/client-list "Photo Editor"
+quick action (which routes through the client picker since editing is always scoped to
+one client's photo).
+
+Response `201`:
+```json
+{ "photo_url": "string" }
+```
+
 ### `POST /clients/:id/lash-maps/:mapId/retention-check`
 Pro tier: reports symptoms of a retention problem and gets AI troubleshooting advice.
 Persists `retention_pct` onto the referenced `LashMap` row.
@@ -144,23 +160,6 @@ Request:
 ```
 
 Response `201`: full `Feedback` record, linked to the reporting user.
-
-## Tools
-
-Deterministic (not AI) utility tools — no client scoping, just requires auth.
-
-### `POST /tools/glue-recommendation`
-Pro tier. See `/docs/lash-rules.md` §8 for the table this implements.
-
-Request:
-```json
-{ "humidity_pct": 45 }
-```
-
-Response `200`:
-```json
-{ "band": "ideal", "recommended_viscosity": "string", "approx_bonding_time": "string", "notes": "string" }
-```
 
 ## Inventory
 

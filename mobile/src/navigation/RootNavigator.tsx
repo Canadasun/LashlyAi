@@ -16,7 +16,6 @@ import { FeedbackScreen } from '../screens/FeedbackScreen';
 import { HomeDashboardScreen } from '../screens/HomeDashboardScreen';
 import { ForumListScreen } from '../screens/ForumListScreen';
 import { ForumPostDetailScreen } from '../screens/ForumPostDetailScreen';
-import { GlueRecommendationScreen } from '../screens/GlueRecommendationScreen';
 import { InventoryScreen } from '../screens/InventoryScreen';
 import { LashMapScreen } from '../screens/LashMapScreen';
 import { LessonDetailScreen } from '../screens/LessonDetailScreen';
@@ -76,7 +75,7 @@ export function RootNavigator() {
               <Stack.Screen
                 name="ClientList"
                 component={ClientListScreen}
-                options={{ title: 'Clients' }}
+                options={{ headerShown: false }}
               />
               <Stack.Screen
                 name="NewClient"
@@ -132,11 +131,6 @@ export function RootNavigator() {
                 name="MarketingTools"
                 component={MarketingToolsScreen}
                 options={{ title: 'Marketing Tools' }}
-              />
-              <Stack.Screen
-                name="GlueRecommendation"
-                component={GlueRecommendationScreen}
-                options={{ title: 'Glue & Humidity' }}
               />
               <Stack.Screen
                 name="LessonList"

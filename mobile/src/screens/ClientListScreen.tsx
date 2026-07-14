@@ -1,17 +1,20 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
-import { api } from '../services/api';
+import { api, authenticatedImageSource } from '../services/api';
 import { colors } from '../theme/colors';
 import { RootStackParamList } from '../navigation/types';
 import { ClientProfile } from '../types/api';
@@ -35,33 +38,39 @@ function quotaLabel(field: QuotaField) {
   return field.limit === null ? `${field.used}` : `${field.used}/${field.limit}`;
 }
 
-const TOOLS: { label: string; screen: keyof RootStackParamList }[] = [
+const TOOLS: { label: string; screen: keyof RootStackParamList; params?: { pickerMode: 'photoEdit' } }[] = [
   { label: 'Ask the Coach', screen: 'Coach' },
+  { label: 'Photo Editor', screen: 'ClientList', params: { pickerMode: 'photoEdit' } },
   { label: 'Lessons', screen: 'LessonList' },
   { label: 'Community', screen: 'ForumList' },
   { label: 'Inventory', screen: 'Inventory' },
   { label: 'Marketing', screen: 'MarketingTools' },
-  { label: 'Glue Guide', screen: 'GlueRecommendation' },
   { label: 'Report Issue', screen: 'Feedback' },
   { label: 'Upgrade', screen: 'Paywall' },
 ];
 
-export function ClientListScreen({ navigation }: Props) {
+export function ClientListScreen({ route, navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const { signOut } = useAuth();
+  const pickerMode = route.params?.pickerMode === 'photoEdit';
   const [clients, setClients] = useState<ClientProfile[]>([]);
   const [usage, setUsage] = useState<UsageSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [queryInput, setQueryInput] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
 
-  const load = useCallback(async () => {
+  useEffect(() => {
+    const handle = setTimeout(() => setDebouncedQuery(queryInput.trim()), 300);
+    return () => clearTimeout(handle);
+  }, [queryInput]);
+
+  const loadClients = useCallback(async (search: string) => {
     try {
       setError(null);
-      const [clientsResult, usageResult] = await Promise.all([
-        api.get<ClientProfile[]>('/clients'),
-        api.get<UsageSummary>('/users/me/usage'),
-      ]);
-      setClients(clientsResult);
-      setUsage(usageResult);
+      const suffix = search ? `?q=${encodeURIComponent(search)}` : '';
+      const result = await api.get<ClientProfile[]>(`/clients${suffix}`);
+      setClients(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load clients');
     } finally {
@@ -69,33 +78,73 @@ export function ClientListScreen({ navigation }: Props) {
     }
   }, []);
 
+  const loadUsage = useCallback(async () => {
+    try {
+      const result = await api.get<UsageSummary>('/users/me/usage');
+      setUsage(result);
+    } catch {
+      // Non-critical for this screen — the client list itself still loads.
+    }
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
-      load();
-    }, [load]),
+      loadClients(debouncedQuery);
+      loadUsage();
+    }, [loadClients, loadUsage, debouncedQuery]),
   );
+
+  const openClient = (client: ClientProfile) => {
+    if (pickerMode) {
+      if (client.photos.length > 0) {
+        navigation.navigate('PhotoEditor', { clientId: client.id, photoUri: client.photos[client.photos.length - 1] });
+      } else {
+        navigation.navigate('ClientProfile', { clientId: client.id });
+      }
+      return;
+    }
+    navigation.navigate('ClientProfile', { clientId: client.id });
+  };
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>LashlyAI</Text>
-        <TouchableOpacity onPress={signOut}>
-          <Text style={styles.link}>Sign out</Text>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+        <View>
+          <Text style={styles.headerTitle}>{pickerMode ? 'Photo Editor' : 'LashlyAI'}</Text>
+          {pickerMode && <Text style={styles.headerSubtitle}>Choose a client to edit a photo</Text>}
+        </View>
+        <TouchableOpacity onPress={pickerMode ? () => navigation.goBack() : signOut}>
+          <Text style={styles.link}>{pickerMode ? 'Cancel' : 'Sign out'}</Text>
         </TouchableOpacity>
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.toolsRow}>
-        {TOOLS.map((tool) => (
-          <TouchableOpacity
-            key={tool.screen}
-            style={styles.toolChip}
-            onPress={() => navigation.navigate(tool.screen as never)}>
-            <Text style={styles.toolChipText}>{tool.label}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      <View style={styles.searchRow}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search clients by name"
+          placeholderTextColor={colors.muted}
+          value={queryInput}
+          onChangeText={setQueryInput}
+          autoCorrect={false}
+          returnKeyType="search"
+          clearButtonMode="while-editing"
+        />
+      </View>
 
-      {usage && (
+      {!pickerMode && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.toolsRow}>
+          {TOOLS.map((tool) => (
+            <TouchableOpacity
+              key={tool.label}
+              style={styles.toolChip}
+              onPress={() => (navigation.navigate as (screen: string, params?: object) => void)(tool.screen, tool.params)}>
+              <Text style={styles.toolChipText}>{tool.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      )}
+
+      {!pickerMode && usage && (
         <View style={styles.usageBanner}>
           <Text style={styles.usageText}>
             {usage.plan.toUpperCase()} plan{usage.enforced ? '' : ' (limits not enforced yet)'}
@@ -118,23 +167,50 @@ export function ClientListScreen({ navigation }: Props) {
           data={clients}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
-          ListEmptyComponent={<Text style={styles.empty}>No clients yet — add your first one.</Text>}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.clientRow}
-              onPress={() => navigation.navigate('ClientProfile', { clientId: item.id })}>
-              <Text style={styles.clientName}>{item.name}</Text>
-              {item.eye_analysis && (
-                <Text style={styles.clientMeta}>{item.eye_analysis.eye_shape} eyes</Text>
-              )}
-            </TouchableOpacity>
-          )}
+          ListEmptyComponent={
+            <Text style={styles.empty}>
+              {debouncedQuery ? `No clients match "${debouncedQuery}".` : 'No clients yet — add your first one.'}
+            </Text>
+          }
+          renderItem={({ item }) => {
+            const hasPhoto = item.photos.length > 0;
+            const disabledInPicker = pickerMode && !hasPhoto;
+            return (
+              <TouchableOpacity
+                style={[styles.clientRow, disabledInPicker && styles.clientRowMuted]}
+                onPress={() => openClient(item)}>
+                {hasPhoto ? (
+                  <Image
+                    source={authenticatedImageSource(item.photos[item.photos.length - 1])}
+                    style={styles.avatarPhoto}
+                  />
+                ) : (
+                  <View style={styles.avatarInitial}>
+                    <Text style={styles.avatarInitialText}>{item.name.charAt(0).toUpperCase()}</Text>
+                  </View>
+                )}
+                <View style={styles.clientCopy}>
+                  <Text style={styles.clientName}>{item.name}</Text>
+                  <Text style={styles.clientMeta}>
+                    {disabledInPicker
+                      ? 'No photo yet — tap to add one'
+                      : item.eye_analysis
+                      ? `${item.eye_analysis.eye_shape} eye profile`
+                      : 'Profile ready for analysis'}
+                  </Text>
+                </View>
+                <Text style={styles.chevron}>›</Text>
+              </TouchableOpacity>
+            );
+          }}
         />
       )}
 
-      <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('NewClient')}>
-        <Text style={styles.fabText}>+ New Client</Text>
-      </TouchableOpacity>
+      {!pickerMode && (
+        <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('NewClient')}>
+          <Text style={styles.fabText}>+ New Client</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -144,15 +220,29 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     paddingHorizontal: 16,
     paddingTop: 12,
   },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: colors.text },
-  link: { color: colors.accent, fontWeight: '600', fontSize: 13 },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: colors.ink },
+  headerSubtitle: { fontSize: 12, color: colors.muted, marginTop: 3 },
+  link: { color: colors.accent, fontWeight: '600', fontSize: 13, paddingTop: 2 },
+  searchRow: { paddingHorizontal: 16, marginTop: 14 },
+  searchInput: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: colors.ink,
+  },
   toolsRow: { marginTop: 12, paddingLeft: 16 },
   toolChip: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
     borderRadius: 20,
     paddingVertical: 8,
     paddingHorizontal: 14,
@@ -162,23 +252,43 @@ const styles = StyleSheet.create({
   usageBanner: {
     marginHorizontal: 16,
     marginTop: 12,
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
     padding: 10,
   },
   usageText: { fontSize: 11, color: colors.text },
   loading: { marginTop: 40 },
-  error: { color: '#B3261E', textAlign: 'center', marginTop: 24 },
-  empty: { color: colors.text, textAlign: 'center', marginTop: 40, opacity: 0.6 },
+  error: { color: colors.danger, textAlign: 'center', marginTop: 24, paddingHorizontal: 24 },
+  empty: { color: colors.muted, textAlign: 'center', marginTop: 40 },
   list: { padding: 16 },
   clientRow: {
-    backgroundColor: '#ffffff',
-    borderRadius: 10,
-    padding: 16,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 14,
+    padding: 12,
     marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  clientName: { fontSize: 16, fontWeight: '600', color: colors.text },
-  clientMeta: { fontSize: 13, color: colors.accent, marginTop: 2 },
+  clientRowMuted: { opacity: 0.6 },
+  avatarPhoto: { width: 44, height: 44, borderRadius: 13, marginRight: 12 },
+  avatarInitial: {
+    width: 44,
+    height: 44,
+    borderRadius: 13,
+    backgroundColor: colors.accentSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  avatarInitialText: { color: colors.accent, fontSize: 15, fontWeight: '800' },
+  clientCopy: { flex: 1 },
+  clientName: { fontSize: 15, fontWeight: '700', color: colors.ink },
+  clientMeta: { fontSize: 11, color: colors.muted, marginTop: 3, textTransform: 'capitalize' },
+  chevron: { color: colors.primary, fontSize: 22, fontWeight: '400' },
   fab: {
     backgroundColor: colors.primary,
     margin: 16,
