@@ -25,6 +25,7 @@ import { NewClientScreen } from '../screens/NewClientScreen';
 import { PaywallScreen } from '../screens/PaywallScreen';
 import { PhotoEditorScreen } from '../screens/PhotoEditorScreen';
 import { PhotoFeedbackScreen } from '../screens/PhotoFeedbackScreen';
+import { ReferenceGuideScreen } from '../screens/ReferenceGuideScreen';
 import { RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -161,6 +162,11 @@ export function RootNavigator() {
                 name="PhotoEditor"
                 component={PhotoEditorScreen}
                 options={{ title: 'Photo Editor' }}
+              />
+              <Stack.Screen
+                name="ReferenceGuide"
+                component={ReferenceGuideScreen}
+                options={{ title: 'Reference Guide' }}
               />
             </>
           )}

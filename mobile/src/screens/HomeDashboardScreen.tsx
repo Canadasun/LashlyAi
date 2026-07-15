@@ -278,6 +278,7 @@ export function HomeDashboardScreen({ navigation }: Props) {
             <View style={styles.growRow}>
               <TouchableOpacity style={styles.growLink} onPress={() => navigation.navigate('LessonList')}><Text style={styles.growText}>Learn & improve</Text></TouchableOpacity>
               <TouchableOpacity style={styles.growLink} onPress={() => navigation.navigate('ForumList')}><Text style={styles.growText}>Community</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.growLink} onPress={() => navigation.navigate('ReferenceGuide')}><Text style={styles.growText}>Reference guide</Text></TouchableOpacity>
             </View>
           </>
         )}

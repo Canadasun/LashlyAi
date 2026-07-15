@@ -25,4 +25,5 @@ export type RootStackParamList = {
   ForumPostDetail: { postId: string };
   BeforeAfter: { clientId: string };
   PhotoEditor: { clientId: string; photoUri: string };
+  ReferenceGuide: undefined;
 };
