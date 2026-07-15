@@ -55,8 +55,9 @@ export async function createForumPost(input: {
   );
   const post = result.rows[0];
   const userResult = await pool.query("SELECT email FROM users WHERE id = $1", [input.userId]);
+  const { hidden: _hidden, ...safePost } = post;
   return {
-    ...post,
+    ...safePost,
     author_display_name: deriveDisplayName(userResult.rows[0]?.email ?? ""),
     comment_count: 0,
   };
@@ -79,10 +80,10 @@ export async function getForumPosts(viewerUserId: string): Promise<ForumPost[]> 
      ORDER BY p.created_at DESC`,
     [viewerUserId],
   );
-  return result.rows.map((row) => ({
-    ...row,
-    author_display_name: deriveDisplayName(row.author_email),
-  }));
+  return result.rows.map((row) => {
+    const { author_email, hidden: _hidden, ...safeRow } = row;
+    return { ...safeRow, author_display_name: deriveDisplayName(author_email) };
+  });
 }
 
 export async function getForumPostById(id: string, viewerUserId: string): Promise<ForumPost | null> {
@@ -100,7 +101,9 @@ export async function getForumPostById(id: string, viewerUserId: string): Promis
     [id, viewerUserId],
   );
   const row = result.rows[0];
-  return row ? { ...row, author_display_name: deriveDisplayName(row.author_email) } : null;
+  if (!row) return null;
+  const { author_email, hidden: _hidden, ...safeRow } = row;
+  return { ...safeRow, author_display_name: deriveDisplayName(author_email) };
 }
 
 export async function createForumComment(input: {
@@ -116,7 +119,11 @@ export async function createForumComment(input: {
   );
   const comment = result.rows[0];
   const userResult = await pool.query("SELECT email FROM users WHERE id = $1", [input.userId]);
-  return { ...comment, author_display_name: deriveDisplayName(userResult.rows[0]?.email ?? "") };
+  const { hidden: _hidden, ...safeComment } = comment;
+  return {
+    ...safeComment,
+    author_display_name: deriveDisplayName(userResult.rows[0]?.email ?? ""),
+  };
 }
 
 export async function getForumCommentsByPostId(
@@ -136,10 +143,10 @@ export async function getForumCommentsByPostId(
      ORDER BY c.created_at ASC`,
     [postId, viewerUserId],
   );
-  return result.rows.map((row) => ({
-    ...row,
-    author_display_name: deriveDisplayName(row.author_email),
-  }));
+  return result.rows.map((row) => {
+    const { author_email, hidden: _hidden, ...safeRow } = row;
+    return { ...safeRow, author_display_name: deriveDisplayName(author_email) };
+  });
 }
 
 export async function reportForumContent(input: {
