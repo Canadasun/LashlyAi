@@ -129,8 +129,10 @@ left to free-form AI guessing.
 > (see `backend/src/services/lashMapRules.data.ts`) alongside the style/curl tables in
 > §2–3 above, not a replacement of them — existing lash maps keep their original
 > style/curl; new ones additionally carry a Lash Set + Lash Style. Diameters and the
-> four Lash Style mapping-logic rows below were provided directly by the owner (a lash
-> artist) and should be treated as accurate. Zone-length (mm) and curl values in the
+> four Lash Style mapping-logic rows below were provided directly by the owner, Najat
+> (vipluxebeauty@gmail.com) — a working lash artist — and independently reconfirmed via
+> email on 2026-07-14, so should be treated as accurate. Zone-length (mm) and curl
+> values in the
 > tables are still PLACEHOLDER, same caveat as the rest of this file, and await
 > separate owner review. See §10 for flagged judgment calls, including a proposed
 > Pro-tier gate on Megavolume that needs owner confirmation.
