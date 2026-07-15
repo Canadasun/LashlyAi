@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   ActivityIndicator,
   FlatList,
@@ -9,16 +10,22 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { api } from '../services/api';
+import { api, ApiError } from '../services/api';
 import { colors } from '../theme/colors';
+import { RootStackParamList } from '../navigation/types';
 import { InventoryCategory, InventoryItem } from '../types/api';
 
 const CATEGORIES: InventoryCategory[] = ['lash_trays', 'glue', 'tools', 'other'];
 
-export function InventoryScreen() {
+type Props = NativeStackScreenProps<RootStackParamList, 'Inventory'>;
+
+export function InventoryScreen({ navigation }: Props) {
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Inventory tracking is Pro-only — a 403 here means the gate, not a real failure,
+  // so it gets a distinct "Upgrade to Pro" state instead of the generic error text.
+  const [locked, setLocked] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
 
   const [name, setName] = useState('');
@@ -30,10 +37,15 @@ export function InventoryScreen() {
   const load = useCallback(async () => {
     try {
       setError(null);
+      setLocked(false);
       const result = await api.get<InventoryItem[]>('/inventory');
       setItems(result);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load inventory');
+      if (err instanceof ApiError && err.status === 403) {
+        setLocked(true);
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to load inventory');
+      }
     } finally {
       setLoading(false);
     }
@@ -86,6 +98,16 @@ export function InventoryScreen() {
     <View style={styles.container}>
       {loading ? (
         <ActivityIndicator style={styles.loading} color={colors.primary} />
+      ) : locked ? (
+        <View style={styles.lockedContainer}>
+          <Text style={styles.lockedTitle}>Inventory tracking is a Pro feature</Text>
+          <Text style={styles.lockedText}>
+            Track lash trays, glue, and tools with low-stock and expiry alerts on Pro.
+          </Text>
+          <TouchableOpacity style={styles.upgradeButton} onPress={() => navigation.navigate('Paywall')}>
+            <Text style={styles.upgradeButtonText}>Upgrade to Pro</Text>
+          </TouchableOpacity>
+        </View>
       ) : error ? (
         <Text style={styles.error}>{error}</Text>
       ) : (
@@ -185,6 +207,23 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   loading: { marginTop: 40 },
   error: { color: '#B3261E', textAlign: 'center', marginTop: 24 },
+  lockedContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
+  lockedTitle: { fontSize: 17, fontWeight: '700', color: colors.text, textAlign: 'center' },
+  lockedText: {
+    fontSize: 13,
+    color: colors.muted,
+    textAlign: 'center',
+    marginTop: 8,
+    marginBottom: 20,
+    lineHeight: 19,
+  },
+  upgradeButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+  },
+  upgradeButtonText: { color: colors.background, fontWeight: '700', fontSize: 14 },
   empty: { color: colors.text, textAlign: 'center', marginTop: 40, opacity: 0.6 },
   list: { padding: 16 },
   row: {

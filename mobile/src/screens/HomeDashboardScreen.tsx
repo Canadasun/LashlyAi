@@ -14,7 +14,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { RootStackParamList } from '../navigation/types';
-import { api } from '../services/api';
+import { api, ApiError } from '../services/api';
 import { colors } from '../theme/colors';
 import { ClientProfile, InventoryItem } from '../types/api';
 
@@ -77,6 +77,11 @@ export function HomeDashboardScreen({ navigation }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [clientsError, setClientsError] = useState(false);
   const [inventoryError, setInventoryError] = useState(false);
+  // Inventory tracking is Pro-only (see backend inventory.routes.ts) — a free-tier
+  // user's fetch fails with a 403 by design, not a transient network error, so it
+  // needs its own copy ("Pro feature") instead of the generic "Unable to load /
+  // pull to refresh", which is actively misleading since refreshing will never fix it.
+  const [inventoryLocked, setInventoryLocked] = useState(false);
 
   const loadDashboard = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -89,7 +94,11 @@ export function HomeDashboardScreen({ navigation }: Props) {
       ]);
 
       setClientsError(results[0].status === 'rejected');
-      setInventoryError(results[2].status === 'rejected');
+      const inventoryRejected = results[2].status === 'rejected';
+      const inventoryReason = inventoryRejected ? (results[2] as PromiseRejectedResult).reason : null;
+      const inventoryForbidden = inventoryReason instanceof ApiError && inventoryReason.status === 403;
+      setInventoryLocked(inventoryForbidden);
+      setInventoryError(inventoryRejected && !inventoryForbidden);
       if (results[0].status === 'fulfilled') setClients(results[0].value);
       if (results[1].status === 'fulfilled') setUsage(results[1].value);
       if (results[2].status === 'fulfilled') setInventory(results[2].value);
@@ -174,14 +183,27 @@ export function HomeDashboardScreen({ navigation }: Props) {
                 )}
                 <Text style={styles.metricCaptionLight}>active profiles  →</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.metricCard} onPress={() => navigation.navigate('Inventory')}>
+              <TouchableOpacity
+                style={styles.metricCard}
+                onPress={() => navigation.navigate(inventoryLocked ? 'Paywall' : 'Inventory')}>
                 <Text style={styles.metricLabel}>STOCK ATTENTION</Text>
-                {inventoryError ? (
+                {inventoryLocked ? (
+                  <Text style={styles.metricUnavailable}>Pro feature</Text>
+                ) : inventoryError ? (
                   <Text style={styles.metricUnavailable}>Unable to load</Text>
                 ) : (
                   <Text style={[styles.metricValue, stockAlerts.length > 0 && styles.alertValue]}>{stockAlerts.length}</Text>
                 )}
-                <Text style={styles.metricCaption}>{inventoryError ? 'pull to refresh' : stockAlerts.length === 1 ? 'item needs action' : 'items need action'}  →</Text>
+                <Text style={styles.metricCaption}>
+                  {inventoryLocked
+                    ? 'upgrade to unlock'
+                    : inventoryError
+                    ? 'pull to refresh'
+                    : stockAlerts.length === 1
+                    ? 'item needs action'
+                    : 'items need action'}
+                  {'  →'}
+                </Text>
               </TouchableOpacity>
             </View>
 

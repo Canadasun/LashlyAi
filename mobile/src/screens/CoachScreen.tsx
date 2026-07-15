@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
@@ -41,6 +41,25 @@ export function CoachScreen() {
   // re-renders — a fast double-tap in the same tick can slip both calls through
   // before that happens. This ref closes that gap synchronously.
   const sendingRef = useRef(false);
+  // Guards against the history fetch resolving after the user has already started a
+  // fresh message in the same mount (rare, but would otherwise clobber it).
+  const userSentRef = useRef(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const result = await api.get<{
+          messages: { id: string; role: 'user' | 'coach'; text: string; mock: boolean }[];
+        }>('/coach/history');
+        if (!userSentRef.current && result.messages.length > 0) {
+          setMessages(result.messages.map((m) => ({ id: m.id, role: m.role, text: m.text, mock: m.mock })));
+        }
+      } catch {
+        // Non-critical — free tier gets an empty history by design, and a network
+        // hiccup here just means starting with a blank transcript.
+      }
+    })();
+  }, []);
 
   const loadQuota = useCallback(async () => {
     try {
@@ -61,6 +80,7 @@ export function CoachScreen() {
     const trimmed = question.trim();
     if (!trimmed || sendingRef.current) return;
     sendingRef.current = true;
+    userSentRef.current = true;
 
     const userMessage: Message = { id: String(nextId++), role: 'user', text: trimmed };
     setMessages((prev) => [...prev, userMessage]);
@@ -104,9 +124,12 @@ export function CoachScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={80}>
       {quota && quota.limit !== null && (
-        <Text style={styles.quotaText}>
-          {quota.used}/{quota.limit} questions used today
-        </Text>
+        <>
+          <Text style={styles.quotaText}>
+            {quota.used}/{quota.limit} questions used today
+          </Text>
+          <Text style={styles.historyHint}>Pro saves your conversation history</Text>
+        </>
       )}
       <FlatList
         data={messages}
@@ -152,6 +175,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingTop: 10,
   },
+  historyHint: { fontSize: 10, color: colors.muted, textAlign: 'center', marginTop: 2 },
   list: { padding: 16, flexGrow: 1 },
   empty: { color: colors.text, opacity: 0.6, textAlign: 'center', marginTop: 40 },
   bubble: { borderRadius: 12, padding: 12, marginBottom: 10, maxWidth: '85%' },

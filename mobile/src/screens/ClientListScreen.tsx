@@ -180,7 +180,11 @@ export function ClientListScreen({ route, navigation }: Props) {
       </View>
 
       {!pickerMode && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.toolsRow}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.toolsRow}
+          contentContainerStyle={styles.toolsRowContent}>
           {TOOLS.map((tool) => (
             <TouchableOpacity
               key={tool.label}
@@ -290,6 +294,10 @@ const styles = StyleSheet.create({
     color: colors.ink,
   },
   toolsRow: { marginTop: 12, paddingLeft: 16 },
+  // Without this, the ScrollView's inner content container has no cross-axis
+  // constraint, so each chip's default alignItems:'stretch' pulls it to fill the
+  // full available row height instead of staying a compact pill — the actual bug.
+  toolsRowContent: { alignItems: 'flex-start', paddingRight: 16 },
   toolChip: {
     backgroundColor: colors.surface,
     borderWidth: 1,
