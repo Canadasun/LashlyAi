@@ -9,12 +9,15 @@ import {
 } from "../services/auth.service";
 import {
   createUser,
+  findUserByAppleId,
   findUserByEmail,
+  linkAppleIdToUser,
   updateUserPasswordHash,
   User,
   UserRole,
 } from "../models/User";
 import { logLifecycleEvent } from "../models/UserLifecycleEvent";
+import { AppleIdentityTokenError, verifyAppleIdentityToken } from "../services/appleSignIn.service";
 
 const VALID_ROLES: UserRole[] = ["beginner", "certified", "educator", "salon_owner", "academy"];
 
@@ -37,6 +40,16 @@ const loginLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many login attempts. Try again later." },
+});
+
+// Same shape as loginLimiter — a stolen/replayed identity token is the equivalent
+// brute-force surface, even though there's no password to guess here.
+const appleSignInLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many sign-in attempts. Try again later." },
 });
 
 // Tighter than login — a valid session token plus this endpoint is the shortest path
@@ -137,6 +150,84 @@ authRouter.post(
     }
 
     res.status(200).json(issueSession(user));
+  }),
+);
+
+/**
+ * Sign in with Apple. Trusts nothing the client sends except the identity_token itself
+ * (verified server-side against Apple's own signing keys, see appleSignIn.service.ts) —
+ * full_name is Apple's one-time-only "user" object data (only present on the very first
+ * authorization), used purely as display copy for a brand-new account, never trusted for
+ * identity. Joins on the token's immutable `sub` claim, not email, since Hide My Email
+ * relay addresses and the "email only sent once" behavior make email an unreliable key.
+ */
+authRouter.post(
+  "/apple",
+  appleSignInLimiter,
+  asyncHandler(async (req, res) => {
+    const { identity_token: identityToken, full_name: fullName } = (req.body ?? {}) as {
+      identity_token?: unknown;
+      full_name?: unknown;
+    };
+
+    if (typeof identityToken !== "string" || !identityToken) {
+      res.status(400).json({ error: "identity_token is required" });
+      return;
+    }
+
+    let identity;
+    try {
+      identity = await verifyAppleIdentityToken(identityToken);
+    } catch (err) {
+      if (err instanceof AppleIdentityTokenError) {
+        res.status(401).json({ error: "Apple sign-in could not be verified. Please try again." });
+        return;
+      }
+      throw err;
+    }
+
+    const existingByAppleId = await findUserByAppleId(identity.appleUserId);
+    if (existingByAppleId) {
+      res.status(200).json(issueSession(existingByAppleId));
+      return;
+    }
+
+    if (!identity.email) {
+      res.status(400).json({
+        error: "Apple did not share an email for this account. Try signing in with email/password instead.",
+      });
+      return;
+    }
+
+    const existingByEmail = await findUserByEmail(identity.email);
+    if (existingByEmail) {
+      // Links rather than creating a second account — only when Apple itself has
+      // verified the email actually belongs to this Apple ID, so a claimed-but-unverified
+      // relay address can't be used to hijack an existing email/password account.
+      if (!identity.emailVerified) {
+        res.status(409).json({
+          error: "An account with this email already exists. Sign in with email/password instead.",
+        });
+        return;
+      }
+      const linked = await linkAppleIdToUser(existingByEmail.id, identity.appleUserId);
+      res.status(200).json(issueSession(linked));
+      return;
+    }
+
+    const user = await createUser({
+      email: identity.email,
+      role: "beginner",
+      appleUserId: identity.appleUserId,
+    });
+    await logLifecycleEvent({
+      userId: user.id,
+      userEmail: user.email,
+      eventType: "joiner_signup",
+      details: { role: user.role, provisioned_via: "apple_sign_in", full_name: fullName ?? null },
+    });
+
+    res.status(201).json(issueSession(user));
   }),
 );
 

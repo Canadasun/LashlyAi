@@ -78,6 +78,17 @@ export async function signIn(email: string, password: string): Promise<Session> 
   return toSession(response);
 }
 
+export async function signInWithApple(
+  identityToken: string,
+  fullName?: { givenName?: string | null; familyName?: string | null } | null,
+): Promise<Session> {
+  const response = await api.post<AuthResponse>('/auth/apple', {
+    identity_token: identityToken,
+    full_name: fullName,
+  });
+  return toSession(response);
+}
+
 export async function changePassword(
   currentPassword: string,
   newPassword: string,

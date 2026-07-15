@@ -6,6 +6,7 @@ import {
   persistSession,
   Session,
   signIn as doSignIn,
+  signInWithApple as doSignInWithApple,
   signOut as doSignOut,
   signUp as doSignUp,
 } from '../services/authService';
@@ -16,6 +17,10 @@ interface AuthContextValue {
   sessionExpiredMessage: string | null;
   signUp: (email: string, password: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
+  signInWithApple: (
+    identityToken: string,
+    fullName?: { givenName?: string | null; familyName?: string | null } | null,
+  ) => Promise<void>;
   signOut: () => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
 }
@@ -70,6 +75,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setSession(s);
   }, []);
 
+  const signInWithApple = useCallback(
+    async (
+      identityToken: string,
+      fullName?: { givenName?: string | null; familyName?: string | null } | null,
+    ) => {
+      const s = await doSignInWithApple(identityToken, fullName);
+      await persistSession(s);
+      setAuthToken(s.token);
+      setSessionExpiredMessage(null);
+      setSession(s);
+    },
+    [],
+  );
+
   const signOut = useCallback(async () => {
     await doSignOut();
     setAuthToken(undefined);
@@ -91,6 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         sessionExpiredMessage,
         signUp,
         signIn,
+        signInWithApple,
         signOut,
         changePassword,
       }}>

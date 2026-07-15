@@ -13,6 +13,7 @@ export interface User {
   location: string | null;
   preferred_styles: string[];
   firebase_uid: string | null;
+  apple_user_id: string | null;
   is_admin: boolean;
   must_change_password: boolean;
   created_at: string;
@@ -28,6 +29,7 @@ const SAFE_USER_COLUMNS = `
   location,
   preferred_styles,
   firebase_uid,
+  apple_user_id,
   is_admin,
   must_change_password,
   created_at
@@ -48,6 +50,7 @@ function mapUserRow(row: UserRow): User {
     location: row.location,
     preferred_styles: row.preferred_styles,
     firebase_uid: row.firebase_uid,
+    apple_user_id: row.apple_user_id,
     is_admin: row.is_admin,
     must_change_password: row.must_change_password,
     created_at: row.created_at,
@@ -69,24 +72,44 @@ export async function findUserByEmail(email: string): Promise<UserRow | null> {
   return result.rows[0] ?? null;
 }
 
+export async function findUserByAppleId(appleUserId: string): Promise<UserRow | null> {
+  const result = await pool.query<UserRow>("SELECT * FROM users WHERE apple_user_id = $1", [
+    appleUserId,
+  ]);
+  return result.rows[0] ?? null;
+}
+
 export async function createUser(input: {
   email: string;
-  passwordHash: string;
+  passwordHash?: string | null;
   role: UserRole;
   firebaseUid?: string | null;
+  appleUserId?: string | null;
   mustChangePassword?: boolean;
 }): Promise<User> {
   const result = await pool.query<UserRow>(
-    `INSERT INTO users (email, password_hash, role, firebase_uid, must_change_password)
-     VALUES ($1, $2, $3, $4, $5)
+    `INSERT INTO users (email, password_hash, role, firebase_uid, apple_user_id, must_change_password)
+     VALUES ($1, $2, $3, $4, $5, $6)
      RETURNING ${SAFE_USER_COLUMNS}, password_hash`,
     [
       input.email,
-      input.passwordHash,
+      input.passwordHash ?? null,
       input.role,
       input.firebaseUid ?? null,
+      input.appleUserId ?? null,
       input.mustChangePassword ?? false,
     ],
+  );
+  return mapUserRow(result.rows[0]);
+}
+
+// Links an Apple identity to an existing email/password account — lets an artist who
+// signed up with email later use "Sign in with Apple" on the same account instead of
+// silently creating a second one, as long as Apple's (verified) email claim matches.
+export async function linkAppleIdToUser(userId: string, appleUserId: string): Promise<User> {
+  const result = await pool.query<UserRow>(
+    `UPDATE users SET apple_user_id = $2 WHERE id = $1 RETURNING ${SAFE_USER_COLUMNS}, password_hash`,
+    [userId, appleUserId],
   );
   return mapUserRow(result.rows[0]);
 }

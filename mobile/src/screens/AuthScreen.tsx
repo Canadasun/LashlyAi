@@ -8,16 +8,48 @@ import {
   TextInput,
   TouchableOpacity,
 } from 'react-native';
+import { appleAuth, AppleButton } from '@invertase/react-native-apple-authentication';
 import { useAuth } from '../context/AuthContext';
 import { colors } from '../theme/colors';
 
 export function AuthScreen() {
-  const { signUp, signIn, sessionExpiredMessage } = useAuth();
+  const { signUp, signIn, signInWithApple, sessionExpiredMessage } = useAuth();
   const [mode, setMode] = useState<'signIn' | 'signUp'>('signIn');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [appleLoading, setAppleLoading] = useState(false);
+
+  const submitApple = async () => {
+    setError(null);
+    setAppleLoading(true);
+    try {
+      const response = await appleAuth.performRequest({
+        requestedOperation: appleAuth.Operation.LOGIN,
+        requestedScopes: [appleAuth.Scope.EMAIL, appleAuth.Scope.FULL_NAME],
+      });
+      if (!response.identityToken) {
+        throw new Error('Apple did not return a sign-in token. Please try again.');
+      }
+      await signInWithApple(
+        response.identityToken,
+        response.fullName
+          ? { givenName: response.fullName.givenName, familyName: response.fullName.familyName }
+          : null,
+      );
+    } catch (err) {
+      // Apple's native cancel path throws a specific error code, not an exception
+      // message worth surfacing — the user just tapped away from the sheet.
+      const code = (err as { code?: string })?.code;
+      if (code === appleAuth.Error.CANCELED) {
+        return;
+      }
+      setError(err instanceof Error ? err.message : 'Apple sign-in failed');
+    } finally {
+      setAppleLoading(false);
+    }
+  };
 
   const submit = async () => {
     setError(null);
@@ -87,15 +119,15 @@ export function AuthScreen() {
         )}
       </TouchableOpacity>
 
-      <TouchableOpacity
-        style={styles.secondaryButton}
-        disabled
-        accessibilityLabel="Apple Sign In — requires a paid Apple Developer account, not yet configured">
-        <Text style={styles.secondaryButtonText}>Sign in with Apple</Text>
-        <Text style={styles.secondaryButtonSubtext}>
-          Requires an Apple Developer account — not configured yet
-        </Text>
-      </TouchableOpacity>
+      {Platform.OS === 'ios' && (
+        <AppleButton
+          buttonStyle={AppleButton.Style.WHITE_OUTLINE}
+          buttonType={AppleButton.Type.SIGN_IN}
+          style={styles.appleButton}
+          onPress={submitApple}
+        />
+      )}
+      {appleLoading && <ActivityIndicator style={styles.appleLoading} color={colors.primary} />}
 
       <TouchableOpacity onPress={() => setMode(mode === 'signIn' ? 'signUp' : 'signIn')}>
         <Text style={styles.switchModeText}>
@@ -161,23 +193,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 16,
   },
-  secondaryButton: {
+  appleButton: {
+    height: 46,
     borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: 'center',
     marginTop: 12,
-    backgroundColor: '#e9e9e9',
-    opacity: 0.6,
   },
-  secondaryButtonText: {
-    color: colors.text,
-    fontWeight: '600',
-    fontSize: 15,
-  },
-  secondaryButtonSubtext: {
-    color: '#7a7a7a',
-    fontSize: 11,
-    marginTop: 2,
+  appleLoading: {
+    marginTop: 12,
   },
   switchModeText: {
     color: colors.accent,
