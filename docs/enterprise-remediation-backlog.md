@@ -144,35 +144,71 @@ Queried the App Store Connect API directly against the live `com.canadasun.lashl
 record (id `6789339271`) rather than assuming from local files. Findings, in order of how
 hard they block submission:
 
-- [ ] **No subscription products exist.** `subscriptionGroups` and `inAppPurchasesV2` are
-  both empty — `lashlyai_pro_monthly`/`lashlyai_pro_yearly` (referenced in
-  `PaywallScreen.tsx` and `appleReceipt.service.ts`) have to be created in App Store
-  Connect (name, price tier, subscription group, localized display text, review
-  screenshot) before any purchase can work, sandbox or production.
-- [ ] **No age rating.** `appStoreAgeRating` is `null` — the age rating questionnaire has
-  never been completed; App Store Connect won't allow submission without it.
-- [ ] **No primary category set** — `appInfos`' `primaryCategory` relationship is empty
-  (e.g. Business, Lifestyle, or Health & Fitness would all be defensible for this app;
-  needs an owner decision, not a guess).
+- [x] **Subscription group + both products created 2026-07-15.** "LashlyAI Pro" group
+  (id `22240701`) with `lashlyai_pro_monthly` ($9.99, id `6791351535`) and
+  `lashlyai_pro_yearly` ($79.99, id `6791351410`), both with en-US localizations
+  (name + the 55-char-max short description ASC requires) and USA pricing set to the
+  exact price points. Matches the product IDs already hardcoded in `PaywallScreen.tsx`
+  and `appleReceipt.service.ts`.
+- [ ] **Pricing writes are blocked pending the Paid Applications Agreement.** Free
+  metadata (group, products, localizations, category, age rating, content rights) all
+  wrote successfully via the API; the price-write call (`POST /v1/subscriptionPrices`)
+  consistently 409s with a generic `ENTITY_ERROR.RELATIONSHIP.INVALID` even though the
+  price point resolves fine standalone via `GET`. This matches Apple's known behavior:
+  monetary writes are gated behind an active Paid Applications Agreement (banking + tax
+  info), which only the account holder can complete in ASC's "Agreements, Tax, and
+  Banking" section — not exposed via API. **Action needed from the owner**: sign the
+  Paid Applications Agreement and enter banking/tax info in App Store Connect. After
+  that, either ask for the price to be set again via the API (price point IDs may need
+  re-querying via each subscription's `pricePoints` endpoint, since they're not
+  guaranteed stable), or just set $9.99/$79.99 manually in the portal — it's a two-field
+  form once the agreement is active.
+- [x] **Age rating declaration completed 2026-07-15** — answered accurately per the app's
+  actual content: no violence/gambling/sexual content/drugs/mature themes,
+  `userGeneratedContent: true` (see new finding below), everything else `false`/`NONE`.
+- [x] **Primary category set to Business** (2026-07-15) — reasonable fit for a
+  professional tool (client management, inventory, marketing) aimed at working lash
+  artists; easy to change later in the portal if a different category is preferred.
+- [x] **Content rights declaration set** (2026-07-15) — `DOES_NOT_USE_THIRD_PARTY_CONTENT`,
+  accurate for this app.
+- [ ] **New finding: the forum has zero content moderation.** Declaring
+  `userGeneratedContent: true` (accurate — `ForumListScreen`/`ForumPostDetailScreen` let
+  users post freely) surfaced a real App Review Guideline 1.2 gap:
+  `backend/src/routes/forum.routes.ts` has no reporting, blocking, or moderation
+  mechanism at all. Apple requires UGC apps to have a way to filter objectionable
+  content, report/block abusive users, and let the developer act on reports — this needs
+  to exist before submission, not just be declared honestly in the rating.
 - [ ] **No privacy policy URL on file.** `privacyPolicyUrl` is `null` on the app info
   record. `docs/legal/privacy-policy.md` and `terms-of-service.md` are already drafted in
   this repo but need to be hosted at a real, public URL and that URL entered in ASC —
-  Apple requires a live link, not just a document.
+  Apple requires a live link, not just a document. Owner chose GitHub Pages for this
+  (2026-07-15) — not yet set up.
 - [ ] **Version 1.0's localization is entirely empty.** No description, keywords, support
   URL, marketing URL, promotional text, or "what's new" text for the `en-US` localization.
 - [ ] **Zero App Store screenshots** for any device size — a hard submission blocker.
-- [ ] **No territory availability configured** (`appAvailabilityV2` 404s) and **no price
-  schedule** (`manualPrices` is empty) — the app isn't set to be sold anywhere yet.
-- [ ] **No content rights declaration** (`contentRightsDeclaration` is `null`) — a required
-  yes/no answer about third-party content.
+  Blocked on a working local build to screenshot from (see below).
+- [ ] **No territory availability configured** (`appAvailabilityV2` 404s) — the app isn't
+  set to be sold anywhere yet; likely blocked on the same Paid Applications Agreement as
+  pricing above.
 - [ ] **App name is "LashlyAi"** (lowercase second "i") in both the bundle record and the
   `en-US` localization — worth a deliberate decision (matches brand exactly, or should be
   "LashlyAI") before submission, not left as a typo.
+- [x] **Restricted to iPhone-only for this submission** (2026-07-15, owner decision) —
+  `TARGETED_DEVICE_FAMILY` changed from `"1,2"` to `"1"` in both Debug and Release app
+  target configs. iPad support (and its own screenshot set) deferred to a later pass.
 - [x] **Unused, empty location permission removed.** `Info.plist` had
   `NSLocationWhenInUseUsageDescription` set to an empty string with no location code
   anywhere in the app — Apple review flags empty usage-description strings, and an unused
   permission invites a rejection for asking for access the app doesn't use. Removed the key
   entirely rather than filling in a description for a feature that doesn't exist.
+- [ ] **No local Simulator build works for this project.** `React-Core-prebuilt` (the
+  pinned prebuilt React Native Core pod) is missing linker symbols for both arm64 and
+  x86_64 Simulator slices — `Undefined symbols for architecture arm64`, e.g.
+  `facebook::react::ShadowNode::getDebugName()`. This project has only ever been verified
+  via real device archives (the `local_testflight_build.sh` path), never a local
+  Simulator run — pre-existing, unrelated to any change this session. Blocks generating
+  App Store screenshots locally until resolved (likely needs a non-prebuilt Core pod
+  variant for Simulator, or screenshots sourced from a physical device instead).
 - Confirmed **not** a blocker: Sign In with Apple is optional here (the app has no
   Google/Facebook login, so Apple's "must offer Sign In with Apple if you offer other
   social logins" rule never applied) — built anyway as a real feature (see above), not to
