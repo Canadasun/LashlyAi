@@ -5,8 +5,8 @@ import { colors } from '../theme/colors';
 
 interface CompSubscriptionNotification {
   id: string;
-  type: 'comp_subscription_grant';
-  payload: { plan: string; expires_at: string };
+  type: 'comp_subscription_grant' | 'comp_subscription_revoked';
+  payload: { plan: string; expires_at?: string };
 }
 
 function formatCountdown(expiresAt: string): string {
@@ -34,9 +34,11 @@ export function CompSubscriptionBanner() {
       const notifications = await api.get<CompSubscriptionNotification[]>(
         '/users/me/notifications',
       );
-      const grant = notifications.find((n) => n.type === 'comp_subscription_grant');
-      if (grant && !dismissingRef.current) {
-        setNotification(grant);
+      const next = notifications.find(
+        (n) => n.type === 'comp_subscription_grant' || n.type === 'comp_subscription_revoked',
+      );
+      if (next && !dismissingRef.current) {
+        setNotification(next);
       }
     } catch {
       // Silently ignore — this is a nice-to-have banner, not a critical path.
@@ -73,14 +75,19 @@ export function CompSubscriptionBanner() {
     return null;
   }
 
+  const isRevoked = notification.type === 'comp_subscription_revoked';
+
   return (
     <Modal transparent animationType="fade" visible onRequestClose={dismiss}>
       <View style={styles.overlay}>
         <View style={styles.card}>
-          <Text style={styles.title}>You've got complimentary Pro access! 🎉</Text>
+          <Text style={styles.title}>
+            {isRevoked ? 'Your complimentary access has ended' : "You've got complimentary Pro access! 🎉"}
+          </Text>
           <Text style={styles.body}>
-            You've been gifted {notification.payload.plan} access, expiring in{' '}
-            {formatCountdown(notification.payload.expires_at)}.
+            {isRevoked
+              ? `Your complimentary ${notification.payload.plan} access is no longer active.`
+              : `You've been gifted ${notification.payload.plan} access, expiring in ${formatCountdown(notification.payload.expires_at!)}.`}
           </Text>
           <TouchableOpacity style={styles.button} onPress={dismiss}>
             <Text style={styles.buttonText}>Got it</Text>

@@ -4,10 +4,16 @@ import { requireUser } from "./middleware/requireUser";
 import { requireAdminUser } from "./middleware/requireAdminUser";
 import { getAdminStats } from "../models/Admin";
 import { asyncHandler } from "../utils/asyncHandler";
-import { findUserByEmail } from "../models/User";
+import { findUserByEmail, findUserById } from "../models/User";
 import { getSubscriptionByUserId, SubscriptionPlan, upsertSubscription } from "../models/Subscription";
-import { createSubscriptionGrant } from "../models/SubscriptionGrant";
+import {
+  createSubscriptionGrant,
+  getSubscriptionGrantById,
+  revokeSubscriptionGrant,
+} from "../models/SubscriptionGrant";
 import { createUserNotification } from "../models/UserNotification";
+import { logLifecycleEvent, getRecentLifecycleEvents } from "../models/UserLifecycleEvent";
+import { expireLapsedSubscriptions } from "../services/subscriptionLifecycle.service";
 
 export const adminRouter = Router();
 
@@ -71,7 +77,7 @@ adminRouter.post(
       status: "active",
       renewsAt: expiresAtIso,
     });
-    await createSubscriptionGrant({
+    const grant = await createSubscriptionGrant({
       userId: targetUser.id,
       grantedByAdminId: req.currentUser!.id,
       plan: grantedPlan,
@@ -82,8 +88,79 @@ adminRouter.post(
       type: "comp_subscription_grant",
       payload: { plan: grantedPlan, expires_at: expiresAtIso },
     });
+    await logLifecycleEvent({
+      userId: targetUser.id,
+      userEmail: targetUser.email,
+      eventType: "mover_admin_grant",
+      details: {
+        grant_id: grant.id,
+        plan: grantedPlan,
+        expires_at: expiresAtIso,
+        granted_by_admin_id: req.currentUser!.id,
+      },
+    });
 
     res.status(201).json({ user_id: targetUser.id, plan: grantedPlan, expires_at: expiresAtIso });
+  }),
+);
+
+/**
+ * Ends a comp subscription grant before its natural expiry. Only touches the
+ * beneficiary's live subscription row if it still reflects that grant (no Apple
+ * transaction id) — if they've since bought a real subscription, revoking the old
+ * grant must not clobber a legitimate paid sub, so only the grant record itself gets
+ * marked revoked in that case.
+ */
+adminRouter.post(
+  "/grants/:id/revoke",
+  requireUser,
+  requireAdminUser,
+  asyncHandler(async (req, res) => {
+    const grant = await getSubscriptionGrantById(req.params.id);
+    if (!grant) {
+      res.status(404).json({ error: "Grant not found" });
+      return;
+    }
+    if (grant.revoked_at) {
+      res.status(409).json({ error: "This grant was already revoked." });
+      return;
+    }
+
+    const beneficiary = await findUserById(grant.user_id);
+    const currentSubscription = await getSubscriptionByUserId(grant.user_id);
+    let subscriptionTouched = false;
+    if (currentSubscription && !currentSubscription.apple_transaction_id) {
+      await upsertSubscription({
+        userId: grant.user_id,
+        plan: currentSubscription.plan,
+        status: "revoked",
+        renewsAt: currentSubscription.renews_at ?? undefined,
+      });
+      subscriptionTouched = true;
+    }
+
+    const revoked = await revokeSubscriptionGrant(grant.id, req.currentUser!.id);
+
+    if (beneficiary) {
+      await createUserNotification({
+        userId: beneficiary.id,
+        type: "comp_subscription_revoked",
+        payload: { plan: grant.plan },
+      });
+      await logLifecycleEvent({
+        userId: beneficiary.id,
+        userEmail: beneficiary.email,
+        eventType: "mover_admin_grant_revoked",
+        details: {
+          grant_id: grant.id,
+          plan: grant.plan,
+          revoked_by_admin_id: req.currentUser!.id,
+          subscription_downgraded: subscriptionTouched,
+        },
+      });
+    }
+
+    res.json({ ...revoked, subscription_downgraded: subscriptionTouched });
   }),
 );
 
@@ -93,6 +170,34 @@ adminRouter.get(
   asyncHandler(async (_req, res) => {
     const stats = await getAdminStats();
     res.json(stats);
+  }),
+);
+
+/**
+ * Leaver via lapse — see subscriptionLifecycle.service.ts's header comment for why
+ * this exists as an endpoint rather than something automatic. No scheduler is wired up
+ * in this repo yet, so for now this needs to be triggered manually or from an external
+ * cron (e.g. a Railway Cron Job hitting this with the admin Bearer token) until one
+ * exists. Idempotent — safe to call as often as needed.
+ */
+adminRouter.post(
+  "/jobs/expire-subscriptions",
+  requireUser,
+  requireAdminUser,
+  asyncHandler(async (_req, res) => {
+    const result = await expireLapsedSubscriptions();
+    res.json(result);
+  }),
+);
+
+adminRouter.get(
+  "/lifecycle-events",
+  requireUser,
+  requireAdminUser,
+  asyncHandler(async (req, res) => {
+    const limit = Math.min(Number(req.query.limit) || 100, 500);
+    const events = await getRecentLifecycleEvents(limit);
+    res.json(events);
   }),
 );
 
@@ -147,9 +252,20 @@ adminRouter.get(
       .map(
         (g) =>
           `<tr><td>${escapeHtml(g.grantee_email)}</td><td>${escapeHtml(g.plan)}</td>` +
-          `<td>${escapeHtml(g.granter_email)}</td>` +
+          `<td>${g.granter_email ? escapeHtml(g.granter_email) : "<em>admin deleted</em>"}</td>` +
           `<td>${new Date(g.expires_at).toLocaleDateString()}</td>` +
+          `<td>${g.revoked_at ? `<span class="status-pill status-5">revoked ${new Date(g.revoked_at).toLocaleDateString()}</span>` : ""}</td>` +
           `<td>${new Date(g.created_at).toLocaleString()}</td></tr>`,
+      )
+      .join("");
+
+    const lifecycleEventRows = stats.recentLifecycleEvents
+      .map(
+        (e) =>
+          `<tr><td>${new Date(e.created_at).toLocaleString()}</td>` +
+          `<td>${escapeHtml(e.event_type)}</td>` +
+          `<td>${escapeHtml(e.user_email)}</td>` +
+          `<td>${escapeHtml(JSON.stringify(e.details))}</td></tr>`,
       )
       .join("");
 
@@ -217,7 +333,12 @@ adminRouter.get(
 
     <section>
       <h2>Complimentary Subscription Grants</h2>
-      <table><tr><th>Grantee</th><th>Plan</th><th>Granted By</th><th>Expires</th><th>Granted On</th></tr>${grantRows || '<tr><td colspan="5" class="empty">None yet</td></tr>'}</table>
+      <table><tr><th>Grantee</th><th>Plan</th><th>Granted By</th><th>Expires</th><th>Status</th><th>Granted On</th></tr>${grantRows || '<tr><td colspan="6" class="empty">None yet</td></tr>'}</table>
+    </section>
+
+    <section>
+      <h2>Joiner / Mover / Leaver Lifecycle Events (most recent 30)</h2>
+      <table><tr><th>Time</th><th>Event</th><th>User</th><th>Details</th></tr>${lifecycleEventRows || '<tr><td colspan="4" class="empty">None yet</td></tr>'}</table>
     </section>
 
     <section>

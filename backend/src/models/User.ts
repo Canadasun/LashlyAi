@@ -1,4 +1,5 @@
 import { pool } from "../db";
+import { logLifecycleEvent } from "./UserLifecycleEvent";
 
 export type UserRole = "beginner" | "certified" | "educator" | "salon_owner" | "academy";
 
@@ -131,5 +132,14 @@ export async function syncAdminFlagFromAllowlist(user: User): Promise<User> {
     `UPDATE users SET is_admin = $2 WHERE id = $1 RETURNING ${SAFE_USER_COLUMNS}, password_hash`,
     [user.id, shouldBeAdmin],
   );
+  // Mover: the only path that changes is_admin at all — logged here specifically
+  // (rather than at each of this function's call sites) so every flip is captured
+  // exactly once regardless of which request happened to trigger the self-heal.
+  await logLifecycleEvent({
+    userId: user.id,
+    userEmail: user.email,
+    eventType: "mover_admin_status_changed",
+    details: { from_is_admin: user.is_admin, to_is_admin: shouldBeAdmin },
+  });
   return mapUserRow(result.rows[0]);
 }

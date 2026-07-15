@@ -14,6 +14,7 @@ import {
   User,
   UserRole,
 } from "../models/User";
+import { logLifecycleEvent } from "../models/UserLifecycleEvent";
 
 const VALID_ROLES: UserRole[] = ["beginner", "certified", "educator", "salon_owner", "academy"];
 
@@ -108,6 +109,15 @@ authRouter.post(
       email,
       passwordHash: hashPassword(password),
       role: role ?? "beginner",
+    });
+    // Joiner: the one true "new account" event — deliberately not logged for the
+    // legacy-user-upgrade branch above, which is an existing account gaining a
+    // password, not a new join.
+    await logLifecycleEvent({
+      userId: user.id,
+      userEmail: user.email,
+      eventType: "joiner_signup",
+      details: { role: user.role },
     });
 
     res.status(201).json(issueSession(user));

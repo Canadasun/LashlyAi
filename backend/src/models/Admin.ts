@@ -1,5 +1,6 @@
 import { pool } from "../db";
 import { getRecentErrorLogs, getErrorLogCountSince, ErrorLog } from "./ErrorLog";
+import { getRecentLifecycleEvents, UserLifecycleEvent } from "./UserLifecycleEvent";
 
 export interface AdminStats {
   totalUsers: number;
@@ -15,13 +16,15 @@ export interface AdminStats {
   recentSubscriptionGrants: {
     id: string;
     user_id: string;
-    granted_by_admin_id: string;
+    granted_by_admin_id: string | null;
     plan: string;
     expires_at: string;
+    revoked_at: string | null;
     created_at: string;
     grantee_email: string;
-    granter_email: string;
+    granter_email: string | null;
   }[];
+  recentLifecycleEvents: UserLifecycleEvent[];
 }
 
 export async function getAdminStats(): Promise<AdminStats> {
@@ -37,6 +40,7 @@ export async function getAdminStats(): Promise<AdminStats> {
     recentErrorsResult,
     usageEventTotalsResult,
     recentSubscriptionGrantsResult,
+    recentLifecycleEventsResult,
   ] = await Promise.all([
     pool.query("SELECT COUNT(*)::int AS count FROM users"),
     pool.query(
@@ -57,14 +61,15 @@ export async function getAdminStats(): Promise<AdminStats> {
       "SELECT event_type, COUNT(*)::int AS count FROM usage_events GROUP BY event_type ORDER BY count DESC",
     ),
     pool.query(
-      `SELECT g.id, g.user_id, g.granted_by_admin_id, g.plan, g.expires_at, g.created_at,
+      `SELECT g.id, g.user_id, g.granted_by_admin_id, g.plan, g.expires_at, g.revoked_at, g.created_at,
               grantee.email AS grantee_email, granter.email AS granter_email
        FROM subscription_grants g
        JOIN users grantee ON grantee.id = g.user_id
-       JOIN users granter ON granter.id = g.granted_by_admin_id
+       LEFT JOIN users granter ON granter.id = g.granted_by_admin_id
        ORDER BY g.created_at DESC
        LIMIT 20`,
     ),
+    getRecentLifecycleEvents(30),
   ]);
 
   return {
@@ -79,5 +84,6 @@ export async function getAdminStats(): Promise<AdminStats> {
     recentErrors: recentErrorsResult,
     usageEventTotals: usageEventTotalsResult.rows,
     recentSubscriptionGrants: recentSubscriptionGrantsResult.rows,
+    recentLifecycleEvents: recentLifecycleEventsResult,
   };
 }

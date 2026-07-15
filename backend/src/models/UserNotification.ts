@@ -1,6 +1,6 @@
 import { pool } from "../db";
 
-export type UserNotificationType = "comp_subscription_grant";
+export type UserNotificationType = "comp_subscription_grant" | "comp_subscription_revoked";
 
 export interface UserNotification {
   id: string;

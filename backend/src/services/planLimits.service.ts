@@ -43,7 +43,10 @@ const FREE_LIMITS = {
 // an eventually-unlimited one.
 const PAID_PHOTO_EDIT_DAILY_CAP = 10;
 
-const ACTIVE_SUBSCRIPTION_STATUSES = new Set(["active", "trialing", "grace_period"]);
+// Exported so the expiry sweep (subscriptionLifecycle.service.ts) checks the exact
+// same set of "currently grants access" statuses this file uses — one definition,
+// not two that could silently drift apart.
+export const ACTIVE_SUBSCRIPTION_STATUSES = new Set(["active", "trialing", "grace_period"]);
 
 function isNonExpiredRenewal(renewsAt: string | null, now: number) {
   if (!renewsAt) {

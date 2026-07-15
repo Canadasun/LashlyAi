@@ -20,6 +20,8 @@ import { deleteUserById } from "../models/User";
 import { getMediaAssetsByOwnerUserId } from "../models/MediaAsset";
 import { deleteStoredMediaAsset } from "../services/storage.service";
 import { getUnseenNotifications, markNotificationSeen } from "../models/UserNotification";
+import { logLifecycleEvent } from "../models/UserLifecycleEvent";
+import { getSubscriptionByUserId } from "../models/Subscription";
 
 export const usersRouter = Router();
 
@@ -36,6 +38,22 @@ usersRouter.delete(
   requireUser,
   asyncHandler(async (req, res) => {
     const userId = req.currentUser!.id;
+
+    // Leaver: captured before the row is gone — user_lifecycle_events.user_id goes to
+    // NULL on delete (ON DELETE SET NULL, not CASCADE), so this is the only chance to
+    // record what plan/admin state this account had at the moment it left.
+    const subscription = await getSubscriptionByUserId(userId);
+    await logLifecycleEvent({
+      userId,
+      userEmail: req.currentUser!.email,
+      eventType: "leaver_account_deleted",
+      details: {
+        plan_at_deletion: subscription?.plan ?? "free",
+        subscription_status_at_deletion: subscription?.status ?? null,
+        was_admin: req.currentUser!.is_admin,
+      },
+    });
+
     const assets = await getMediaAssetsByOwnerUserId(userId);
     for (const asset of assets) {
       await deleteStoredMediaAsset(asset);

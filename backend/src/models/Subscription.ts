@@ -47,3 +47,20 @@ export async function getSubscriptionByUserId(userId: string): Promise<Subscript
   );
   return result.rows[0] ?? null;
 }
+
+// Leaver via lapse: subscriptions currently reporting a status that grants access
+// (activeStatuses) whose renews_at has already passed — nothing else in this codebase
+// ever actively re-checks that on its own; see subscriptionLifecycle.service.ts.
+export async function getLapsedSubscriptions(
+  activeStatuses: string[],
+  now: Date = new Date(),
+): Promise<Subscription[]> {
+  const result = await pool.query<Subscription>(
+    `SELECT * FROM subscriptions
+     WHERE status = ANY($1::text[])
+       AND renews_at IS NOT NULL
+       AND renews_at < $2`,
+    [activeStatuses, now.toISOString()],
+  );
+  return result.rows;
+}
