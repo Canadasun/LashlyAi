@@ -218,3 +218,44 @@ hard they block submission:
 - Confirmed **not** a blocker (this pass): latest build (37) already clears the two
   automatic TestFlight gates — export compliance declared (`usesNonExemptEncryption:
   false`) and `processingState: VALID`.
+
+## 2026-07-15 audit continuation — moderation, listing copy, hosting
+
+- [x] **Local Simulator build investigated further, still unresolved.** Tried forcing a
+  source build (`RCT_USE_PREBUILT_RNCORE=0`) instead of the prebuilt Core pod — different
+  failure this time (`Redefinition of module 'react_runtime'` between `React-RuntimeHermes`
+  and another still-prebuilt dependency, likely `ReactNativeDependencies`), persists even
+  after a full `ModuleCache.noindex` wipe. Restored the original prebuilt config (matches
+  the working device-archive pipeline) rather than leave the project in a broken
+  intermediate state. This needs real toolchain investigation, not a quick flag flip —
+  deprioritized; screenshots remain blocked on it.
+- [x] **App Store listing copy set via API**: description, keywords
+  (`lash artist,lash tech,eyelash,volume lash,client crm,ai beauty,salon tools,lash mapping`),
+  promotional text, and app subtitle ("AI Lash Mapping for Artists"). `whatsNew` can't be
+  set on a first version (Apple only allows it starting with the second submission).
+- [ ] **supportUrl / marketingUrl still unset — blocked on hosting.** Tried GitHub Pages
+  (free, would've used a `gh-pages` branch with only public-safe content, isolated from
+  `/docs`'s internal audit notes) — Apple/GitHub's own API rejected it:
+  `"Your current plan does not support GitHub Pages for this repository"` — the free tier
+  only covers *public* repos, and `Canadasun/LashlyAi` is private. This is a genuine
+  cloud-provider/cost decision (upgrade GitHub, use a different free static host like
+  Netlify/Vercel/Cloudflare Pages, or make the repo public) — flagged to the owner rather
+  than picked unilaterally, per this project's own working-agreement rule about cloud
+  provider choices.
+- [x] **Fixed factual inaccuracies in the still-unpublished privacy policy/ToS drafts**:
+  removed the Firebase Authentication claim (auth is custom scrypt+HMAC, not Firebase —
+  see `auth.service.ts`), corrected "planned" Firebase analytics/push (only Crashlytics is
+  live), clarified storage is S3-compatible via Railway not literally AWS, and updated
+  Sign in with Apple from "when enabled" to live. Filled the contact-email placeholders
+  with `support@lashlyai.com`. **Deliberately did not publish or link these** — both docs
+  are still self-labeled "REQUIRES LEGAL REVIEW BEFORE PUBLISHING" and have real unfilled
+  placeholders (legal entity name, business address, governing law/jurisdiction) that only
+  the owner/a lawyer should supply; publishing an unreviewed legal document as the official
+  policy for a business handling client photos isn't something to do on autonomous
+  momentum from a general "continue" instruction.
+- [x] **New finding, fixed same-day: forum leaked raw author emails despite deriving a
+  display name.** The first moderation commit computed `author_display_name` but spread
+  `...row` first, which kept `author_email` (and an internal `hidden` flag) in every forum
+  API response anyway. Caught by a live smoke test immediately after deploying — not by
+  code review — fixed by explicit destructuring instead of an additive spread, redeployed,
+  and re-verified live before moving on.
