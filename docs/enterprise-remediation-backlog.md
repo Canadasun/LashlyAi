@@ -9,11 +9,21 @@ tests, deployment, and production verification are all finished.
 - [x] Private, durable client-photo storage, authenticated delivery, and complete deletion
   - Production verified on 2026-07-10: Railway object storage, tenant-owned media records,
     decoded/normalized uploads, authenticated delivery, client deletion, and account deletion.
-- [ ] Production StoreKit purchase flow and entitlement verification
-- [ ] Accurate iOS privacy manifest, reviewed legal documents, consent, export, and account deletion
-- [ ] Hardened authentication: ~~secure device storage~~ (done 2026-07-14 — see below),
-  password reset, email verification, session revocation, admin identities, MFA, and
-  audit trail
+- [ ] **App Store Connect submission metadata — nothing configured yet.** See 2026-07-15
+  audit below: no subscription products, no age rating, no privacy policy URL, no
+  screenshots, no description/keywords/support+marketing URLs, no territory availability.
+  The app has never been submitted (version 1.0 sits in `PREPARE_FOR_SUBMISSION`).
+- [ ] Production StoreKit purchase flow and entitlement verification — code path exists
+  (`PaywallScreen.tsx` + `appleReceipt.service.ts`) but the products it references
+  (`lashlyai_pro_monthly`, `lashlyai_pro_yearly`) don't exist in App Store Connect yet, so
+  no purchase can ever succeed until they're created.
+- [ ] Accurate iOS privacy manifest, reviewed legal documents, consent, export, and account
+  deletion — `docs/legal/privacy-policy.md` and `terms-of-service.md` are drafted but not
+  hosted at a public URL, so they can't be entered into App Store Connect yet.
+- [x] Hardened authentication: ~~secure device storage~~ (done 2026-07-14), ~~admin
+  identities, audit trail~~ (done 2026-07-15 — full Joiner/Mover/Leaver lifecycle
+  logging, see `user_lifecycle_events`), ~~Sign in with Apple~~ (done 2026-07-15).
+  **Still open:** password reset, email verification, session revocation, MFA.
 - [ ] Billing-grade transactional quotas and rate limits for every AI/cost-bearing endpoint
 
 ## P1 — correctness and deployment safety
@@ -123,6 +133,52 @@ tests, deployment, and production verification are all finished.
   `Subscription.plan` (`salon`/`enterprise`) exist as enum values only — no route reads
   `role` for authorization anywhere; admin access is a separate `is_admin` boolean.
   Building real team/multi-user support behind these is a Phase 5 decision, not a bug.
-- [ ] **No audit logging, bulk operations, or CSV export** anywhere in the backend —
-  relevant if pursuing salon/enterprise accounts seriously (ties into the existing P0
-  "admin identities... audit trail" item).
+- [x] **No audit logging** — resolved 2026-07-15 via the JML (Joiner/Mover/Leaver)
+  lifecycle system: `user_lifecycle_events` table + `GET /admin/lifecycle-events`, logging
+  signup, plan changes, admin grants/revocations, admin status changes, and account
+  deletion. Bulk operations and CSV export are still not built.
+
+## 2026-07-15 audit — App Store Connect submission readiness
+
+Queried the App Store Connect API directly against the live `com.canadasun.lashlyai` app
+record (id `6789339271`) rather than assuming from local files. Findings, in order of how
+hard they block submission:
+
+- [ ] **No subscription products exist.** `subscriptionGroups` and `inAppPurchasesV2` are
+  both empty — `lashlyai_pro_monthly`/`lashlyai_pro_yearly` (referenced in
+  `PaywallScreen.tsx` and `appleReceipt.service.ts`) have to be created in App Store
+  Connect (name, price tier, subscription group, localized display text, review
+  screenshot) before any purchase can work, sandbox or production.
+- [ ] **No age rating.** `appStoreAgeRating` is `null` — the age rating questionnaire has
+  never been completed; App Store Connect won't allow submission without it.
+- [ ] **No primary category set** — `appInfos`' `primaryCategory` relationship is empty
+  (e.g. Business, Lifestyle, or Health & Fitness would all be defensible for this app;
+  needs an owner decision, not a guess).
+- [ ] **No privacy policy URL on file.** `privacyPolicyUrl` is `null` on the app info
+  record. `docs/legal/privacy-policy.md` and `terms-of-service.md` are already drafted in
+  this repo but need to be hosted at a real, public URL and that URL entered in ASC —
+  Apple requires a live link, not just a document.
+- [ ] **Version 1.0's localization is entirely empty.** No description, keywords, support
+  URL, marketing URL, promotional text, or "what's new" text for the `en-US` localization.
+- [ ] **Zero App Store screenshots** for any device size — a hard submission blocker.
+- [ ] **No territory availability configured** (`appAvailabilityV2` 404s) and **no price
+  schedule** (`manualPrices` is empty) — the app isn't set to be sold anywhere yet.
+- [ ] **No content rights declaration** (`contentRightsDeclaration` is `null`) — a required
+  yes/no answer about third-party content.
+- [ ] **App name is "LashlyAi"** (lowercase second "i") in both the bundle record and the
+  `en-US` localization — worth a deliberate decision (matches brand exactly, or should be
+  "LashlyAI") before submission, not left as a typo.
+- [x] **Unused, empty location permission removed.** `Info.plist` had
+  `NSLocationWhenInUseUsageDescription` set to an empty string with no location code
+  anywhere in the app — Apple review flags empty usage-description strings, and an unused
+  permission invites a rejection for asking for access the app doesn't use. Removed the key
+  entirely rather than filling in a description for a feature that doesn't exist.
+- Confirmed **not** a blocker: Sign In with Apple is optional here (the app has no
+  Google/Facebook login, so Apple's "must offer Sign In with Apple if you offer other
+  social logins" rule never applied) — built anyway as a real feature (see above), not to
+  clear a review requirement.
+- Confirmed **not** a blocker: app icon set is complete (all 13 required sizes present,
+  `Contents.json` has no missing filenames).
+- Confirmed **not** a blocker (this pass): latest build (37) already clears the two
+  automatic TestFlight gates — export compliance declared (`usesNonExemptEncryption:
+  false`) and `processingState: VALID`.
