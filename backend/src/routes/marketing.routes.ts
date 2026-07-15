@@ -20,7 +20,10 @@ marketingRouter.post(
     const quota = await checkMarketingQuota(req.currentUser!.id);
     if (!quota.allowed) {
       res.status(403).json({
-        error: `Free plan is limited to ${quota.limit} marketing AI generations per day. Upgrade to Pro for unlimited access.`,
+        error:
+          quota.limit === 0
+            ? "AI captions and replies are a Pro feature. Upgrade to Pro to use them."
+            : `Free plan is limited to ${quota.limit} marketing AI generations per day. Upgrade to Pro for unlimited access.`,
       });
       return;
     }
@@ -44,7 +47,10 @@ marketingRouter.post(
     const quota = await checkMarketingQuota(req.currentUser!.id);
     if (!quota.allowed) {
       res.status(403).json({
-        error: `Free plan is limited to ${quota.limit} marketing AI generations per day. Upgrade to Pro for unlimited access.`,
+        error:
+          quota.limit === 0
+            ? "AI captions and replies are a Pro feature. Upgrade to Pro to use them."
+            : `Free plan is limited to ${quota.limit} marketing AI generations per day. Upgrade to Pro for unlimited access.`,
       });
       return;
     }

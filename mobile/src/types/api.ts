@@ -107,8 +107,11 @@ export interface Lesson {
   order_index: number;
   title: string;
   summary: string;
-  content: string;
+  // null when the lesson is Pro-locked for the current user — the backend never
+  // sends locked-lesson content, see backend/src/routes/lessons.routes.ts.
+  content: string | null;
   completed: boolean;
+  locked: boolean;
   created_at: string;
 }
 

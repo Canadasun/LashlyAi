@@ -1,4 +1,4 @@
-import { Router, Request, Response } from "express";
+import { NextFunction, Router, Request, Response } from "express";
 import { requireUser } from "./middleware/requireUser";
 import {
   createInventoryItem,
@@ -8,9 +8,23 @@ import {
   InventoryCategory,
   updateInventoryItem,
 } from "../models/InventoryItem";
+import { checkInventoryAccess } from "../services/planLimits.service";
 import { asyncHandler } from "../utils/asyncHandler";
 
 export const inventoryRouter = Router();
+
+// Every route below is Pro-only — applied once here rather than per-route since,
+// unlike the quota-gated features elsewhere, all four inventory routes share the
+// exact same flat access check (see checkInventoryAccess).
+async function requireProForInventory(req: Request, res: Response, next: NextFunction) {
+  const access = await checkInventoryAccess(req.currentUser!.id);
+  if (!access.allowed) {
+    res.status(403).json({ error: "Inventory tracking is a Pro feature. Upgrade to Pro to use it." });
+    return;
+  }
+  next();
+}
+inventoryRouter.use(requireUser, asyncHandler(requireProForInventory));
 
 const VALID_CATEGORIES: InventoryCategory[] = ["lash_trays", "glue", "tools", "other"];
 
@@ -51,7 +65,6 @@ async function loadOwnedItem(req: Request, res: Response) {
 
 inventoryRouter.post(
   "/",
-  requireUser,
   asyncHandler(async (req, res) => {
     const {
       name,
@@ -96,7 +109,6 @@ inventoryRouter.post(
 
 inventoryRouter.get(
   "/",
-  requireUser,
   asyncHandler(async (req, res) => {
     const items = await getInventoryItemsByOwner(req.currentUser!.id);
     res.json(items.map(withStockAndExpiryFlags));
@@ -105,7 +117,6 @@ inventoryRouter.get(
 
 inventoryRouter.patch(
   "/:id",
-  requireUser,
   asyncHandler(async (req, res) => {
     const item = await loadOwnedItem(req, res);
     if (!item) return;
@@ -147,7 +158,6 @@ inventoryRouter.patch(
 
 inventoryRouter.delete(
   "/:id",
-  requireUser,
   asyncHandler(async (req, res) => {
     const item = await loadOwnedItem(req, res);
     if (!item) return;

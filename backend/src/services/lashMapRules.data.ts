@@ -3,9 +3,12 @@
  * docs/lash-rules.md is the human-editable source the owner reviews and corrects;
  * this file is what the rules engine actually runs against.
  *
- * STATUS: PLACEHOLDER. Same caveat as docs/lash-rules.md — these are conservative,
- * clearly-labeled defaults, not verified lash industry standards. Do not treat as
- * accurate until the owner has reviewed them (see docs/lash-rules.md §9).
+ * STATUS: MOSTLY PLACEHOLDER, PARTIALLY OWNER-CONFIRMED (updated 2026-07-15). Zone
+ * lengths and curls throughout this file are still conservative, clearly-labeled
+ * defaults, not verified lash industry standards. LASH_SET_DIAMETERS_MM and
+ * ADVANCED_LASH_SETS below, however, are owner-provided real data — see
+ * docs/lash-rules.md §9 for the source and §10 for one flagged judgment call
+ * (megavolume's Pro gate) that still needs owner confirmation.
  */
 import { EyeShape, LashDensity } from "./ai.service";
 
@@ -222,6 +225,42 @@ export const LASH_SET_CURL: Record<LashSetOption, LashCurl> = {
   angel_set: "CC",
   yy_set: "CC",
 };
+
+/**
+ * Owner-confirmed allowed diameters per Lash Set (docs/lash-rules.md §9, provided
+ * 2026-07-15) — NOT a placeholder for the sets listed here. `undefined` means the
+ * owner hasn't provided a diameter for that set yet; generateLashMap() falls back to
+ * DIAMETER_BY_DENSITY in that case (see lashmap.service.ts). Hybrid carries two
+ * component diameters (classic base + volume fans) as a single descriptive string
+ * since GeneratedLashMap.diameter is a single display field, not a structured value.
+ */
+export const LASH_SET_DIAMETERS_MM: Partial<Record<LashSetOption, string>> = {
+  classic: "0.15mm / 0.18mm / 0.20mm",
+  hybrid: "Classic: 0.15mm–0.20mm + Volume fans: 0.05mm / 0.07mm",
+  volume: "0.05mm / 0.07mm / 0.10mm",
+  megavolume: "0.02mm / 0.03mm",
+  wet_wispy_set: "0.05mm / 0.07mm",
+  anime_set: "0.05mm",
+  // wet_set, medusa_set, angel_set, yy_set: not yet provided by the owner.
+};
+
+/**
+ * Lash Sets gated to Pro subscribers (enforced in planLimits.service.ts's
+ * checkAdvancedLashSetAccess, called from clients.routes.ts's POST /:id/lash-map).
+ * wet_set / wet_wispy_set / medusa_set / anime_set carry over the pre-existing
+ * "Advanced styles (Pro tier)" convention from ADVANCED_STYLES above (docs/lash-rules.md
+ * §3). megavolume's gate is new, proposed 2026-07-15 based on its ultra-fine
+ * 0.02mm–0.03mm diameter being a materially higher-skill/higher-risk technique — this
+ * one is a flagged judgment call for the owner to confirm or override (see
+ * docs/lash-rules.md §10), not an established fact like the other four.
+ */
+export const ADVANCED_LASH_SETS: LashSetOption[] = [
+  "megavolume",
+  "wet_set",
+  "wet_wispy_set",
+  "medusa_set",
+  "anime_set",
+];
 
 export function isLashSetOption(value: unknown): value is LashSetOption {
   return LASH_SET_OPTIONS.includes(value as LashSetOption);

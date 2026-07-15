@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { launchImageLibrary } from 'react-native-image-picker';
 import {
   ActivityIndicator,
   Alert,
@@ -102,12 +103,43 @@ export function ClientListScreen({ route, navigation }: Props) {
     }, [loadClients, loadUsage, debouncedQuery]),
   );
 
+  // Photo Editor picker mode: a client may already have photos from the eye-scan
+  // flow, but the editor should also work on any photo imported fresh from the
+  // library — not just the most recently captured one.
+  const importPhotoFor = async (client: ClientProfile) => {
+    const result = await launchImageLibrary({ mediaType: 'photo', quality: 0.8 });
+    if (result.didCancel) return;
+    if (result.errorMessage) {
+      Alert.alert('Could not import photo', result.errorMessage);
+      return;
+    }
+    const asset = result.assets?.[0];
+    if (asset?.uri) {
+      navigation.navigate('PhotoEditor', { clientId: client.id, photoUri: asset.uri });
+    }
+  };
+
   const openClient = (client: ClientProfile) => {
     if (pickerMode) {
       if (client.photos.length > 0) {
-        navigation.navigate('PhotoEditor', { clientId: client.id, photoUri: client.photos[client.photos.length - 1] });
+        Alert.alert(
+          'Choose a Photo',
+          `Edit ${client.name}'s most recent photo, or import a different one from your library.`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Import New Photo', onPress: () => importPhotoFor(client) },
+            {
+              text: 'Use Last Photo',
+              onPress: () =>
+                navigation.navigate('PhotoEditor', {
+                  clientId: client.id,
+                  photoUri: client.photos[client.photos.length - 1],
+                }),
+            },
+          ],
+        );
       } else {
-        navigation.navigate('ClientProfile', { clientId: client.id });
+        importPhotoFor(client);
       }
       return;
     }
@@ -117,7 +149,15 @@ export function ClientListScreen({ route, navigation }: Props) {
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <View>
+        <View style={styles.headerLeft}>
+          {!pickerMode && (
+            <TouchableOpacity
+              style={styles.homeButton}
+              onPress={() => navigation.navigate('Dashboard')}
+              accessibilityLabel="Go to Home">
+              <Text style={styles.homeButtonText}>‹ Home</Text>
+            </TouchableOpacity>
+          )}
           <Text style={styles.headerTitle}>{pickerMode ? 'Photo Editor' : 'LashlyAI'}</Text>
           {pickerMode && <Text style={styles.headerSubtitle}>Choose a client to edit a photo</Text>}
         </View>
@@ -232,6 +272,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
   },
+  headerLeft: { flex: 1 },
+  homeButton: { marginBottom: 4, alignSelf: 'flex-start' },
+  homeButtonText: { color: colors.accent, fontWeight: '600', fontSize: 13 },
   headerTitle: { fontSize: 18, fontWeight: '700', color: colors.ink },
   headerSubtitle: { fontSize: 12, color: colors.muted, marginTop: 3 },
   link: { color: colors.accent, fontWeight: '600', fontSize: 13, paddingTop: 2 },

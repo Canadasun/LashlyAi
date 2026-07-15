@@ -3,6 +3,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   StyleSheet,
   Text,
@@ -41,6 +42,21 @@ export function LessonListScreen({ navigation }: Props) {
 
   const completedCount = lessons.filter((l) => l.completed).length;
 
+  const openLesson = (lesson: Lesson) => {
+    if (lesson.locked) {
+      Alert.alert(
+        'Pro lesson',
+        `"${lesson.title}" is part of the full curriculum on Pro. Upgrade to unlock all 10 lessons.`,
+        [
+          { text: 'Not now', style: 'cancel' },
+          { text: 'Upgrade', onPress: () => navigation.navigate('Paywall') },
+        ],
+      );
+      return;
+    }
+    navigation.navigate('LessonDetail', { lesson });
+  };
+
   if (loading) {
     return (
       <View style={styles.centered}>
@@ -61,12 +77,11 @@ export function LessonListScreen({ navigation }: Props) {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.row}
-            onPress={() => navigation.navigate('LessonDetail', { lesson: item })}>
+          <TouchableOpacity style={[styles.row, item.locked && styles.rowLocked]} onPress={() => openLesson(item)}>
             <View style={styles.rowText}>
               <Text style={styles.rowTitle}>
                 {item.order_index}. {item.title}
+                {item.locked && <Text style={styles.lockBadge}>  🔒 Pro</Text>}
               </Text>
               <Text style={styles.rowSummary}>{item.summary}</Text>
             </View>
@@ -104,8 +119,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  rowLocked: { opacity: 0.6 },
   rowText: { flex: 1 },
   rowTitle: { color: colors.text, fontWeight: '600', fontSize: 14 },
+  lockBadge: { color: colors.accent, fontWeight: '700', fontSize: 11 },
   rowSummary: { color: colors.accent, fontSize: 12, marginTop: 4 },
   checkmark: { color: colors.primary, fontWeight: '700', fontSize: 18, marginLeft: 8 },
 });

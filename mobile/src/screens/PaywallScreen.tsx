@@ -21,6 +21,39 @@ import { colors } from '../theme/colors';
 
 const SUBSCRIPTION_SKUS = ['lashlyai_pro_monthly', 'lashlyai_pro_yearly'];
 
+// Kept in sync by hand with what's actually gated server-side — see
+// backend/src/services/planLimits.service.ts FREE_LIMITS and the Pro-only checks in
+// clients.routes.ts / inventory.routes.ts / lessons.routes.ts. Glue & humidity isn't
+// its own bullet since that route was folded into retention troubleshooting.
+const FREE_FEATURES = [
+  '5 AI Lash Coach questions per day',
+  '2 eye-shape scans per month',
+  'Basic lash style recommendations',
+  'Basic lash maps',
+  '5 beginner lessons',
+  'Save up to 2 client profiles',
+  'Community forum',
+];
+
+// Shown first (collapsed state) — the most-asked-about Pro features.
+const PRO_HIGHLIGHTS = [
+  'Unlimited AI Lash Coach',
+  'Unlimited eye scans & lash maps',
+  'Advanced lash sets & styles',
+];
+
+// Only shown once "View All Features" is expanded.
+const PRO_REST = [
+  'Retention troubleshooting, incl. glue & humidity guidance',
+  'Full client photo history',
+  'Before-and-after comparisons',
+  'Unlimited saved clients',
+  'Inventory tracking',
+  'AI social media captions & replies',
+  'All 10 lessons',
+  'Priority support',
+];
+
 type VerifiedSubscriptionResponse = {
   plan: string;
   status: string;
@@ -37,12 +70,24 @@ function getProductFeatureCopy(product: ProductSubscription) {
     : 'Flexible monthly access for active artists and teams.';
 }
 
+function FeatureRow({ label, included }: { label: string; included: boolean }) {
+  return (
+    <View style={styles.featureRow}>
+      <Text style={[styles.featureMark, included ? styles.featureMarkFree : styles.featureMarkPro]}>
+        {included ? '✓' : '✦'}
+      </Text>
+      <Text style={styles.featureLabel}>{label}</Text>
+    </View>
+  );
+}
+
 export function PaywallScreen() {
   const isIOS = Platform.OS === 'ios';
   const [selectedSku, setSelectedSku] = useState<string>(SUBSCRIPTION_SKUS[0]);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [featuresExpanded, setFeaturesExpanded] = useState(false);
 
   const { connected, subscriptions, fetchProducts, restorePurchases } =
     useIAP({
@@ -142,6 +187,37 @@ export function PaywallScreen() {
           Pick a plan, complete the App Store purchase, and the app will verify the
           receipt against the backend before unlocking access.
         </Text>
+      </View>
+
+      <View style={styles.featuresCard}>
+        <Text style={styles.featuresCardLabel}>Free</Text>
+        {FREE_FEATURES.map((label) => (
+          <FeatureRow key={label} label={label} included />
+        ))}
+
+        <Text style={[styles.featuresCardLabel, styles.featuresCardLabelPro]}>Pro — everything in Free, plus</Text>
+        {PRO_HIGHLIGHTS.map((label) => (
+          <FeatureRow key={label} label={label} included={false} />
+        ))}
+        {featuresExpanded && PRO_REST.map((label) => <FeatureRow key={label} label={label} included={false} />)}
+
+        <TouchableOpacity
+          style={styles.viewAllButton}
+          onPress={() => setFeaturesExpanded((v) => !v)}
+          activeOpacity={0.7}>
+          <Text style={styles.viewAllButtonText}>
+            {featuresExpanded ? 'Show less' : `View all ${PRO_HIGHLIGHTS.length + PRO_REST.length} Pro features`}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.upgradeRow}
+          onPress={handlePurchase}
+          disabled={submitting || !isIOS || !connected || !selectedProduct}
+          activeOpacity={0.7}>
+          <Text style={styles.upgradeRowText}>Upgrade to Pro</Text>
+          <Text style={styles.upgradeRowArrow}>→</Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.card}>
@@ -251,6 +327,57 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
     marginBottom: 16,
   },
+  // "View All Features" list — kept visually separate from the dark hero / plan-card
+  // section above (this screen's existing look), using the app's actual brand
+  // palette (theme/colors.ts) for a calmer, more minimalistic feel: a soft card,
+  // tight single-line rows, and small glyphs instead of heavy badges/borders per row.
+  featuresCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 8,
+    marginBottom: 16,
+  },
+  featuresCardLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.muted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: 6,
+  },
+  featuresCardLabelPro: { marginTop: 14 },
+  featureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 5,
+  },
+  featureMark: { width: 20, fontSize: 13, fontWeight: '700' },
+  featureMarkFree: { color: colors.success },
+  featureMarkPro: { color: colors.accent },
+  featureLabel: { flex: 1, fontSize: 13, color: colors.text, lineHeight: 18 },
+  viewAllButton: {
+    alignSelf: 'flex-start',
+    marginTop: 10,
+    marginBottom: 4,
+  },
+  viewAllButtonText: { fontSize: 12, fontWeight: '700', color: colors.accent },
+  upgradeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.primarySoft,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  upgradeRowText: { fontSize: 14, fontWeight: '700', color: colors.primaryDark },
+  upgradeRowArrow: { fontSize: 16, fontWeight: '700', color: colors.primaryDark },
   cardLabel: {
     color: colors.text,
     fontSize: 16,

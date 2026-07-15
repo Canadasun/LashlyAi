@@ -54,16 +54,20 @@ const BROW_FIELDS: { label: string; key: keyof EyeAnalysis }[] = [
   { label: 'Brow hair direction', key: 'brow_hair_direction' },
 ];
 
+// "(Pro)" suffix mirrors the existing 'Retention Check (Pro)' convention below and the
+// backend's ADVANCED_LASH_SETS gate (see lashMapRules.data.ts / planLimits.service.ts's
+// checkAdvancedLashSetAccess) — labeled here too so a free-tier artist sees the gate
+// before tapping Generate, instead of only finding out from a 403 after submitting.
 const LASH_SETS: { label: string; value: string | null }[] = [
   { label: 'Auto (from eye shape)', value: null },
   { label: 'Classic', value: 'classic' },
   { label: 'Hybrid', value: 'hybrid' },
   { label: 'Volume', value: 'volume' },
-  { label: 'Megavolume', value: 'megavolume' },
-  { label: 'Wet Set', value: 'wet_set' },
-  { label: 'Wet Wispy Set', value: 'wet_wispy_set' },
-  { label: 'Medusa Set', value: 'medusa_set' },
-  { label: 'Anime Set', value: 'anime_set' },
+  { label: 'Megavolume (Pro)', value: 'megavolume' },
+  { label: 'Wet Set (Pro)', value: 'wet_set' },
+  { label: 'Wet Wispy Set (Pro)', value: 'wet_wispy_set' },
+  { label: 'Medusa Set (Pro)', value: 'medusa_set' },
+  { label: 'Anime Set (Pro)', value: 'anime_set' },
   { label: 'Angel Set', value: 'angel_set' },
   { label: 'YY Set', value: 'yy_set' },
 ];

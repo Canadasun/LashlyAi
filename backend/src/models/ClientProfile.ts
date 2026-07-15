@@ -71,6 +71,22 @@ export async function addPhotoAndEyeAnalysis(
   return result.rows[0];
 }
 
+// For photo-edit / photo-retouch outputs (mobile PhotoEditorScreen "Upload as Client
+// Photo" / "Retouch Skin") — unlike addPhotoAndEyeAnalysis, this never touches
+// eye_analysis, since an edited/retouched photo doesn't carry a new eye-analysis
+// result. Without this, those two routes uploaded the image to storage but never
+// added it to the client's photo history, so the edit was effectively lost.
+export async function appendPhoto(id: string, photoUrl: string): Promise<ClientProfile> {
+  const result = await pool.query<ClientProfile>(
+    `UPDATE client_profiles
+     SET photos = array_append(photos, $2)
+     WHERE id = $1
+     RETURNING *`,
+    [id, photoUrl],
+  );
+  return result.rows[0];
+}
+
 export async function appendLashHistoryEntry(id: string, entry: unknown): Promise<void> {
   await pool.query(
     `UPDATE client_profiles

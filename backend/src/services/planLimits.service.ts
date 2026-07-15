@@ -1,6 +1,7 @@
 import { getSubscriptionByUserId, Subscription, SubscriptionPlan } from "../models/Subscription";
 import { getClientProfilesByOwner } from "../models/ClientProfile";
 import { countEventsThisMonth, countEventsToday } from "../models/UsageEvent";
+import { ADVANCED_LASH_SETS, isLashSetOption, LashSetOption } from "./lashMapRules.data";
 
 /**
  * Enforcement is OFF by default (ENFORCE_PLAN_LIMITS unset) — this is a deliberate
@@ -10,15 +11,24 @@ import { countEventsThisMonth, countEventsToday } from "../models/UsageEvent";
  */
 export const ENFORCEMENT_ENABLED = process.env.ENFORCE_PLAN_LIMITS === "true";
 
+// Aligned to the promised paywall copy (docs/pricing.md if present, else the paywall
+// screen itself) — 2026-07-15 pass: eyeScansPerMonth and clientProfiles were shrunk
+// from 3/5 to match "2 eye-shape scans per month" / "Save up to 2 client profiles".
+// retentionChecksPerMonth and marketingGenerationsPerDay were zeroed since the promise
+// frames retention troubleshooting / AI captions / AI replies as Paid-exclusive
+// ("Paid Includes everything in Starter, plus..."), not a free taste quota.
 const FREE_LIMITS = {
-  clientProfiles: 5,
+  clientProfiles: 2,
   coachQuestionsPerDay: 5,
-  eyeScansPerMonth: 3,
+  eyeScansPerMonth: 2,
   photoFeedbackPerMonth: 5,
   lashMapGenerationsPerMonth: 5,
-  retentionChecksPerMonth: 5,
+  // Paid-exclusive per the promised copy — was 5, taste-quota is gone.
+  retentionChecksPerMonth: 0,
   forumPostsPerMonth: 5,
-  marketingGenerationsPerDay: 5,
+  // Paid-exclusive per the promised copy — was 5, taste-quota is gone. Shared bucket
+  // for both AI social media captions and AI replies to client messages.
+  marketingGenerationsPerDay: 0,
   // AI preview costs a real image-generation call (pricier than the text-based
   // features above) — free tier doesn't get it at all, only Pro and above.
   lashPreviewsPerMonth: 0,
@@ -151,4 +161,39 @@ export async function checkPhotoRetouchQuota(userId: string): Promise<QuotaStatu
   const used = await countEventsThisMonth(userId, "photo_retouch_generation");
   const limit = plan === "free" ? FREE_LIMITS.photoRetouchesPerMonth : null;
   return quotaStatus(used, limit);
+}
+
+export interface AdvancedLashSetAccess {
+  allowed: boolean;
+  // Only set when the request actually named one of ADVANCED_LASH_SETS — lets the
+  // caller build an error message ("X is a Pro-tier lash set") without re-validating.
+  lashSet?: LashSetOption;
+}
+
+/**
+ * Gates the Pro-tier Lash Sets (see lashMapRules.data.ts's ADVANCED_LASH_SETS) the
+ * same way every other feature in this file is gated — respects ENFORCEMENT_ENABLED,
+ * so during the current testing phase this always allows, same as every check*Quota
+ * function above, but is ready to enforce for real once that flag flips on.
+ */
+export async function checkAdvancedLashSetAccess(
+  userId: string,
+  requestedLashSet: unknown,
+): Promise<AdvancedLashSetAccess> {
+  if (!isLashSetOption(requestedLashSet) || !ADVANCED_LASH_SETS.includes(requestedLashSet)) {
+    return { allowed: true };
+  }
+  const plan = await getUserPlan(userId);
+  const allowed = plan !== "free" || !ENFORCEMENT_ENABLED;
+  return { allowed, lashSet: requestedLashSet };
+}
+
+/**
+ * Inventory tracking is a flat Pro-only feature, not a quota — before 2026-07-15
+ * there was no gating at all on inventory.routes.ts, so free users had full CRUD
+ * access. Respects ENFORCEMENT_ENABLED like every other gate in this file.
+ */
+export async function checkInventoryAccess(userId: string): Promise<{ allowed: boolean }> {
+  const plan = await getUserPlan(userId);
+  return { allowed: plan !== "free" || !ENFORCEMENT_ENABLED };
 }

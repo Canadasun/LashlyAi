@@ -9,6 +9,7 @@ import {
   isLashSetOption,
   isLashStyleOption,
   LASH_SET_CURL,
+  LASH_SET_DIAMETERS_MM,
   LASH_SET_LABELS,
   LASH_SET_ZONE_LENGTHS_MM,
   LASH_STYLE_LABELS,
@@ -170,7 +171,12 @@ export function generateLashMap(
   const style: string = lashSet ?? legacyStyle;
   const curl: LashCurl = lashSet ? LASH_SET_CURL[lashSet] : legacyCurl;
   const lengths = lashSet ? LASH_SET_ZONE_LENGTHS_MM[lashSet] : ZONE_LENGTHS_MM[legacyStyle];
-  const diameter = DIAMETER_BY_DENSITY[eyeAnalysis.lash_density];
+  // A chosen Lash Set determines diameter first, when the owner has provided one
+  // (LASH_SET_DIAMETERS_MM) — e.g. Megavolume needs 0.02-0.03mm regardless of the
+  // client's natural lash density, and a density-only lookup would never produce that.
+  // Falls back to the density-based estimate for sets without owner-provided diameters
+  // yet, and for the legacy (no Lash Set requested) path, same as before this change.
+  const diameter = (lashSet && LASH_SET_DIAMETERS_MM[lashSet]) || DIAMETER_BY_DENSITY[eyeAnalysis.lash_density];
   const fanType = FAN_TYPE_BY_DENSITY[eyeAnalysis.lash_density];
   const technique = isLashTechnique(requestedTechnique) ? requestedTechnique : "classic";
 

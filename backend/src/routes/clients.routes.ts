@@ -4,6 +4,7 @@ import { requireUser } from "./middleware/requireUser";
 import {
   addPhotoAndEyeAnalysis,
   appendLashHistoryEntry,
+  appendPhoto,
   createClientProfile,
   deleteClientProfile,
   getClientProfileById,
@@ -37,6 +38,7 @@ import {
 } from "../services/storage.service";
 import { asyncHandler } from "../utils/asyncHandler";
 import {
+  checkAdvancedLashSetAccess,
   checkClientProfileQuota,
   checkEyeScanQuota,
   checkLashMapQuota,
@@ -45,7 +47,10 @@ import {
   checkPhotoFeedbackQuota,
   checkPhotoRetouchQuota,
   checkRetentionCheckQuota,
+  ENFORCEMENT_ENABLED,
+  getUserPlan,
 } from "../services/planLimits.service";
+import { LASH_SET_LABELS } from "../services/lashMapRules.data";
 import { logUsageEvent } from "../models/UsageEvent";
 import { getMediaAssetsByClientProfileId } from "../models/MediaAsset";
 
@@ -63,6 +68,17 @@ async function loadOwnedClient(req: import("express").Request, res: import("expr
     return null;
   }
   return client;
+}
+
+// "Client history with photos" is Pro-exclusive per the promised paywall copy — free
+// tier still gets the core loop (their most recent photo), but only Pro sees the full
+// history. Applied at the response boundary rather than restricting what gets stored,
+// so nothing is ever lost if a client later upgrades.
+function capPhotoHistoryForFreePlan<T extends { photos: string[] }>(client: T, plan: string): T {
+  if (!ENFORCEMENT_ENABLED || plan !== "free" || client.photos.length <= 1) {
+    return client;
+  }
+  return { ...client, photos: client.photos.slice(-1) };
 }
 
 clientsRouter.post(
@@ -94,7 +110,8 @@ clientsRouter.get(
   asyncHandler(async (req, res) => {
     const search = typeof req.query.q === "string" ? req.query.q.trim().slice(0, 200) : undefined;
     const clients = await getClientProfilesByOwner(req.currentUser!.id, search || undefined);
-    res.json(clients);
+    const plan = await getUserPlan(req.currentUser!.id);
+    res.json(clients.map((client) => capPhotoHistoryForFreePlan(client, plan)));
   }),
 );
 
@@ -104,7 +121,8 @@ clientsRouter.get(
   asyncHandler(async (req, res) => {
     const client = await loadOwnedClient(req, res);
     if (!client) return;
-    res.json(client);
+    const plan = await getUserPlan(req.currentUser!.id);
+    res.json(capPhotoHistoryForFreePlan(client, plan));
   }),
 );
 
@@ -177,6 +195,14 @@ clientsRouter.post(
     if (!quota.allowed) {
       res.status(403).json({
         error: `Free plan is limited to ${quota.limit} lash map generations per month. Upgrade to Pro for unlimited access.`,
+      });
+      return;
+    }
+
+    const lashSetAccess = await checkAdvancedLashSetAccess(req.currentUser!.id, req.body?.requested_lash_set);
+    if (!lashSetAccess.allowed && lashSetAccess.lashSet) {
+      res.status(403).json({
+        error: `${LASH_SET_LABELS[lashSetAccess.lashSet]} is a Pro-tier lash set. Upgrade to Pro to unlock advanced lash sets.`,
       });
       return;
     }
@@ -362,6 +388,7 @@ clientsRouter.post(
       clientProfileId: client.id,
       purpose: "photo_edit",
     });
+    await appendPhoto(client.id, uploaded.url);
     await logUsageEvent(req.currentUser!.id, "photo_edit");
 
     res.status(201).json({ photo_url: uploaded.url });
@@ -411,6 +438,7 @@ clientsRouter.post(
       purpose: "photo_retouch",
       consentedByUserId: req.currentUser!.id,
     });
+    await appendPhoto(client.id, uploaded.url);
     await logUsageEvent(req.currentUser!.id, "photo_retouch_generation");
 
     res.status(201).json({ photo_url: uploaded.url, mock });
@@ -471,7 +499,10 @@ clientsRouter.post(
     const quota = await checkRetentionCheckQuota(req.currentUser!.id);
     if (!quota.allowed) {
       res.status(403).json({
-        error: `Free plan is limited to ${quota.limit} retention checks per month. Upgrade to Pro for unlimited access.`,
+        error:
+          quota.limit === 0
+            ? "Retention troubleshooting is a Pro feature. Upgrade to Pro to use it."
+            : `Free plan is limited to ${quota.limit} retention checks per month. Upgrade to Pro for unlimited access.`,
       });
       return;
     }

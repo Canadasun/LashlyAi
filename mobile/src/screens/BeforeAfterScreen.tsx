@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
@@ -45,12 +45,46 @@ function SavePhotoButton({ uri, label }: { uri: string; label: string }) {
 
 type Props = NativeStackScreenProps<RootStackParamList, 'BeforeAfter'>;
 
-export function BeforeAfterScreen({ route }: Props) {
+export function BeforeAfterScreen({ route, navigation }: Props) {
   const { clientId } = route.params;
   const [client, setClient] = useState<ClientProfile | null>(null);
   const [photoFeedback, setPhotoFeedback] = useState<PhotoFeedback[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [checkingAccess, setCheckingAccess] = useState(true);
+
+  // Free tier gets zero access to this feature (not a reduced quota) — same pattern
+  // as PhotoEditorScreen's gate. There's no dedicated backend route for this screen
+  // (it just composes existing eye-analysis/photo-feedback data the free tier can
+  // already fetch elsewhere), so the plan check happens here client-side.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const usage = await api.get<{ plan: string }>('/users/me/usage');
+        if (cancelled) return;
+        if (usage.plan === 'free') {
+          Alert.alert(
+            'Pro feature',
+            'Before-and-after comparisons are available on paid plans. Upgrade to Pro to use them.',
+            [
+              { text: 'Cancel', style: 'cancel', onPress: () => navigation.goBack() },
+              { text: 'Upgrade', onPress: () => navigation.replace('Paywall') },
+            ],
+          );
+          return;
+        }
+        setCheckingAccess(false);
+      } catch {
+        // Fail open on the client-side gate, same rationale as PhotoEditorScreen.
+        setCheckingAccess(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -70,11 +104,12 @@ export function BeforeAfterScreen({ route }: Props) {
 
   useFocusEffect(
     useCallback(() => {
+      if (checkingAccess) return;
       load();
-    }, [load]),
+    }, [load, checkingAccess]),
   );
 
-  if (loading) {
+  if (checkingAccess || loading) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator color={colors.primary} />

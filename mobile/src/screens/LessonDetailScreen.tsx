@@ -7,11 +7,27 @@ import { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LessonDetail'>;
 
-export function LessonDetailScreen({ route }: Props) {
+export function LessonDetailScreen({ route, navigation }: Props) {
   const { lesson } = route.params;
   const [completed, setCompleted] = useState(lesson.completed);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Defensive backstop — LessonListScreen already stops a locked lesson from
+  // navigating here, but a deep link or a plan change mid-session could still land
+  // on this screen with no content (the backend never sends locked-lesson content).
+  if (lesson.locked || !lesson.content) {
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.title}>{lesson.title}</Text>
+        <Text style={styles.summary}>{lesson.summary}</Text>
+        <Text style={styles.lockedText}>This lesson is part of the full curriculum on Pro.</Text>
+        <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('Paywall')}>
+          <Text style={styles.buttonText}>Upgrade to Pro</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   const markComplete = async () => {
     setLoading(true);
@@ -54,6 +70,8 @@ export function LessonDetailScreen({ route }: Props) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: 20 },
+  centered: { flex: 1, backgroundColor: colors.background, padding: 20, justifyContent: 'center' },
+  lockedText: { fontSize: 14, color: colors.text, marginTop: 16, marginBottom: 20, textAlign: 'center' },
   draftBadge: {
     alignSelf: 'flex-start',
     backgroundColor: '#FFF3CD',
