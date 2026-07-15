@@ -3,6 +3,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   StyleSheet,
   Text,
@@ -13,11 +14,11 @@ import {
 import { api } from '../services/api';
 import { colors } from '../theme/colors';
 import { RootStackParamList } from '../navigation/types';
-import { ForumPostDetail } from '../types/api';
+import { ForumComment, ForumPostDetail } from '../types/api';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ForumPostDetail'>;
 
-export function ForumPostDetailScreen({ route }: Props) {
+export function ForumPostDetailScreen({ navigation, route }: Props) {
   const { postId } = route.params;
   const [post, setPost] = useState<ForumPostDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -57,6 +58,52 @@ export function ForumPostDetailScreen({ route }: Props) {
     }
   };
 
+  const promptReport = (kind: 'post' | 'comment', id: string) => {
+    Alert.prompt(
+      'Report this content',
+      'Tell us what’s wrong with it — an admin will review.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Submit',
+          onPress: async (reason?: string) => {
+            if (!reason?.trim()) return;
+            try {
+              const path = kind === 'post' ? `/forum/posts/${id}/report` : `/forum/comments/${id}/report`;
+              await api.post(path, { reason: reason.trim() });
+              Alert.alert('Reported', 'Thanks — an admin will take a look.');
+            } catch (err) {
+              Alert.alert('Failed to report', err instanceof Error ? err.message : 'Please try again.');
+            }
+          },
+        },
+      ],
+      'plain-text',
+    );
+  };
+
+  const confirmBlock = (userId: string, displayName: string) => {
+    Alert.alert(
+      `Block ${displayName}?`,
+      "You won't see their posts or comments anymore.",
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Block',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.post(`/forum/block/${userId}`, {});
+              navigation.goBack();
+            } catch (err) {
+              Alert.alert('Failed to block', err instanceof Error ? err.message : 'Please try again.');
+            }
+          },
+        },
+      ],
+    );
+  };
+
   if (loading) {
     return (
       <View style={styles.centered}>
@@ -75,21 +122,37 @@ export function ForumPostDetailScreen({ route }: Props) {
 
   return (
     <View style={styles.container}>
-      <FlatList
+      <FlatList<ForumComment>
         data={post.comments}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         ListHeaderComponent={
           <View style={styles.postCard}>
             <Text style={styles.title}>{post.title}</Text>
-            <Text style={styles.meta}>{post.author_email}</Text>
+            <Text style={styles.meta}>{post.author_display_name}</Text>
             <Text style={styles.body}>{post.body}</Text>
+            <View style={styles.actionRow}>
+              <TouchableOpacity onPress={() => promptReport('post', post.id)}>
+                <Text style={styles.actionText}>Report</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => confirmBlock(post.user_id, post.author_display_name)}>
+                <Text style={styles.actionText}>Block {post.author_display_name}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         }
         renderItem={({ item }) => (
           <View style={styles.commentRow}>
-            <Text style={styles.commentAuthor}>{item.author_email}</Text>
+            <Text style={styles.commentAuthor}>{item.author_display_name}</Text>
             <Text style={styles.commentBody}>{item.body}</Text>
+            <View style={styles.actionRow}>
+              <TouchableOpacity onPress={() => promptReport('comment', item.id)}>
+                <Text style={styles.actionTextSmall}>Report</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => confirmBlock(item.user_id, item.author_display_name)}>
+                <Text style={styles.actionTextSmall}>Block {item.author_display_name}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
       />
@@ -122,6 +185,9 @@ const styles = StyleSheet.create({
   title: { fontSize: 18, fontWeight: '700', color: colors.text },
   meta: { fontSize: 12, color: colors.accent, marginTop: 4, marginBottom: 10 },
   body: { fontSize: 14, color: colors.text, lineHeight: 20 },
+  actionRow: { flexDirection: 'row', gap: 16, marginTop: 10 },
+  actionText: { fontSize: 12, color: colors.muted, fontWeight: '600' },
+  actionTextSmall: { fontSize: 11, color: colors.muted, fontWeight: '600' },
   commentRow: { backgroundColor: '#ffffff', borderRadius: 10, padding: 12, marginBottom: 8 },
   commentAuthor: { fontSize: 11, color: colors.accent, fontWeight: '600' },
   commentBody: { fontSize: 13, color: colors.text, marginTop: 4 },

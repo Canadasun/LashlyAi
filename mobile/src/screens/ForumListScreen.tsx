@@ -86,7 +86,7 @@ export function ForumListScreen({ navigation }: Props) {
             onPress={() => navigation.navigate('ForumPostDetail', { postId: item.id })}>
             <Text style={styles.rowTitle}>{item.title}</Text>
             <Text style={styles.rowMeta}>
-              {item.author_email} · {item.comment_count} comment
+              {item.author_display_name} · {item.comment_count} comment
               {item.comment_count === 1 ? '' : 's'}
             </Text>
           </TouchableOpacity>

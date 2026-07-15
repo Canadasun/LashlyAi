@@ -118,7 +118,7 @@ export interface Lesson {
 export interface ForumPost {
   id: string;
   user_id: string;
-  author_email: string;
+  author_display_name: string;
   title: string;
   body: string;
   comment_count: number;
@@ -129,7 +129,7 @@ export interface ForumComment {
   id: string;
   post_id: string;
   user_id: string;
-  author_email: string;
+  author_display_name: string;
   body: string;
   created_at: string;
 }

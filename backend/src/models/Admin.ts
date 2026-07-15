@@ -1,6 +1,7 @@
 import { pool } from "../db";
 import { getRecentErrorLogs, getErrorLogCountSince, ErrorLog } from "./ErrorLog";
 import { getRecentLifecycleEvents, UserLifecycleEvent } from "./UserLifecycleEvent";
+import { getOpenForumReports, ForumReport } from "./Forum";
 
 export interface AdminStats {
   totalUsers: number;
@@ -25,6 +26,7 @@ export interface AdminStats {
     granter_email: string | null;
   }[];
   recentLifecycleEvents: UserLifecycleEvent[];
+  openForumReports: ForumReport[];
 }
 
 export async function getAdminStats(): Promise<AdminStats> {
@@ -41,6 +43,7 @@ export async function getAdminStats(): Promise<AdminStats> {
     usageEventTotalsResult,
     recentSubscriptionGrantsResult,
     recentLifecycleEventsResult,
+    openForumReportsResult,
   ] = await Promise.all([
     pool.query("SELECT COUNT(*)::int AS count FROM users"),
     pool.query(
@@ -70,6 +73,7 @@ export async function getAdminStats(): Promise<AdminStats> {
        LIMIT 20`,
     ),
     getRecentLifecycleEvents(30),
+    getOpenForumReports(),
   ]);
 
   return {
@@ -85,5 +89,6 @@ export async function getAdminStats(): Promise<AdminStats> {
     usageEventTotals: usageEventTotalsResult.rows,
     recentSubscriptionGrants: recentSubscriptionGrantsResult.rows,
     recentLifecycleEvents: recentLifecycleEventsResult,
+    openForumReports: openForumReportsResult,
   };
 }

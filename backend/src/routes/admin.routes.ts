@@ -14,6 +14,7 @@ import {
 import { createUserNotification } from "../models/UserNotification";
 import { logLifecycleEvent, getRecentLifecycleEvents } from "../models/UserLifecycleEvent";
 import { expireLapsedSubscriptions } from "../services/subscriptionLifecycle.service";
+import { getOpenForumReports, resolveForumReport } from "../models/Forum";
 
 export const adminRouter = Router();
 
@@ -201,6 +202,54 @@ adminRouter.get(
   }),
 );
 
+/**
+ * The "let the developer act on reports" half of Guideline 1.2's UGC requirement —
+ * report intake lives in forum.routes.ts (any authenticated user), resolution lives
+ * here (admin-only). Bearer-auth JSON form for the mobile app / scripts; the dashboard
+ * below also has a same-effect HTML form for browser use.
+ */
+adminRouter.get(
+  "/forum-reports",
+  requireUser,
+  requireAdminUser,
+  asyncHandler(async (_req, res) => {
+    const reports = await getOpenForumReports();
+    res.json(reports);
+  }),
+);
+
+adminRouter.post(
+  "/forum-reports/:id/resolve",
+  requireUser,
+  requireAdminUser,
+  asyncHandler(async (req, res) => {
+    const hideContent = (req.body as { hide_content?: unknown })?.hide_content === true;
+    const resolved = await resolveForumReport(req.params.id, req.currentUser!.id, hideContent);
+    if (!resolved) {
+      res.status(404).json({ error: "Report not found" });
+      return;
+    }
+    res.json(resolved);
+  }),
+);
+
+// Same action as above, reachable from the HTML dashboard's own auth (Basic, not
+// Bearer) — the dashboard's browser fetch() can't carry a session token, only whatever
+// credentials it already authenticated the page load with.
+adminRouter.post(
+  "/forum-reports/:id/resolve-dashboard",
+  requireAdminAccount,
+  asyncHandler(async (req, res) => {
+    const hideContent = (req.body as { hide_content?: unknown })?.hide_content === true;
+    const resolved = await resolveForumReport(req.params.id, req.currentUser!.id, hideContent);
+    if (!resolved) {
+      res.status(404).json({ error: "Report not found" });
+      return;
+    }
+    res.json(resolved);
+  }),
+);
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -256,6 +305,20 @@ adminRouter.get(
           `<td>${new Date(g.expires_at).toLocaleDateString()}</td>` +
           `<td>${g.revoked_at ? `<span class="status-pill status-5">revoked ${new Date(g.revoked_at).toLocaleDateString()}</span>` : ""}</td>` +
           `<td>${new Date(g.created_at).toLocaleString()}</td></tr>`,
+      )
+      .join("");
+
+    const forumReportRows = stats.openForumReports
+      .map(
+        (r) =>
+          `<tr id="report-${r.id}"><td>${new Date(r.created_at).toLocaleString()}</td>` +
+          `<td>${escapeHtml(r.target_type)}</td>` +
+          `<td>${escapeHtml(r.target_id)}</td>` +
+          `<td>${escapeHtml(r.reason)}</td>` +
+          `<td>` +
+          `<button onclick="resolveReport('${r.id}', false)">Dismiss</button> ` +
+          `<button onclick="resolveReport('${r.id}', true)">Hide content</button>` +
+          `</td></tr>`,
       )
       .join("");
 
@@ -337,6 +400,11 @@ adminRouter.get(
     </section>
 
     <section>
+      <h2>Open Forum Reports</h2>
+      <table><tr><th>Reported</th><th>Type</th><th>Target ID</th><th>Reason</th><th>Action</th></tr>${forumReportRows || '<tr><td colspan="5" class="empty">No open reports.</td></tr>'}</table>
+    </section>
+
+    <section>
       <h2>Joiner / Mover / Leaver Lifecycle Events (most recent 30)</h2>
       <table><tr><th>Time</th><th>Event</th><th>User</th><th>Details</th></tr>${lifecycleEventRows || '<tr><td colspan="4" class="empty">None yet</td></tr>'}</table>
     </section>
@@ -356,6 +424,22 @@ adminRouter.get(
       <table><tr><th>Priority</th><th>Message</th><th>Submitted</th></tr>${feedbackRows || '<tr><td colspan="3" class="empty">None yet</td></tr>'}</table>
     </section>
   </main>
+  <script>
+    // Reuses the browser's own cached HTTP Basic Auth credentials for this realm — no
+    // separate token needed since the admin already authenticated to load this page.
+    async function resolveReport(id, hideContent) {
+      const res = await fetch('/admin/forum-reports/' + id + '/resolve-dashboard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hide_content: hideContent }),
+      });
+      if (res.ok) {
+        document.getElementById('report-' + id).remove();
+      } else {
+        alert('Failed to resolve report (' + res.status + ')');
+      }
+    }
+  </script>
 </body>
 </html>`);
   }),
