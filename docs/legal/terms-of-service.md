@@ -78,4 +78,5 @@ accept the updated Terms.
 
 ## 12. Contact
 
-[PLACEHOLDER: business name, address, and contact email]
+Email: support@lashlyai.com
+[PLACEHOLDER: legal business name and mailing address]

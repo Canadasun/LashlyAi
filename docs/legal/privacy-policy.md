@@ -21,8 +21,9 @@ part of your normal client intake process.
 
 ## Information we collect
 
-- **Account information**: email address, authentication identity (via Firebase
-  Authentication), role (e.g. beginner, certified, salon owner).
+- **Account information**: email address, password (stored as a salted hash, never in
+  plain text) or your Apple ID identifier if you use Sign in with Apple, role (e.g.
+  beginner, certified, salon owner).
 - **Client data you enter**: client name, notes, eye photos, AI-generated eye analysis
   (eye shape, lash density, natural lash length), generated lash maps (style, curl,
   lengths, diameter, fan type), and lash history you save.
@@ -48,11 +49,11 @@ part of your normal client intake process.
 - **OpenAI** — client eye photos and related prompts are sent to OpenAI's API to
   generate eye analyses and Lash Coach answers. OpenAI processes this data under its
   own API data usage terms.
-- **Firebase / Google** — used for authentication, and (planned) analytics, crash
-  reporting, and push notifications.
-- **Apple** — Sign in with Apple (when enabled) and StoreKit subscription payments.
-- **Cloud storage provider** — client photos are stored on our storage provider
-  ([PLACEHOLDER: AWS S3 in production] / a local development stub during testing).
+- **Firebase / Google** — used for crash reporting (Crashlytics) only; analytics and
+  push notifications are not currently implemented.
+- **Apple** — Sign in with Apple (if you choose it) and StoreKit subscription payments.
+- **Cloud storage provider** — client photos are stored in S3-compatible object
+  storage (hosted via Railway), authenticated and private, not publicly accessible.
 
 We do not sell your data or your clients' photos to third parties for advertising.
 
@@ -60,7 +61,7 @@ We do not sell your data or your clients' photos to third parties for advertisin
 
 Client profiles, photos, and lash maps are retained until you delete them or close
 your account. To request deletion of your account or client data, contact
-[PLACEHOLDER: privacy contact email].
+support@lashlyai.com.
 
 ## Children's data
 
@@ -70,7 +71,7 @@ information from anyone under 13.
 ## Your rights
 
 Depending on where you live, you may have rights to access, correct, or delete your
-data. Contact [PLACEHOLDER: privacy contact email] to make a request.
+data. Contact support@lashlyai.com to make a request.
 
 > Formal GDPR/PIPEDA compliance work (data processing agreements, regional data
 > residency, etc.) is planned as a later-stage project (see `docs/roadmap.md` Phase 5)
@@ -88,4 +89,5 @@ in-app or by email.
 
 ## Contact
 
-[PLACEHOLDER: business name, address, and contact email]
+Email: support@lashlyai.com
+[PLACEHOLDER: legal business name and mailing address]
