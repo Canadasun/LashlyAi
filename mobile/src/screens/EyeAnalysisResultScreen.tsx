@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -58,6 +59,10 @@ const BROW_FIELDS: { label: string; key: keyof EyeAnalysis }[] = [
 // backend's ADVANCED_LASH_SETS gate (see lashMapRules.data.ts / planLimits.service.ts's
 // checkAdvancedLashSetAccess) — labeled here too so a free-tier artist sees the gate
 // before tapping Generate, instead of only finding out from a 403 after submitting.
+// Sentinel, not a real LashSetOption — selecting it switches the screen into the
+// custom-builder form below instead of sending requested_lash_set to the backend.
+const CUSTOM_LASH_SET = '__custom__';
+
 const LASH_SETS: { label: string; value: string | null }[] = [
   { label: 'Auto (from eye shape)', value: null },
   { label: 'Classic', value: 'classic' },
@@ -70,7 +75,34 @@ const LASH_SETS: { label: string; value: string | null }[] = [
   { label: 'Anime Set (Pro)', value: 'anime_set' },
   { label: 'Angel Set', value: 'angel_set' },
   { label: 'YY Set', value: 'yy_set' },
+  { label: 'Build Your Own (Pro)', value: CUSTOM_LASH_SET },
 ];
+
+const CURL_OPTIONS: ('C' | 'CC' | 'D')[] = ['C', 'CC', 'D'];
+
+const CUSTOM_ZONE_FIELDS: { key: keyof CustomZoneLengths; label: string }[] = [
+  { key: 'inner', label: 'Inner (mm)' },
+  { key: 'inner_mid', label: 'Inner-mid (mm)' },
+  { key: 'center', label: 'Center (mm)' },
+  { key: 'outer_mid', label: 'Outer-mid (mm)' },
+  { key: 'outer', label: 'Outer (mm)' },
+];
+
+interface CustomZoneLengths {
+  inner: string;
+  inner_mid: string;
+  center: string;
+  outer_mid: string;
+  outer: string;
+}
+
+const EMPTY_CUSTOM_LENGTHS: CustomZoneLengths = {
+  inner: '',
+  inner_mid: '',
+  center: '',
+  outer_mid: '',
+  outer: '',
+};
 
 const LASH_STYLES: { label: string; value: string | null }[] = [
   { label: 'Auto (from eye shape)', value: null },
@@ -87,6 +119,11 @@ export function EyeAnalysisResultScreen({ route, navigation }: Props) {
   const { clientId } = route.params;
   const [requestedLashSet, setRequestedLashSet] = useState<string | null>(null);
   const [requestedLashStyle, setRequestedLashStyle] = useState<string | null>(null);
+  const [customLabel, setCustomLabel] = useState('');
+  const [customCurl, setCustomCurl] = useState<'C' | 'CC' | 'D'>('CC');
+  const [customDiameter, setCustomDiameter] = useState('');
+  const [customLengths, setCustomLengths] = useState<CustomZoneLengths>(EMPTY_CUSTOM_LENGTHS);
+  const isCustom = requestedLashSet === CUSTOM_LASH_SET;
   const [loading, setLoading] = useState(true);
   const [eyeAnalysis, setEyeAnalysis] = useState<EyeAnalysis | null>(route.params.eyeAnalysis ?? null);
   const [photoUrl, setPhotoUrl] = useState(route.params.photoUrl ?? null);
@@ -124,17 +161,45 @@ export function EyeAnalysisResultScreen({ route, navigation }: Props) {
     loadClient();
   }, [loadClient]);
 
+  const buildCustomLashMap = (): { label: string; curl: string; diameter: string; lengths: Record<string, number> } | null => {
+    if (!customLabel.trim()) {
+      setError('Name your custom lash set.');
+      return null;
+    }
+    if (!customDiameter.trim()) {
+      setError('Enter a diameter for your custom lash set (e.g. 0.15mm).');
+      return null;
+    }
+    const lengths: Record<string, number> = {};
+    for (const field of CUSTOM_ZONE_FIELDS) {
+      const value = Number(customLengths[field.key]);
+      if (!customLengths[field.key] || Number.isNaN(value) || value < 4 || value > 20) {
+        setError(`${field.label} must be a number between 4mm and 20mm.`);
+        return null;
+      }
+      lengths[field.key] = value;
+    }
+    return { label: customLabel.trim(), curl: customCurl, diameter: customDiameter.trim(), lengths };
+  };
+
   const generateLashMap = async () => {
     if (!eyeAnalysis) {
       return;
+    }
+    let customLashMap: ReturnType<typeof buildCustomLashMap> = null;
+    if (isCustom) {
+      setError(null);
+      customLashMap = buildCustomLashMap();
+      if (!customLashMap) return;
     }
     setLoading(true);
     setError(null);
     try {
       const lashMap = await api.post<LashMap>(`/clients/${clientId}/lash-map`, {
-        requested_lash_set: requestedLashSet ?? undefined,
+        requested_lash_set: isCustom ? undefined : requestedLashSet ?? undefined,
         requested_lash_style: requestedLashStyle ?? undefined,
         eye_analysis: eyeAnalysis,
+        custom_lash_map: customLashMap ?? undefined,
       });
       navigation.replace('LashMap', { clientId, lashMap });
     } catch (err) {
@@ -224,6 +289,53 @@ export function EyeAnalysisResultScreen({ route, navigation }: Props) {
         ))}
       </View>
 
+      {isCustom && (
+        <View style={styles.customCard}>
+          <Text style={styles.customTitle}>Build Your Own Lash Set</Text>
+          <TextInput
+            style={styles.customInput}
+            placeholder="Name this set (e.g. Sarah's signature wispy)"
+            placeholderTextColor={colors.muted}
+            value={customLabel}
+            onChangeText={setCustomLabel}
+          />
+          <TextInput
+            style={styles.customInput}
+            placeholder="Diameter (e.g. 0.07mm)"
+            placeholderTextColor={colors.muted}
+            value={customDiameter}
+            onChangeText={setCustomDiameter}
+          />
+          <Text style={styles.customSubLabel}>Curl</Text>
+          <View style={styles.styleChips}>
+            {CURL_OPTIONS.map((curl) => (
+              <TouchableOpacity
+                key={curl}
+                style={[styles.chip, customCurl === curl && styles.chipSelected]}
+                onPress={() => setCustomCurl(curl)}>
+                <Text style={[styles.chipText, customCurl === curl && styles.chipTextSelected]}>
+                  {curl}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Text style={styles.customSubLabel}>Zone lengths</Text>
+          {CUSTOM_ZONE_FIELDS.map((field) => (
+            <View key={field.key} style={styles.customZoneRow}>
+              <Text style={styles.customZoneLabel}>{field.label}</Text>
+              <TextInput
+                style={styles.customZoneInput}
+                placeholder="10"
+                placeholderTextColor={colors.muted}
+                keyboardType="decimal-pad"
+                value={customLengths[field.key]}
+                onChangeText={(value) => setCustomLengths((prev) => ({ ...prev, [field.key]: value }))}
+              />
+            </View>
+          ))}
+        </View>
+      )}
+
       <Text style={styles.styleLabel}>Lash Styles</Text>
       <View style={styles.styleChips}>
         {LASH_STYLES.map((option) => (
@@ -303,6 +415,35 @@ const styles = StyleSheet.create({
   notes: { color: colors.text, fontSize: 13, marginTop: 8, fontStyle: 'italic' },
   styleLabel: { fontSize: 13, fontWeight: '600', color: colors.text, marginTop: 20, marginBottom: 8 },
   styleChips: { flexDirection: 'row', flexWrap: 'wrap' },
+  customCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 14,
+    marginTop: 8,
+  },
+  customTitle: { fontSize: 14, fontWeight: '700', color: colors.text, marginBottom: 10 },
+  customInput: {
+    backgroundColor: colors.background,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 13,
+    color: colors.text,
+    marginBottom: 10,
+  },
+  customSubLabel: { fontSize: 12, fontWeight: '600', color: colors.accent, marginTop: 4, marginBottom: 8 },
+  customZoneRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  customZoneLabel: { fontSize: 12, color: colors.text },
+  customZoneInput: {
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 13,
+    color: colors.text,
+    width: 70,
+    textAlign: 'center',
+  },
   chip: {
     backgroundColor: '#ffffff',
     borderRadius: 20,

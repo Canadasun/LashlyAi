@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import { pool } from "../db";
 import { hashPassword } from "../services/auth.service";
 import { createUser, findUserByEmail, updateUserPasswordHash } from "../models/User";
+import { logLifecycleEvent } from "../models/UserLifecycleEvent";
 
 /**
  * Provisions (or resets) the login credential for an admin account with a generated
@@ -33,11 +34,20 @@ async function main() {
     await updateUserPasswordHash(existing.id, passwordHash, true);
     console.log(`Reset password for existing account: ${email}`);
   } else {
-    await createUser({
+    const user = await createUser({
       email,
       passwordHash,
       role: "academy",
       mustChangePassword: true,
+    });
+    // Joiner: this bypasses POST /auth/register entirely (a script-provisioned
+    // account, not a self-signup), so it needs its own lifecycle log — otherwise
+    // this class of account creation is invisible in the audit trail.
+    await logLifecycleEvent({
+      userId: user.id,
+      userEmail: user.email,
+      eventType: "joiner_signup",
+      details: { role: user.role, provisioned_via: "seedAdmin_script" },
     });
     console.log(`Created new admin account: ${email}`);
   }

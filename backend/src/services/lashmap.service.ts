@@ -27,6 +27,62 @@ export function isAdvancedStyle(value: unknown): value is AdvancedLashStyle {
   return ADVANCED_STYLES.includes(value as AdvancedLashStyle);
 }
 
+export interface CustomLashMapInput {
+  label: string;
+  curl: LashCurl;
+  diameter: string;
+  lengths: Record<ZoneName, number>;
+}
+
+const VALID_CURLS: LashCurl[] = ["C", "CC", "D"];
+const MIN_ZONE_LENGTH_MM = 4;
+const MAX_ZONE_LENGTH_MM = 20;
+
+export class CustomLashMapValidationError extends Error {}
+
+/**
+ * Gating (Pro-only) happens at the route layer, same as ADVANCED_LASH_SETS — this
+ * only validates shape/ranges, since a bad custom map is a data-quality problem
+ * regardless of plan.
+ */
+export function validateCustomLashMapInput(input: unknown): CustomLashMapInput {
+  const body = (input ?? {}) as Partial<CustomLashMapInput>;
+
+  const label = typeof body.label === "string" ? body.label.trim() : "";
+  if (!label || label.length > 60) {
+    throw new CustomLashMapValidationError("label is required and must be 60 characters or fewer");
+  }
+
+  if (!VALID_CURLS.includes(body.curl as LashCurl)) {
+    throw new CustomLashMapValidationError(`curl must be one of: ${VALID_CURLS.join(", ")}`);
+  }
+
+  const diameter = typeof body.diameter === "string" ? body.diameter.trim() : "";
+  if (!diameter || diameter.length > 40) {
+    throw new CustomLashMapValidationError("diameter is required and must be 40 characters or fewer");
+  }
+
+  const lengths = body.lengths;
+  if (typeof lengths !== "object" || lengths === null) {
+    throw new CustomLashMapValidationError("lengths is required");
+  }
+  const resolvedLengths = {} as Record<ZoneName, number>;
+  for (const zone of ZONE_ORDER) {
+    const value = (lengths as Record<string, unknown>)[zone];
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      throw new CustomLashMapValidationError(`lengths.${zone} must be a number`);
+    }
+    if (value < MIN_ZONE_LENGTH_MM || value > MAX_ZONE_LENGTH_MM) {
+      throw new CustomLashMapValidationError(
+        `lengths.${zone} must be between ${MIN_ZONE_LENGTH_MM}mm and ${MAX_ZONE_LENGTH_MM}mm`,
+      );
+    }
+    resolvedLengths[zone] = value;
+  }
+
+  return { label, curl: body.curl as LashCurl, diameter, lengths: resolvedLengths };
+}
+
 function isLashTechnique(value: unknown): value is LashTechnique {
   return value === "classic" || value === "wispy";
 }
@@ -155,6 +211,7 @@ export function generateLashMap(
   requestedTechnique?: string,
   requestedLashSet?: string,
   requestedLashStyle?: string,
+  customLashMap?: CustomLashMapInput,
 ): GeneratedLashMap {
   const eyeShapeDefault = STYLE_CURL_BY_EYE_SHAPE[eyeAnalysis.eye_shape];
   const lashSet = isLashSetOption(requestedLashSet) ? requestedLashSet : undefined;
@@ -168,15 +225,24 @@ export function generateLashMap(
     ? ADVANCED_STYLE_CURL[requestedStyle]
     : eyeShapeDefault.curl;
 
-  const style: string = lashSet ?? legacyStyle;
-  const curl: LashCurl = lashSet ? LASH_SET_CURL[lashSet] : legacyCurl;
-  const lengths = lashSet ? LASH_SET_ZONE_LENGTHS_MM[lashSet] : ZONE_LENGTHS_MM[legacyStyle];
+  // A custom map (artist-specified zone lengths/curl/diameter, Pro-gated at the route
+  // layer — see checkCustomLashMapAccess) takes precedence over everything else,
+  // including a recognized Lash Set — it's the most direct artist choice there is.
+  const style: string = customLashMap ? "custom" : lashSet ?? legacyStyle;
+  const curl: LashCurl = customLashMap ? customLashMap.curl : lashSet ? LASH_SET_CURL[lashSet] : legacyCurl;
+  const lengths = customLashMap
+    ? customLashMap.lengths
+    : lashSet
+    ? LASH_SET_ZONE_LENGTHS_MM[lashSet]
+    : ZONE_LENGTHS_MM[legacyStyle];
   // A chosen Lash Set determines diameter first, when the owner has provided one
   // (LASH_SET_DIAMETERS_MM) — e.g. Megavolume needs 0.02-0.03mm regardless of the
   // client's natural lash density, and a density-only lookup would never produce that.
   // Falls back to the density-based estimate for sets without owner-provided diameters
   // yet, and for the legacy (no Lash Set requested) path, same as before this change.
-  const diameter = (lashSet && LASH_SET_DIAMETERS_MM[lashSet]) || DIAMETER_BY_DENSITY[eyeAnalysis.lash_density];
+  const diameter = customLashMap
+    ? customLashMap.diameter
+    : (lashSet && LASH_SET_DIAMETERS_MM[lashSet]) || DIAMETER_BY_DENSITY[eyeAnalysis.lash_density];
   const fanType = FAN_TYPE_BY_DENSITY[eyeAnalysis.lash_density];
   const technique = isLashTechnique(requestedTechnique) ? requestedTechnique : "classic";
 
@@ -197,7 +263,7 @@ export function generateLashMap(
     fan_type: fanType,
     visual_map: { zones },
     technique,
-    style_label: lashSet ? LASH_SET_LABELS[lashSet] : buildStyleLabel(style, technique),
+    style_label: customLashMap ? customLashMap.label : lashSet ? LASH_SET_LABELS[lashSet] : buildStyleLabel(style, technique),
     curl_label: buildCurlLabel(curl, technique),
     ...(spikeLengths ? { spike_lengths: spikeLengths } : {}),
     zone_summary: zoneSummary,

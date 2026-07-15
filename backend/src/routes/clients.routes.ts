@@ -29,7 +29,12 @@ import {
   scoreLashPhoto,
   troubleshootRetention,
 } from "../services/ai.service";
-import { generateLashMap } from "../services/lashmap.service";
+import {
+  CustomLashMapInput,
+  CustomLashMapValidationError,
+  generateLashMap,
+  validateCustomLashMapInput,
+} from "../services/lashmap.service";
 import {
   deleteStoredMediaAsset,
   prepareImage,
@@ -40,6 +45,7 @@ import { asyncHandler } from "../utils/asyncHandler";
 import {
   checkAdvancedLashSetAccess,
   checkClientProfileQuota,
+  checkCustomLashMapAccess,
   checkEyeScanQuota,
   checkLashMapQuota,
   checkLashPreviewQuota,
@@ -207,12 +213,33 @@ clientsRouter.post(
       return;
     }
 
+    let customLashMap: CustomLashMapInput | undefined;
+    if (req.body?.custom_lash_map) {
+      const customAccess = await checkCustomLashMapAccess(req.currentUser!.id);
+      if (!customAccess.allowed) {
+        res.status(403).json({
+          error: "Custom lash sets are a Pro feature. Upgrade to Pro to build your own lash set.",
+        });
+        return;
+      }
+      try {
+        customLashMap = validateCustomLashMapInput(req.body.custom_lash_map);
+      } catch (error) {
+        if (error instanceof CustomLashMapValidationError) {
+          res.status(400).json({ error: error.message });
+          return;
+        }
+        throw error;
+      }
+    }
+
     const generated = generateLashMap(
       eyeAnalysis,
       req.body?.requested_style,
       req.body?.requested_technique,
       req.body?.requested_lash_set,
       req.body?.requested_lash_style,
+      customLashMap,
     );
     const saved = await createLashMap(client.id, generated);
     await appendLashHistoryEntry(client.id, {

@@ -200,3 +200,14 @@ export async function checkInventoryAccess(userId: string): Promise<{ allowed: b
   const plan = await getUserPlan(userId);
   return { allowed: plan !== "free" || !ENFORCEMENT_ENABLED };
 }
+
+/**
+ * Custom lash sets (artist-specified zone lengths/curl/diameter, bypassing the vetted
+ * preset tables entirely) are a flat Pro-only feature — deliberately gated higher than
+ * the fixed advanced sets, since going off the owner-vetted defaults carries more
+ * skill/liability risk, not less.
+ */
+export async function checkCustomLashMapAccess(userId: string): Promise<{ allowed: boolean }> {
+  const plan = await getUserPlan(userId);
+  return { allowed: plan !== "free" || !ENFORCEMENT_ENABLED };
+}
