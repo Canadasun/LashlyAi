@@ -333,3 +333,36 @@ confirmed clean.
 - Not set: `marketingUrl` — optional for submission, and there's no dedicated marketing
   page to point it at (the GitHub Pages root has no `index.html`). Skipped rather than
   pointing it at something that would 404 or feel like an awkward substitute.
+
+## 2026-07-16 — App Store screenshots uploaded
+
+Created an `appScreenshotSets` entry for `APP_IPHONE_67` (6.7" — the largest display
+type this API version accepts; there's no `APP_IPHONE_69` enum value yet despite that
+being the current marketing name for the class). Uploaded two real, accurate screenshots
+via the reserve → PUT bytes → commit-with-checksum flow, both confirmed
+`assetDeliveryState: COMPLETE` with no errors:
+
+1. **Auth screen** — clean, correctly branded, no crash.
+2. **Populated Dashboard** — a real demo account (`demo@lashlyai.com`, intentionally
+   persistent, not test debris — see the earlier note) with two sample clients (Ava
+   Chen, Sophia Martinez), showing actual product UI: client count, quick actions,
+   recent clients, usage summary.
+
+Getting screenshot #2 required installing `idb`/`idb-companion` (Meta's iOS Simulator
+automation toolkit) since AppleScript/System Events `keystroke` synthesis doesn't
+reliably land in React Native `TextInput`s — the keyboard appeared but no characters
+were captured. `idb`'s `ui tap`/`ui text` commands, driven from its own `ui describe-all`
+accessibility-tree coordinates (not guessed pixel math), worked correctly. Installed via
+`brew tap facebook/fb && brew install idb-companion`, with the Python CLI (`fb-idb`) in
+an isolated Python 3.11 venv since it's incompatible with this machine's Python 3.14
+(`asyncio.get_event_loop()` behavior changed). idb-companion is stopped after use, not
+left running.
+
+- [ ] **Not done, optional**: only one display class (`APP_IPHONE_67`) has screenshots.
+  Apple may prompt for smaller iPhone sizes too depending on current requirements —
+  check App Store Connect directly before submitting; if more are needed, the same
+  idb-driven flow can produce them for other simulator sizes.
+- [ ] **Not done, optional**: only 2 screenshots exist; more (Lash Map, AI Coach,
+  Reference Guide) would round out the listing better. Scroll gestures via `idb ui swipe`
+  didn't visibly scroll the Dashboard in this pass — worth revisiting if more screenshots
+  are wanted.
