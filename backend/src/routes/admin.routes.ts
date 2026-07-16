@@ -16,12 +16,78 @@ import { logLifecycleEvent, getRecentLifecycleEvents } from "../models/UserLifec
 import { expireLapsedSubscriptions } from "../services/subscriptionLifecycle.service";
 import { getOpenForumReports, resolveForumReport } from "../models/Forum";
 import { sendEmailBestEffort } from "../services/email.service";
-import { sendSmsBestEffort } from "../services/sms.service";
-import { compGrantEmail, compRevokeEmail } from "../services/notificationTemplates";
+import { compGrantEmail, compRevokeEmail, adminTwoFactorCodeEmail } from "../services/notificationTemplates";
+import { createAdminActionCode, verifyAdminActionCode } from "../models/AdminActionCode";
+import rateLimit from "express-rate-limit";
 
 export const adminRouter = Router();
 
 const GRANTABLE_PLANS: SubscriptionPlan[] = ["pro", "educator", "salon", "enterprise"];
+
+// Loose enough for a legitimate "code expired, let me get a new one" retry, tight
+// enough that this can't be used to spam an admin's inbox.
+const twoFactorRequestLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many code requests. Try again later." },
+});
+
+/**
+ * Sends a fresh verification code to the requesting admin's own email — the first step
+ * before any two-factor-gated action below. Scoped to the admin's own address (not
+ * something a caller can redirect elsewhere), since the point is proving control of the
+ * account that's about to take a sensitive action, not just proving control of *an*
+ * inbox.
+ */
+adminRouter.post(
+  "/2fa/request-code",
+  requireUser,
+  requireAdminUser,
+  twoFactorRequestLimiter,
+  asyncHandler(async (req, res) => {
+    const code = await createAdminActionCode(req.currentUser!.id);
+    void sendEmailBestEffort({
+      to: req.currentUser!.email,
+      ...adminTwoFactorCodeEmail(code, "a subscription grant or revocation"),
+    });
+    res.status(200).json({ message: "Verification code sent to your email." });
+  }),
+);
+
+/**
+ * Shared gate for every two-factor-protected admin action below — verifies
+ * `two_factor_code` from the request body against a code this admin requested via
+ * POST /2fa/request-code. Writes the 400 response itself (with a machine-readable
+ * `code` field so the mobile client can distinguish "never requested a code" from "got
+ * the code wrong" without string-matching the message) and returns false so call sites
+ * can just `if (!(await requireTwoFactorCode(req, res))) return;`.
+ */
+async function requireTwoFactorCode(
+  req: { currentUser?: { id: string }; body: unknown },
+  res: { status: (code: number) => { json: (body: unknown) => void } },
+): Promise<boolean> {
+  const submitted = (req.body as { two_factor_code?: unknown })?.two_factor_code;
+  if (typeof submitted !== "string" || !submitted.trim()) {
+    res.status(400).json({
+      error: "A verification code is required for this action.",
+      code: "TWO_FACTOR_REQUIRED",
+    });
+    return false;
+  }
+
+  const verification = await verifyAdminActionCode(req.currentUser!.id, submitted.trim());
+  if (!verification.ok) {
+    res.status(400).json({
+      error: "Invalid or expired verification code.",
+      code: "TWO_FACTOR_INVALID",
+    });
+    return false;
+  }
+
+  return true;
+}
 
 /**
  * Grants a complimentary subscription (e.g. to an influencer) by email. Protected by
@@ -34,6 +100,8 @@ adminRouter.post(
   requireUser,
   requireAdminUser,
   asyncHandler(async (req, res) => {
+    if (!(await requireTwoFactorCode(req, res))) return;
+
     const { email, plan, expires_at: expiresAt } = (req.body ?? {}) as {
       email?: unknown;
       plan?: unknown;
@@ -121,6 +189,8 @@ adminRouter.post(
   requireUser,
   requireAdminUser,
   asyncHandler(async (req, res) => {
+    if (!(await requireTwoFactorCode(req, res))) return;
+
     const grant = await getSubscriptionGrantById(req.params.id);
     if (!grant) {
       res.status(404).json({ error: "Grant not found" });

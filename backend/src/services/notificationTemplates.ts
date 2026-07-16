@@ -67,6 +67,25 @@ export function passwordResetEmail(code: string): EmailContent {
   return { subject, html, text };
 }
 
+export function adminTwoFactorCodeEmail(code: string, action: string): EmailContent {
+  const subject = `${BRAND} admin verification code`;
+  const text =
+    `Your verification code is: ${code}\n\n` +
+    `Use this to confirm: ${action}. It expires in 10 minutes.\n\n` +
+    `If you didn't request this, secure your account and check the admin dashboard's audit trail.`;
+  const html = wrapHtml(
+    `<p style="font-size:16px; line-height:1.6;">Confirm admin action</p>
+     <p style="font-size:28px; font-weight:800; letter-spacing:4px; color:#B85C7A; margin:20px 0;">${code}</p>
+     <p style="font-size:14px; line-height:1.6; color:#342B2F;">
+       Use this code to confirm: <strong>${action}</strong>. It expires in 10 minutes.
+     </p>
+     <p style="font-size:13px; color:#746A6E;">
+       If you didn't request this, secure your account and check the admin dashboard's audit trail.
+     </p>`,
+  );
+  return { subject, html, text };
+}
+
 export function compGrantEmail(plan: string, expiresAt: string): EmailContent {
   const expiresDate = new Date(expiresAt).toLocaleDateString();
   const subject = `You've got complimentary ${plan} access on ${BRAND}`;
