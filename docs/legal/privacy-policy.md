@@ -1,11 +1,12 @@
 # LashlyAI Privacy Policy
 
-> **STATUS: DRAFT — REQUIRES LEGAL REVIEW BEFORE PUBLISHING OR SUBMITTING TO THE APP
-> STORE.** This is a reasonable starting point, not legal advice. Have a lawyer review
-> it — especially the sections on third-party AI processing and photographing
-> non-users (your clients) — before this goes live. Replace every `[PLACEHOLDER]`.
+> **STATUS: DRAFT — REQUIRES LEGAL REVIEW.** All placeholders are now filled in with
+> real owner-provided details (2026-07-16), but this is a reasonable starting point
+> filled in by an AI assistant, not legal advice. Have a lawyer review it — especially
+> the sections on third-party AI processing and photographing non-users (your
+> clients) — before treating this as production-final.
 
-Effective date: [PLACEHOLDER — DATE OF PUBLICATION]
+Effective date: July 16, 2026
 
 LashlyAI ("we", "us") provides an app that helps lash artists analyze client eye
 photos and generate AI-assisted lash maps. This policy explains what data we collect,
@@ -90,4 +91,4 @@ in-app or by email.
 ## Contact
 
 Email: support@lashlyai.com
-[PLACEHOLDER: legal business name and mailing address]
+Idowu Ayeni, 3 St SE, Calgary, AB T2G 0T9, Canada

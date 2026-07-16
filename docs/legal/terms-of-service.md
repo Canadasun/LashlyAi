@@ -1,11 +1,12 @@
 # LashlyAI Terms of Service
 
-> **STATUS: DRAFT — REQUIRES LEGAL REVIEW BEFORE PUBLISHING OR SUBMITTING TO THE APP
-> STORE.** This is a reasonable starting point, not legal advice. Replace every
-> `[PLACEHOLDER]` and have a lawyer review the liability, disclaimer, and governing-law
-> sections in particular before this goes live.
+> **STATUS: DRAFT — REQUIRES LEGAL REVIEW.** All placeholders are now filled in with
+> real owner-provided details (2026-07-16), but this is a reasonable starting point
+> filled in by an AI assistant, not legal advice — no lawyer has reviewed the
+> liability, disclaimer, or governing-law sections. Get that review before treating
+> this as production-final.
 
-Effective date: [PLACEHOLDER — DATE OF PUBLICATION]
+Effective date: July 16, 2026
 
 By creating an account or using LashlyAI ("the App"), you agree to these Terms.
 
@@ -47,9 +48,9 @@ access to the App without authorization.
 
 ## 6. Intellectual property
 
-The App, its branding, and underlying technology are owned by [PLACEHOLDER: legal
-entity name]. Client data you enter remains yours; you grant us a license to process
-it solely to provide the service.
+The App, its branding, and underlying technology are owned by Idowu Ayeni, operating
+as a sole proprietorship. Client data you enter remains yours; you grant us a license
+to process it solely to provide the service.
 
 ## 7. Termination
 
@@ -63,13 +64,14 @@ including fitness for a particular purpose.
 
 ## 9. Limitation of liability
 
-To the maximum extent permitted by law, [PLACEHOLDER: legal entity name] is not liable
-for indirect, incidental, or consequential damages arising from use of the App,
-including outcomes from lash services performed based on AI-generated recommendations.
+To the maximum extent permitted by law, Idowu Ayeni is not liable for indirect,
+incidental, or consequential damages arising from use of the App, including outcomes
+from lash services performed based on AI-generated recommendations.
 
 ## 10. Governing law
 
-[PLACEHOLDER: governing law / jurisdiction].
+These Terms are governed by the laws of the Province of Alberta and the applicable
+laws of Canada, without regard to conflict-of-law principles.
 
 ## 11. Changes to these terms
 
@@ -79,4 +81,4 @@ accept the updated Terms.
 ## 12. Contact
 
 Email: support@lashlyai.com
-[PLACEHOLDER: legal business name and mailing address]
+Idowu Ayeni, 3 St SE, Calgary, AB T2G 0T9, Canada
