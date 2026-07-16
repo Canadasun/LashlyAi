@@ -259,3 +259,34 @@ hard they block submission:
   API response anyway. Caught by a live smoke test immediately after deploying — not by
   code review — fixed by explicit destructuring instead of an additive spread, redeployed,
   and re-verified live before moving on.
+
+## 2026-07-16 — alerts and notifications (Twilio + email)
+
+Built the notification layer requested alongside the original JML lifecycle ask
+("alerts templates for twilio and emails"). `email.service.ts` (Resend HTTP API) and
+`sms.service.ts` (Twilio HTTP API), both plain `fetch` with no new npm dependency, plus
+`notificationTemplates.ts` holding every message's copy in one place. Both are
+stub-safe — without credentials configured they log instead of sending, matching the
+existing `storage.service.ts` pattern for AWS S3, rather than throwing or blocking the
+action that triggered them.
+
+Wired into every already-existing event that should notify someone: welcome email on
+signup (register + Sign in with Apple), comp subscription grant/revoke email (mirrors
+the existing in-app banner), subscription-expired email, admin email+SMS alert on a new
+forum report, and a rate-limited (one per 15 minutes) admin SMS alert on an unhandled
+500. Verified live: deployed, confirmed the server boots cleanly with both providers
+unconfigured (warns, doesn't crash), registered and deleted a real test account, and
+confirmed via Railway logs that the welcome-email stub actually fired for it.
+
+- [ ] **Neither Resend nor Twilio credentials exist yet.** Both are genuinely optional,
+  paid, account-required services (Resend needs an API key and a verified sending
+  domain; Twilio needs an account, a funded balance, and a phone number) — same class of
+  decision as the GitHub Pages hosting blocker above, not something to sign up for
+  unilaterally. Set `RESEND_API_KEY`, `EMAIL_FROM_ADDRESS` (domain must be verified with
+  Resend), `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`, and
+  optionally `ADMIN_ALERT_PHONE_NUMBER` in Railway to go live — no code changes needed.
+- Deliberately out of scope this pass: the "forgot password" email template. No
+  password-reset token system exists yet (the similarly-named
+  `0020_password_reset_and_error_logs.sql` migration only added `must_change_password`
+  and `error_logs` — no actual reset-token infrastructure) — that's part of the still-
+  queued "forgot password" feature, not something to half-build a template for here.
