@@ -7,6 +7,7 @@ export interface Session {
   token: string;
   mustChangePassword: boolean;
   isAdmin: boolean;
+  emailVerified: boolean;
 }
 
 interface AuthResponse {
@@ -15,6 +16,7 @@ interface AuthResponse {
     email: string;
     must_change_password: boolean;
     is_admin: boolean;
+    email_verified: boolean;
   };
 }
 
@@ -46,6 +48,7 @@ function toSession(response: AuthResponse): Session {
     token: response.token,
     mustChangePassword: response.user.must_change_password,
     isAdmin: response.user.is_admin,
+    emailVerified: response.user.email_verified,
   };
 }
 
@@ -58,6 +61,7 @@ function parseSession(raw: string): Session | null {
         token: parsed.token,
         mustChangePassword: parsed.mustChangePassword ?? false,
         isAdmin: parsed.isAdmin ?? false,
+        emailVerified: parsed.emailVerified ?? false,
       };
     }
     return null;
@@ -119,6 +123,15 @@ export async function resetPassword(
     new_password: newPassword,
   });
   return toSession(response);
+}
+
+export async function verifyEmail(code: string): Promise<Session> {
+  const response = await api.post<AuthResponse>('/auth/verify-email', { code });
+  return toSession(response);
+}
+
+export async function resendVerification(): Promise<void> {
+  await api.post('/auth/resend-verification', {});
 }
 
 export async function signOut(): Promise<void> {

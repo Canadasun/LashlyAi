@@ -16,6 +16,7 @@ export interface User {
   apple_user_id: string | null;
   is_admin: boolean;
   must_change_password: boolean;
+  email_verified: boolean;
   created_at: string;
 }
 
@@ -32,6 +33,7 @@ const SAFE_USER_COLUMNS = `
   apple_user_id,
   is_admin,
   must_change_password,
+  email_verified,
   created_at
 `;
 
@@ -53,6 +55,7 @@ function mapUserRow(row: UserRow): User {
     apple_user_id: row.apple_user_id,
     is_admin: row.is_admin,
     must_change_password: row.must_change_password,
+    email_verified: row.email_verified,
     created_at: row.created_at,
   };
 }
@@ -86,10 +89,15 @@ export async function createUser(input: {
   firebaseUid?: string | null;
   appleUserId?: string | null;
   mustChangePassword?: boolean;
+  // Apple sign-in already tells us whether Apple itself verified the email (see
+  // appleSignIn.service.ts's emailVerified) — no reason to make that user go through
+  // the code-verification flow too. Defaults false for the email/password path, where
+  // nothing has confirmed the address yet.
+  emailVerified?: boolean;
 }): Promise<User> {
   const result = await pool.query<UserRow>(
-    `INSERT INTO users (email, password_hash, role, firebase_uid, apple_user_id, must_change_password)
-     VALUES ($1, $2, $3, $4, $5, $6)
+    `INSERT INTO users (email, password_hash, role, firebase_uid, apple_user_id, must_change_password, email_verified)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
      RETURNING ${SAFE_USER_COLUMNS}, password_hash`,
     [
       input.email,
@@ -98,7 +106,16 @@ export async function createUser(input: {
       input.firebaseUid ?? null,
       input.appleUserId ?? null,
       input.mustChangePassword ?? false,
+      input.emailVerified ?? false,
     ],
+  );
+  return mapUserRow(result.rows[0]);
+}
+
+export async function markEmailVerified(userId: string): Promise<User> {
+  const result = await pool.query<UserRow>(
+    `UPDATE users SET email_verified = true WHERE id = $1 RETURNING ${SAFE_USER_COLUMNS}, password_hash`,
+    [userId],
   );
   return mapUserRow(result.rows[0]);
 }

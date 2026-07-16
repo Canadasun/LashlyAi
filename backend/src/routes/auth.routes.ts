@@ -12,15 +12,24 @@ import {
   findUserByAppleId,
   findUserByEmail,
   linkAppleIdToUser,
+  markEmailVerified,
   updateUserPasswordHash,
   User,
   UserRole,
 } from "../models/User";
 import { logLifecycleEvent } from "../models/UserLifecycleEvent";
 import { sendEmailBestEffort } from "../services/email.service";
-import { welcomeEmail, passwordResetEmail } from "../services/notificationTemplates";
+import {
+  welcomeEmail,
+  passwordResetEmail,
+  emailVerificationEmail,
+} from "../services/notificationTemplates";
 import { AppleIdentityTokenError, verifyAppleIdentityToken } from "../services/appleSignIn.service";
 import { createPasswordResetCode, verifyPasswordResetCode } from "../models/PasswordResetCode";
+import {
+  createEmailVerificationCode,
+  verifyEmailVerificationCode,
+} from "../models/EmailVerificationCode";
 
 const VALID_ROLES: UserRole[] = ["beginner", "certified", "educator", "salon_owner", "academy"];
 
@@ -79,6 +88,22 @@ const forgotPasswordLimiter = rateLimit({
 // The per-code attempt cap in PasswordResetCode.ts is the primary defense against
 // guessing a 6-digit code; this is the secondary, coarser IP-level backstop.
 const resetPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many attempts. Try again later." },
+});
+
+const resendVerificationLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many code requests. Try again later." },
+});
+
+const verifyEmailLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 10,
   standardHeaders: true,
@@ -156,6 +181,8 @@ authRouter.post(
       details: { role: user.role },
     });
     void sendEmailBestEffort({ to: user.email, ...welcomeEmail() });
+    const verificationCode = await createEmailVerificationCode(user.id);
+    void sendEmailBestEffort({ to: user.email, ...emailVerificationEmail(verificationCode) });
 
     res.status(201).json(issueSession(user));
   }),
@@ -243,6 +270,10 @@ authRouter.post(
       email: identity.email,
       role: "beginner",
       appleUserId: identity.appleUserId,
+      // Apple already told us (via the identity token, verified server-side) whether
+      // it confirmed this email — no reason to make this user go through our own
+      // code-verification flow on top of that.
+      emailVerified: identity.emailVerified,
     });
     await logLifecycleEvent({
       userId: user.id,
@@ -251,6 +282,10 @@ authRouter.post(
       details: { role: user.role, provisioned_via: "apple_sign_in", full_name: fullName ?? null },
     });
     void sendEmailBestEffort({ to: user.email, ...welcomeEmail() });
+    if (!identity.emailVerified) {
+      const verificationCode = await createEmailVerificationCode(user.id);
+      void sendEmailBestEffort({ to: user.email, ...emailVerificationEmail(verificationCode) });
+    }
 
     res.status(201).json(issueSession(user));
   }),
@@ -357,5 +392,47 @@ authRouter.post(
 
     const updated = await updateUserPasswordHash(user.id, hashPassword(newPassword), false);
     res.status(200).json(issueSession(updated));
+  }),
+);
+
+/**
+ * Non-blocking by design (v1): nothing in the app is gated on email_verified yet, this
+ * just lets the user actually flip it once they've proven control of the address. The
+ * mobile client re-reads it from the returned session, same as every other auth action.
+ */
+authRouter.post(
+  "/verify-email",
+  requireUser,
+  verifyEmailLimiter,
+  asyncHandler(async (req, res) => {
+    const code = (req.body as { code?: unknown })?.code;
+    if (typeof code !== "string") {
+      res.status(400).json({ error: "code is required" });
+      return;
+    }
+
+    const verification = await verifyEmailVerificationCode(req.currentUser!.id, code);
+    if (!verification.ok) {
+      res.status(400).json({ error: "Invalid or expired code" });
+      return;
+    }
+
+    const updated = await markEmailVerified(req.currentUser!.id);
+    res.status(200).json(issueSession(updated));
+  }),
+);
+
+authRouter.post(
+  "/resend-verification",
+  requireUser,
+  resendVerificationLimiter,
+  asyncHandler(async (req, res) => {
+    if (req.currentUser!.email_verified) {
+      res.status(200).json({ message: "Already verified." });
+      return;
+    }
+    const code = await createEmailVerificationCode(req.currentUser!.id);
+    void sendEmailBestEffort({ to: req.currentUser!.email, ...emailVerificationEmail(code) });
+    res.status(200).json({ message: "Verification code sent." });
   }),
 );

@@ -1,5 +1,5 @@
-import crypto from "node:crypto";
 import { pool } from "../db";
+import { generateSixDigitCode, hashCode } from "../services/hashedCode.util";
 
 const CODE_TTL_MS = 15 * 60 * 1000;
 const MAX_VERIFY_ATTEMPTS = 5;
@@ -14,15 +14,6 @@ export interface PasswordResetCode {
   created_at: string;
 }
 
-function hashCode(code: string): string {
-  return crypto.createHash("sha256").update(code).digest("hex");
-}
-
-// 6 digits, zero-padded — easy to read and type from an email on a phone.
-function generateCode(): string {
-  return crypto.randomInt(0, 1_000_000).toString().padStart(6, "0");
-}
-
 /**
  * Creates a new code for this user and returns the plaintext (only ever available at
  * creation time — the DB only ever stores the hash). Doesn't invalidate prior
@@ -31,7 +22,7 @@ function generateCode(): string {
  * attempts and expiry per-code.
  */
 export async function createPasswordResetCode(userId: string): Promise<string> {
-  const code = generateCode();
+  const code = generateSixDigitCode();
   const expiresAt = new Date(Date.now() + CODE_TTL_MS).toISOString();
   await pool.query(
     `INSERT INTO password_reset_codes (user_id, code_hash, expires_at)

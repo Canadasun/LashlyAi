@@ -5,12 +5,14 @@ import {
   forgotPassword as doForgotPassword,
   loadPersistedSession,
   persistSession,
+  resendVerification as doResendVerification,
   resetPassword as doResetPassword,
   Session,
   signIn as doSignIn,
   signInWithApple as doSignInWithApple,
   signOut as doSignOut,
   signUp as doSignUp,
+  verifyEmail as doVerifyEmail,
 } from '../services/authService';
 
 interface AuthContextValue {
@@ -27,6 +29,8 @@ interface AuthContextValue {
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   forgotPassword: (email: string) => Promise<void>;
   resetPassword: (email: string, code: string, newPassword: string) => Promise<void>;
+  verifyEmail: (code: string) => Promise<void>;
+  resendVerification: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -105,6 +109,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setSession(s);
   }, []);
 
+  const verifyEmail = useCallback(async (code: string) => {
+    const s = await doVerifyEmail(code);
+    await persistSession(s);
+    setAuthToken(s.token);
+    setSession(s);
+  }, []);
+
+  const resendVerification = useCallback(async () => {
+    await doResendVerification();
+  }, []);
+
   const signOut = useCallback(async () => {
     await doSignOut();
     setAuthToken(undefined);
@@ -131,6 +146,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         changePassword,
         forgotPassword,
         resetPassword,
+        verifyEmail,
+        resendVerification,
       }}>
       {children}
     </AuthContext.Provider>

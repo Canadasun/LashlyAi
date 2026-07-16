@@ -61,13 +61,46 @@ function quotaText(field?: QuotaField) {
 
 export function HomeDashboardScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
-  const { session, signOut } = useAuth();
+  const { session, signOut, verifyEmail, resendVerification } = useAuth();
 
   const confirmSignOut = () => {
     Alert.alert('Sign out?', "You'll need to sign back in to access your clients and lash maps.", [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Sign Out', style: 'destructive', onPress: signOut },
     ]);
+  };
+
+  const promptVerifyEmail = () => {
+    Alert.prompt(
+      'Verify your email',
+      `Enter the code sent to ${session?.email}.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Verify',
+          onPress: async (code?: string) => {
+            if (!code?.trim()) return;
+            try {
+              await verifyEmail(code.trim());
+            } catch (err) {
+              Alert.alert('Failed', err instanceof Error ? err.message : 'Invalid or expired code.');
+            }
+          },
+        },
+        {
+          text: 'Resend code',
+          onPress: async () => {
+            try {
+              await resendVerification();
+              Alert.alert('Code sent', 'Check your email for a new code.');
+            } catch (err) {
+              Alert.alert('Failed to resend', err instanceof Error ? err.message : 'Please try again.');
+            }
+          },
+        },
+      ],
+      'plain-text',
+    );
   };
   const [clients, setClients] = useState<ClientProfile[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
@@ -166,6 +199,12 @@ export function HomeDashboardScreen({ navigation }: Props) {
         {error && (
           <TouchableOpacity style={styles.errorBanner} onPress={() => loadDashboard()}>
             <Text style={styles.errorText}>{error}  Tap to retry.</Text>
+          </TouchableOpacity>
+        )}
+
+        {session && !session.emailVerified && (
+          <TouchableOpacity style={styles.verifyBanner} onPress={promptVerifyEmail}>
+            <Text style={styles.verifyBannerText}>Verify your email  →</Text>
           </TouchableOpacity>
         )}
 
@@ -308,6 +347,8 @@ const styles = StyleSheet.create({
   planPill: { color: colors.accent, backgroundColor: colors.accentSoft, fontSize: 9, fontWeight: '800', letterSpacing: 0.7, overflow: 'hidden', borderRadius: 10, paddingHorizontal: 9, paddingVertical: 6 },
   errorBanner: { backgroundColor: '#FBE8E8', borderRadius: 12, padding: 12, marginBottom: 14 },
   errorText: { color: colors.danger, fontSize: 12, fontWeight: '600' },
+  verifyBanner: { backgroundColor: colors.accentSoft, borderRadius: 12, padding: 12, marginBottom: 14 },
+  verifyBannerText: { color: colors.accent, fontSize: 12, fontWeight: '700' },
   loader: { marginVertical: 70 },
   metricsGrid: { flexDirection: 'row', gap: 10 },
   metricCard: { flex: 1, minWidth: 0, minHeight: 138, padding: 16, borderRadius: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },

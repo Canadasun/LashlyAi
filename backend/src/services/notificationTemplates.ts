@@ -62,6 +62,21 @@ export function welcomeEmail(): EmailContent {
   return { subject, html, text };
 }
 
+export function emailVerificationEmail(code: string): EmailContent {
+  const subject = `Verify your ${BRAND} email`;
+  const text =
+    `Your verification code is: ${code}\n\n` +
+    `Enter this in the app to verify your email. It expires in 15 minutes.`;
+  const html = wrapHtml(
+    `<p style="font-size:16px; line-height:1.6;">Verify your email</p>
+     <p style="font-size:28px; font-weight:800; letter-spacing:4px; color:#B85C7A; margin:20px 0;">${code}</p>
+     <p style="font-size:14px; line-height:1.6; color:#342B2F;">
+       Enter this code in the app to verify your email. It expires in 15 minutes.
+     </p>`,
+  );
+  return { subject, html, text };
+}
+
 export function passwordResetEmail(code: string): EmailContent {
   const subject = `Your ${BRAND} password reset code`;
   const text =
