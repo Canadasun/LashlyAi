@@ -26,4 +26,5 @@ export type RootStackParamList = {
   BeforeAfter: { clientId: string };
   PhotoEditor: { clientId: string; photoUri: string };
   ReferenceGuide: undefined;
+  Admin: undefined;
 };

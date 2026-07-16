@@ -29,12 +29,14 @@ describe('authService session persistence', () => {
       email: 'artist@example.com',
       token: 'abc.def.ghi',
       mustChangePassword: false,
+      isAdmin: false,
     });
 
     expect(await loadPersistedSession()).toEqual({
       email: 'artist@example.com',
       token: 'abc.def.ghi',
       mustChangePassword: false,
+      isAdmin: false,
     });
     // The session token is a bearer credential — it must live in the OS-backed
     // Keychain, not plain unencrypted AsyncStorage.
@@ -74,6 +76,7 @@ describe('authService session persistence', () => {
       email: 'legacy@example.com',
       token: 'legacy-token',
       mustChangePassword: false,
+      isAdmin: false,
     });
     expect(await AsyncStorage.getItem('lashlyai.session')).toBeNull();
     // Migrated into Keychain, so a second load doesn't need AsyncStorage at all.
@@ -88,7 +91,7 @@ describe('authService session persistence', () => {
   it('signUp calls /auth/register and returns a session from the response', async () => {
     (api.post as jest.Mock).mockResolvedValue({
       token: 'new-token',
-      user: { email: 'new@example.com', must_change_password: false },
+      user: { email: 'new@example.com', must_change_password: false, is_admin: false },
     });
 
     const session = await signUp('New@Example.com', 'correcthorse');
@@ -101,13 +104,14 @@ describe('authService session persistence', () => {
       email: 'new@example.com',
       token: 'new-token',
       mustChangePassword: false,
+      isAdmin: false,
     });
   });
 
   it('signIn calls /auth/login and returns a session from the response', async () => {
     (api.post as jest.Mock).mockResolvedValue({
       token: 'existing-token',
-      user: { email: 'existing@example.com', must_change_password: true },
+      user: { email: 'existing@example.com', must_change_password: true, is_admin: false },
     });
 
     const session = await signIn('existing@example.com', 'correcthorse');
@@ -120,6 +124,7 @@ describe('authService session persistence', () => {
       email: 'existing@example.com',
       token: 'existing-token',
       mustChangePassword: true,
+      isAdmin: false,
     });
   });
 });

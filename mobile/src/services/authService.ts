@@ -6,6 +6,7 @@ export interface Session {
   email: string;
   token: string;
   mustChangePassword: boolean;
+  isAdmin: boolean;
 }
 
 interface AuthResponse {
@@ -13,6 +14,7 @@ interface AuthResponse {
   user: {
     email: string;
     must_change_password: boolean;
+    is_admin: boolean;
   };
 }
 
@@ -43,6 +45,7 @@ function toSession(response: AuthResponse): Session {
     email: response.user.email,
     token: response.token,
     mustChangePassword: response.user.must_change_password,
+    isAdmin: response.user.is_admin,
   };
 }
 
@@ -54,6 +57,7 @@ function parseSession(raw: string): Session | null {
         email: parsed.email,
         token: parsed.token,
         mustChangePassword: parsed.mustChangePassword ?? false,
+        isAdmin: parsed.isAdmin ?? false,
       };
     }
     return null;

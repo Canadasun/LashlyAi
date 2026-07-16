@@ -3,6 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { colors } from '../theme/colors';
+import { AdminScreen } from '../screens/AdminScreen';
 import { AuthScreen } from '../screens/AuthScreen';
 import { BeforeAfterScreen } from '../screens/BeforeAfterScreen';
 import { CameraUploadScreen } from '../screens/CameraUploadScreen';
@@ -167,6 +168,11 @@ export function RootNavigator() {
                 name="ReferenceGuide"
                 component={ReferenceGuideScreen}
                 options={{ title: 'Reference Guide' }}
+              />
+              <Stack.Screen
+                name="Admin"
+                component={AdminScreen}
+                options={{ title: 'Admin' }}
               />
             </>
           )}

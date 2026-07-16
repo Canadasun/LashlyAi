@@ -247,6 +247,18 @@ adminRouter.post(
   }),
 );
 
+// Bearer-auth twin of /stats below (Basic auth, for scripts/curl) — the mobile app's
+// admin page needs the same data over a real session token instead.
+adminRouter.get(
+  "/overview",
+  requireUser,
+  requireAdminUser,
+  asyncHandler(async (_req, res) => {
+    const stats = await getAdminStats();
+    res.json(stats);
+  }),
+);
+
 adminRouter.get(
   "/stats",
   requireAdminAccount,

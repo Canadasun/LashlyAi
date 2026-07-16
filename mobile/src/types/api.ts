@@ -155,3 +155,53 @@ export interface ForumComment {
 export interface ForumPostDetail extends ForumPost {
   comments: ForumComment[];
 }
+
+export interface AdminForumReport {
+  id: string;
+  reporter_user_id: string | null;
+  target_type: 'post' | 'comment';
+  target_id: string;
+  reason: string;
+  status: 'open' | 'resolved';
+  created_at: string;
+}
+
+export interface AdminFeedbackItem {
+  id: string;
+  user_id: string | null;
+  user_email: string | null;
+  message: string;
+  is_priority: boolean;
+  reply_count: number;
+  created_at: string;
+}
+
+export interface AdminUserSummary {
+  id: string;
+  email: string;
+  role: string;
+  created_at: string;
+}
+
+export interface AdminSubscriptionGrant {
+  id: string;
+  user_id: string;
+  plan: string;
+  expires_at: string;
+  revoked_at: string | null;
+  grantee_email: string;
+  granter_email: string | null;
+  created_at: string;
+}
+
+export interface AdminOverview {
+  totalUsers: number;
+  recentUsers: AdminUserSummary[];
+  totalClients: number;
+  totalLashMaps: number;
+  errorCountLast24h: number;
+  subscriptionsByPlan: { plan: string; count: number }[];
+  recentFeedback: AdminFeedbackItem[];
+  openForumReports: AdminForumReport[];
+  recentSubscriptionGrants: AdminSubscriptionGrant[];
+}

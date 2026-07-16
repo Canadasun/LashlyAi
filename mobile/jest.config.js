@@ -10,6 +10,8 @@ module.exports = {
     '^react-native-view-shot$': '<rootDir>/__mocks__/reactNativeViewShot.js',
     '^react-native-iap$': '<rootDir>/__mocks__/reactNativeIap.js',
     '^react-native-keychain$': '<rootDir>/__mocks__/reactNativeKeychain.js',
+    '^@invertase/react-native-apple-authentication$':
+      '<rootDir>/__mocks__/reactNativeAppleAuthentication.js',
   },
   transformIgnorePatterns: [
     'node_modules/(?!((jest-)?react-native|@react-native(-community)?|@react-navigation|@shopify/react-native-skia|react-native-.*)/)',
