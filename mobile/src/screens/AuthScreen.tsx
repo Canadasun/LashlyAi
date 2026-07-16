@@ -12,12 +12,18 @@ import { appleAuth, AppleButton } from '@invertase/react-native-apple-authentica
 import { useAuth } from '../context/AuthContext';
 import { colors } from '../theme/colors';
 
+type Mode = 'signIn' | 'signUp' | 'forgotPassword' | 'resetPassword';
+
 export function AuthScreen() {
-  const { signUp, signIn, signInWithApple, sessionExpiredMessage } = useAuth();
-  const [mode, setMode] = useState<'signIn' | 'signUp'>('signIn');
+  const { signUp, signIn, signInWithApple, forgotPassword, resetPassword, sessionExpiredMessage } =
+    useAuth();
+  const [mode, setMode] = useState<Mode>('signIn');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [code, setCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [appleLoading, setAppleLoading] = useState(false);
 
@@ -41,8 +47,8 @@ export function AuthScreen() {
     } catch (err) {
       // Apple's native cancel path throws a specific error code, not an exception
       // message worth surfacing — the user just tapped away from the sheet.
-      const code = (err as { code?: string })?.code;
-      if (code === appleAuth.Error.CANCELED) {
+      const code2 = (err as { code?: string })?.code;
+      if (code2 === appleAuth.Error.CANCELED) {
         return;
       }
       setError(err instanceof Error ? err.message : 'Apple sign-in failed');
@@ -78,48 +84,146 @@ export function AuthScreen() {
     }
   };
 
+  const submitForgotPassword = async () => {
+    setError(null);
+    setInfo(null);
+    const trimmedEmail = email.trim();
+    if (!/^\S+@\S+\.\S+$/.test(trimmedEmail)) {
+      setError('Enter a valid email address');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await forgotPassword(trimmedEmail);
+      setMode('resetPassword');
+      setInfo(`If ${trimmedEmail} is registered, a reset code has been sent — it expires in 15 minutes.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const submitResetPassword = async () => {
+    setError(null);
+    setInfo(null);
+    if (!/^\d{6}$/.test(code.trim())) {
+      setError('Enter the 6-digit code from your email');
+      return;
+    }
+    if (newPassword.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await resetPassword(email.trim(), code.trim(), newPassword);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Invalid or expired code');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const subtitle = {
+    signIn: 'Sign in to your account',
+    signUp: 'Create your artist account',
+    forgotPassword: 'Enter your email and we’ll send you a reset code',
+    resetPassword: 'Enter the code and your new password',
+  }[mode];
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <Text style={styles.title}>LashlyAI</Text>
-      <Text style={styles.subtitle}>
-        {mode === 'signIn' ? 'Sign in to your account' : 'Create your artist account'}
-      </Text>
+      <Text style={styles.subtitle}>{subtitle}</Text>
 
       {sessionExpiredMessage && <Text style={styles.sessionExpired}>{sessionExpiredMessage}</Text>}
+      {info && <Text style={styles.info}>{info}</Text>}
 
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        placeholderTextColor="#9b8f8c"
-        autoCapitalize="none"
-        keyboardType="email-address"
-        value={email}
-        onChangeText={setEmail}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        placeholderTextColor="#9b8f8c"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-      />
+      {mode !== 'resetPassword' && (
+        <TextInput
+          style={styles.input}
+          placeholder="Email"
+          placeholderTextColor="#9b8f8c"
+          autoCapitalize="none"
+          keyboardType="email-address"
+          value={email}
+          onChangeText={setEmail}
+        />
+      )}
+
+      {(mode === 'signIn' || mode === 'signUp') && (
+        <TextInput
+          style={styles.input}
+          placeholder="Password"
+          placeholderTextColor="#9b8f8c"
+          secureTextEntry
+          value={password}
+          onChangeText={setPassword}
+        />
+      )}
+
+      {mode === 'resetPassword' && (
+        <>
+          <TextInput
+            style={styles.input}
+            placeholder="6-digit code"
+            placeholderTextColor="#9b8f8c"
+            keyboardType="number-pad"
+            maxLength={6}
+            value={code}
+            onChangeText={setCode}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="New password"
+            placeholderTextColor="#9b8f8c"
+            secureTextEntry
+            value={newPassword}
+            onChangeText={setNewPassword}
+          />
+        </>
+      )}
 
       {error && <Text style={styles.error}>{error}</Text>}
 
-      <TouchableOpacity style={styles.primaryButton} onPress={submit} disabled={loading}>
-        {loading ? (
-          <ActivityIndicator color={colors.background} />
-        ) : (
-          <Text style={styles.primaryButtonText}>
-            {mode === 'signIn' ? 'Sign In' : 'Sign Up'}
-          </Text>
-        )}
-      </TouchableOpacity>
+      {(mode === 'signIn' || mode === 'signUp') && (
+        <TouchableOpacity style={styles.primaryButton} onPress={submit} disabled={loading}>
+          {loading ? (
+            <ActivityIndicator color={colors.background} />
+          ) : (
+            <Text style={styles.primaryButtonText}>
+              {mode === 'signIn' ? 'Sign In' : 'Sign Up'}
+            </Text>
+          )}
+        </TouchableOpacity>
+      )}
 
-      {Platform.OS === 'ios' && (
+      {mode === 'forgotPassword' && (
+        <TouchableOpacity style={styles.primaryButton} onPress={submitForgotPassword} disabled={loading}>
+          {loading ? (
+            <ActivityIndicator color={colors.background} />
+          ) : (
+            <Text style={styles.primaryButtonText}>Send Reset Code</Text>
+          )}
+        </TouchableOpacity>
+      )}
+
+      {mode === 'resetPassword' && (
+        <TouchableOpacity style={styles.primaryButton} onPress={submitResetPassword} disabled={loading}>
+          {loading ? (
+            <ActivityIndicator color={colors.background} />
+          ) : (
+            <Text style={styles.primaryButtonText}>Reset Password</Text>
+          )}
+        </TouchableOpacity>
+      )}
+
+      {mode === 'signIn' && Platform.OS === 'ios' && (
         <AppleButton
           buttonStyle={AppleButton.Style.WHITE_OUTLINE}
           buttonType={AppleButton.Type.SIGN_IN}
@@ -129,11 +233,35 @@ export function AuthScreen() {
       )}
       {appleLoading && <ActivityIndicator style={styles.appleLoading} color={colors.primary} />}
 
-      <TouchableOpacity onPress={() => setMode(mode === 'signIn' ? 'signUp' : 'signIn')}>
-        <Text style={styles.switchModeText}>
-          {mode === 'signIn' ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
-        </Text>
-      </TouchableOpacity>
+      {mode === 'signIn' && (
+        <TouchableOpacity
+          onPress={() => {
+            setError(null);
+            setInfo(null);
+            setMode('forgotPassword');
+          }}>
+          <Text style={styles.forgotPasswordText}>Forgot password?</Text>
+        </TouchableOpacity>
+      )}
+
+      {(mode === 'signIn' || mode === 'signUp') && (
+        <TouchableOpacity onPress={() => setMode(mode === 'signIn' ? 'signUp' : 'signIn')}>
+          <Text style={styles.switchModeText}>
+            {mode === 'signIn' ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      {(mode === 'forgotPassword' || mode === 'resetPassword') && (
+        <TouchableOpacity
+          onPress={() => {
+            setError(null);
+            setInfo(null);
+            setMode('signIn');
+          }}>
+          <Text style={styles.switchModeText}>Back to sign in</Text>
+        </TouchableOpacity>
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -176,6 +304,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: 'center',
   },
+  info: {
+    color: colors.primaryDark,
+    backgroundColor: colors.primarySoft,
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 16,
+    fontSize: 13,
+    textAlign: 'center',
+  },
   error: {
     color: '#B3261E',
     marginBottom: 8,
@@ -200,6 +337,12 @@ const styles = StyleSheet.create({
   },
   appleLoading: {
     marginTop: 12,
+  },
+  forgotPasswordText: {
+    color: colors.accent,
+    textAlign: 'center',
+    marginTop: 16,
+    fontSize: 13,
   },
   switchModeText: {
     color: colors.accent,

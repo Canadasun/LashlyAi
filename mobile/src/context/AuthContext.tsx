@@ -2,8 +2,10 @@ import React, { createContext, useCallback, useContext, useEffect, useState } fr
 import { setAuthToken, setUnauthorizedHandler } from '../services/api';
 import {
   changePassword as doChangePassword,
+  forgotPassword as doForgotPassword,
   loadPersistedSession,
   persistSession,
+  resetPassword as doResetPassword,
   Session,
   signIn as doSignIn,
   signInWithApple as doSignInWithApple,
@@ -23,6 +25,8 @@ interface AuthContextValue {
   ) => Promise<void>;
   signOut: () => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  forgotPassword: (email: string) => Promise<void>;
+  resetPassword: (email: string, code: string, newPassword: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -89,6 +93,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
+  const forgotPassword = useCallback(async (email: string) => {
+    await doForgotPassword(email);
+  }, []);
+
+  const resetPassword = useCallback(async (email: string, code: string, newPassword: string) => {
+    const s = await doResetPassword(email, code, newPassword);
+    await persistSession(s);
+    setAuthToken(s.token);
+    setSessionExpiredMessage(null);
+    setSession(s);
+  }, []);
+
   const signOut = useCallback(async () => {
     await doSignOut();
     setAuthToken(undefined);
@@ -113,6 +129,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signInWithApple,
         signOut,
         changePassword,
+        forgotPassword,
+        resetPassword,
       }}>
       {children}
     </AuthContext.Provider>

@@ -18,8 +18,9 @@ import {
 } from "../models/User";
 import { logLifecycleEvent } from "../models/UserLifecycleEvent";
 import { sendEmailBestEffort } from "../services/email.service";
-import { welcomeEmail } from "../services/notificationTemplates";
+import { welcomeEmail, passwordResetEmail } from "../services/notificationTemplates";
 import { AppleIdentityTokenError, verifyAppleIdentityToken } from "../services/appleSignIn.service";
+import { createPasswordResetCode, verifyPasswordResetCode } from "../models/PasswordResetCode";
 
 const VALID_ROLES: UserRole[] = ["beginner", "certified", "educator", "salon_owner", "academy"];
 
@@ -63,6 +64,26 @@ const changePasswordLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many password change attempts. Try again later." },
+});
+
+// Generous enough for a legitimate "the email didn't arrive, let me try again" retry,
+// tight enough that this can't be used to inbox-bomb someone else's address.
+const forgotPasswordLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many reset requests. Try again later." },
+});
+
+// The per-code attempt cap in PasswordResetCode.ts is the primary defense against
+// guessing a 6-digit code; this is the secondary, coarser IP-level backstop.
+const resetPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many attempts. Try again later." },
 });
 
 function normalizeEmail(email: string): string {
@@ -263,6 +284,74 @@ authRouter.post(
     const user = await findUserByEmail(req.currentUser!.email);
     if (!user?.password_hash || !verifyPassword(currentPassword, user.password_hash)) {
       res.status(401).json({ error: "Current password is incorrect" });
+      return;
+    }
+
+    const updated = await updateUserPasswordHash(user.id, hashPassword(newPassword), false);
+    res.status(200).json(issueSession(updated));
+  }),
+);
+
+/**
+ * Always responds the same way regardless of whether the email matches an account —
+ * the response can't be used to enumerate registered emails. If it does match, emails a
+ * 6-digit code (best-effort; a delivery failure still returns the generic response, so
+ * it doesn't leak account existence via a different error path either).
+ */
+authRouter.post(
+  "/forgot-password",
+  forgotPasswordLimiter,
+  asyncHandler(async (req, res) => {
+    const email = (req.body as { email?: unknown })?.email;
+    if (typeof email !== "string" || !/^\S+@\S+\.\S+$/.test(email)) {
+      res.status(400).json({ error: "Enter a valid email address" });
+      return;
+    }
+
+    const user = await findUserByEmail(normalizeEmail(email));
+    if (user) {
+      const code = await createPasswordResetCode(user.id);
+      void sendEmailBestEffort({ to: user.email, ...passwordResetEmail(code) });
+    }
+
+    res.status(200).json({
+      message: "If that email is registered, a reset code has been sent.",
+    });
+  }),
+);
+
+authRouter.post(
+  "/reset-password",
+  resetPasswordLimiter,
+  asyncHandler(async (req, res) => {
+    const { email, code, new_password: newPassword } = (req.body ?? {}) as {
+      email?: unknown;
+      code?: unknown;
+      new_password?: unknown;
+    };
+
+    if (typeof email !== "string" || typeof code !== "string" || typeof newPassword !== "string") {
+      res.status(400).json({ error: "email, code, and new_password are required" });
+      return;
+    }
+    if (newPassword.length < 6) {
+      res.status(400).json({ error: "Password must be at least 6 characters" });
+      return;
+    }
+
+    // Same generic error for "no such account" and "wrong/expired code" — differentiating
+    // them would let this endpoint be used to enumerate registered emails too.
+    const genericError = { error: "Invalid or expired code" };
+
+    const user = await findUserByEmail(normalizeEmail(email));
+    if (!user) {
+      res.status(400).json(genericError);
+      return;
+    }
+
+    const verification = await verifyPasswordResetCode(user.id, code);
+    if (!verification.ok) {
+      res.status(400).json(genericError);
       return;
     }
 

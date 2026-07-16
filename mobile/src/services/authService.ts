@@ -100,6 +100,23 @@ export async function changePassword(
   return toSession(response);
 }
 
+export async function forgotPassword(email: string): Promise<void> {
+  await api.post('/auth/forgot-password', { email: normalizeEmail(email) });
+}
+
+export async function resetPassword(
+  email: string,
+  code: string,
+  newPassword: string,
+): Promise<Session> {
+  const response = await api.post<AuthResponse>('/auth/reset-password', {
+    email: normalizeEmail(email),
+    code,
+    new_password: newPassword,
+  });
+  return toSession(response);
+}
+
 export async function signOut(): Promise<void> {
   await clearPersistedSession();
 }

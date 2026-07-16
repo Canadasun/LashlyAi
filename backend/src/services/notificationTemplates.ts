@@ -50,6 +50,23 @@ export function welcomeEmail(): EmailContent {
   return { subject, html, text };
 }
 
+export function passwordResetEmail(code: string): EmailContent {
+  const subject = `Your ${BRAND} password reset code`;
+  const text =
+    `Your password reset code is: ${code}\n\n` +
+    `Enter this in the app to set a new password. It expires in 15 minutes.\n\n` +
+    `If you didn't request this, you can safely ignore this email.`;
+  const html = wrapHtml(
+    `<p style="font-size:16px; line-height:1.6;">Reset your password</p>
+     <p style="font-size:28px; font-weight:800; letter-spacing:4px; color:#B85C7A; margin:20px 0;">${code}</p>
+     <p style="font-size:14px; line-height:1.6; color:#342B2F;">
+       Enter this code in the app to set a new password. It expires in 15 minutes.
+     </p>
+     <p style="font-size:13px; color:#746A6E;">If you didn't request this, you can safely ignore this email.</p>`,
+  );
+  return { subject, html, text };
+}
+
 export function compGrantEmail(plan: string, expiresAt: string): EmailContent {
   const expiresDate = new Date(expiresAt).toLocaleDateString();
   const subject = `You've got complimentary ${plan} access on ${BRAND}`;
