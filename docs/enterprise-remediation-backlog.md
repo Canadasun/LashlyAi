@@ -201,14 +201,27 @@ hard they block submission:
   anywhere in the app — Apple review flags empty usage-description strings, and an unused
   permission invites a rejection for asking for access the app doesn't use. Removed the key
   entirely rather than filling in a description for a feature that doesn't exist.
-- [ ] **No local Simulator build works for this project.** `React-Core-prebuilt` (the
-  pinned prebuilt React Native Core pod) is missing linker symbols for both arm64 and
-  x86_64 Simulator slices — `Undefined symbols for architecture arm64`, e.g.
-  `facebook::react::ShadowNode::getDebugName()`. This project has only ever been verified
-  via real device archives (the `local_testflight_build.sh` path), never a local
-  Simulator run — pre-existing, unrelated to any change this session. Blocks generating
-  App Store screenshots locally until resolved (likely needs a non-prebuilt Core pod
-  variant for Simulator, or screenshots sourced from a physical device instead).
+- [x] **Local Simulator build — resolved 2026-07-16, root cause was a wrong
+  assumption, not a real project defect.** Every earlier attempt this session (prebuilt
+  Core, source-built Core, Release config) targeted **arm64**, on the assumption this
+  Mac is Apple Silicon. It isn't — `sysctl -n machdep.cpu.brand_string` confirms a
+  genuine **Intel Xeon W-2140B**, and `sysctl.proc_translated` doesn't even exist as an
+  OID (only true on real Intel hardware; Apple Silicon under Rosetta always has it).
+  arm64 Simulator slices can't install or run on an Intel-hosted Simulator at all,
+  regardless of Debug/Release or prebuilt/source — every "Undefined symbols for
+  architecture arm64" and "Redefinition of module" failure explored earlier was chasing
+  the wrong architecture, not a real linking bug. A Release build with `EXCLUDED_ARCHS
+  x86_64` happened to compile clean (the missing symbols the original Debug/arm64
+  attempt hit don't get touched by the Release optimizer) but the resulting `.app` was
+  arm64-only and failed to `simctl install` with "Failed to find matching arch for
+  input file."
+  - **Fix**: `EXCLUDED_ARCHS=arm64` (not x86_64), **default Debug config, default
+    prebuilt Core** — no non-standard config needed once targeting the right arch.
+  - **Verified end-to-end, not just "it compiled"**: built, `simctl install` succeeded,
+    `simctl launch` succeeded, and a screenshot confirmed the app actually rendered a
+    real, working Dashboard (not a crash or blank screen) — including the "Verify your
+    email" banner from this session's email-verification work rendering correctly.
+  - Unblocks App Store screenshot generation (previously blocked task).
 - Confirmed **not** a blocker: Sign In with Apple is optional here (the app has no
   Google/Facebook login, so Apple's "must offer Sign In with Apple if you offer other
   social logins" rule never applied) — built anyway as a real feature (see above), not to
