@@ -338,8 +338,8 @@ confirmed clean.
 
 Created an `appScreenshotSets` entry for `APP_IPHONE_67` (6.7" — the largest display
 type this API version accepts; there's no `APP_IPHONE_69` enum value yet despite that
-being the current marketing name for the class). Uploaded two real, accurate screenshots
-via the reserve → PUT bytes → commit-with-checksum flow, both confirmed
+being the current marketing name for the class). Uploaded four real, accurate screenshots
+via the reserve → PUT bytes → commit-with-checksum flow, all confirmed
 `assetDeliveryState: COMPLETE` with no errors:
 
 1. **Auth screen** — clean, correctly branded, no crash.
@@ -347,8 +347,12 @@ via the reserve → PUT bytes → commit-with-checksum flow, both confirmed
    persistent, not test debris — see the earlier note) with two sample clients (Ava
    Chen, Sophia Martinez), showing actual product UI: client count, quick actions,
    recent clients, usage summary.
+3. **AI Lash Coach** — the troubleshooting chat screen, empty conversation state with
+   the input bar and daily question-quota indicator visible.
+4. **Marketing Tools** — the Social Caption / Client Reply generator, showing a
+   concrete AI-powered feature beyond the core lash-mapping loop.
 
-Getting screenshot #2 required installing `idb`/`idb-companion` (Meta's iOS Simulator
+Getting these required installing `idb`/`idb-companion` (Meta's iOS Simulator
 automation toolkit) since AppleScript/System Events `keystroke` synthesis doesn't
 reliably land in React Native `TextInput`s — the keyboard appeared but no characters
 were captured. `idb`'s `ui tap`/`ui text` commands, driven from its own `ui describe-all`
@@ -358,11 +362,15 @@ an isolated Python 3.11 venv since it's incompatible with this machine's Python 
 (`asyncio.get_event_loop()` behavior changed). idb-companion is stopped after use, not
 left running.
 
+A Client Profile detail screen and a Photo Editor client-picker screen were also
+captured but not uploaded — both were honest but visually sparse against the demo
+account's empty lash-map/photo history, so they didn't add much over the four above.
+
 - [ ] **Not done, optional**: only one display class (`APP_IPHONE_67`) has screenshots.
   Apple may prompt for smaller iPhone sizes too depending on current requirements —
   check App Store Connect directly before submitting; if more are needed, the same
   idb-driven flow can produce them for other simulator sizes.
-- [ ] **Not done, optional**: only 2 screenshots exist; more (Lash Map, AI Coach,
-  Reference Guide) would round out the listing better. Scroll gestures via `idb ui swipe`
-  didn't visibly scroll the Dashboard in this pass — worth revisiting if more screenshots
-  are wanted.
+- [ ] **Not done, optional**: Community and Reference Guide screens weren't captured
+  in this pass. Scroll gestures via `idb ui swipe` didn't visibly scroll the Dashboard
+  earlier — worth debugging (different coordinates/direction) if those screens are
+  wanted later; they're reachable via the bottom nav bar, not scrolling.
