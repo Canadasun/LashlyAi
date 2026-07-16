@@ -2,6 +2,8 @@ import { ACTIVE_SUBSCRIPTION_STATUSES } from "./planLimits.service";
 import { getLapsedSubscriptions, upsertSubscription } from "../models/Subscription";
 import { findUserById } from "../models/User";
 import { logLifecycleEvent } from "../models/UserLifecycleEvent";
+import { sendEmailBestEffort } from "./email.service";
+import { subscriptionExpiredEmail } from "./notificationTemplates";
 
 /**
  * Leaver via lapse. Nothing in this codebase actively re-checks a subscription's
@@ -46,6 +48,7 @@ export async function expireLapsedSubscriptions(): Promise<{
           renews_at: subscription.renews_at,
         },
       });
+      void sendEmailBestEffort({ to: user.email, ...subscriptionExpiredEmail(subscription.plan) });
     }
     expiredUserIds.push(subscription.user_id);
   }

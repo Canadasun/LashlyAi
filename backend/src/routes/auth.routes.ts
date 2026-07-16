@@ -17,6 +17,8 @@ import {
   UserRole,
 } from "../models/User";
 import { logLifecycleEvent } from "../models/UserLifecycleEvent";
+import { sendEmailBestEffort } from "../services/email.service";
+import { welcomeEmail } from "../services/notificationTemplates";
 import { AppleIdentityTokenError, verifyAppleIdentityToken } from "../services/appleSignIn.service";
 
 const VALID_ROLES: UserRole[] = ["beginner", "certified", "educator", "salon_owner", "academy"];
@@ -132,6 +134,7 @@ authRouter.post(
       eventType: "joiner_signup",
       details: { role: user.role },
     });
+    void sendEmailBestEffort({ to: user.email, ...welcomeEmail() });
 
     res.status(201).json(issueSession(user));
   }),
@@ -226,6 +229,7 @@ authRouter.post(
       eventType: "joiner_signup",
       details: { role: user.role, provisioned_via: "apple_sign_in", full_name: fullName ?? null },
     });
+    void sendEmailBestEffort({ to: user.email, ...welcomeEmail() });
 
     res.status(201).json(issueSession(user));
   }),

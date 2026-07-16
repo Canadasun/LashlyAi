@@ -14,6 +14,15 @@ import {
 import { asyncHandler } from "../utils/asyncHandler";
 import { checkForumPostQuota } from "../services/planLimits.service";
 import { logUsageEvent } from "../models/UsageEvent";
+import { sendEmailBestEffort } from "../services/email.service";
+import { sendSmsBestEffort } from "../services/sms.service";
+import {
+  ADMIN_ALERT_EMAIL,
+  ADMIN_ALERT_PHONE_NUMBER,
+  adminNewForumReportEmail,
+  adminNewForumReportSms,
+} from "../services/notificationTemplates";
+import { ForumReport } from "../models/Forum";
 
 export const forumRouter = Router();
 
@@ -98,6 +107,26 @@ forumRouter.post(
   }),
 );
 
+// Real-time ops alert on both channels — reports are the one thing in this router that
+// genuinely needs a human to look soon, so email alone (easy to leave unread) isn't
+// enough; SMS is simply skipped (see sms.service.ts's stub) if no admin phone is set.
+function alertAdminOfNewReport(report: ForumReport) {
+  void sendEmailBestEffort({
+    to: ADMIN_ALERT_EMAIL,
+    ...adminNewForumReportEmail({
+      targetType: report.target_type,
+      reason: report.reason,
+      reportId: report.id,
+    }),
+  });
+  if (ADMIN_ALERT_PHONE_NUMBER) {
+    void sendSmsBestEffort({
+      to: ADMIN_ALERT_PHONE_NUMBER,
+      body: adminNewForumReportSms(report.target_type),
+    });
+  }
+}
+
 function validateReason(body: unknown): string | null {
   const reason = (body as { reason?: unknown })?.reason;
   if (typeof reason !== "string" || !reason.trim() || reason.length > 500) {
@@ -124,6 +153,7 @@ forumRouter.post(
       targetId: req.params.id,
       reason,
     });
+    alertAdminOfNewReport(report);
     res.status(201).json(report);
   }),
 );
@@ -144,6 +174,7 @@ forumRouter.post(
       targetId: req.params.id,
       reason,
     });
+    alertAdminOfNewReport(report);
     res.status(201).json(report);
   }),
 );

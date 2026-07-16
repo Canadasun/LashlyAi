@@ -15,6 +15,9 @@ import { createUserNotification } from "../models/UserNotification";
 import { logLifecycleEvent, getRecentLifecycleEvents } from "../models/UserLifecycleEvent";
 import { expireLapsedSubscriptions } from "../services/subscriptionLifecycle.service";
 import { getOpenForumReports, resolveForumReport } from "../models/Forum";
+import { sendEmailBestEffort } from "../services/email.service";
+import { sendSmsBestEffort } from "../services/sms.service";
+import { compGrantEmail, compRevokeEmail } from "../services/notificationTemplates";
 
 export const adminRouter = Router();
 
@@ -89,6 +92,7 @@ adminRouter.post(
       type: "comp_subscription_grant",
       payload: { plan: grantedPlan, expires_at: expiresAtIso },
     });
+    void sendEmailBestEffort({ to: targetUser.email, ...compGrantEmail(grantedPlan, expiresAtIso) });
     await logLifecycleEvent({
       userId: targetUser.id,
       userEmail: targetUser.email,
@@ -148,6 +152,7 @@ adminRouter.post(
         type: "comp_subscription_revoked",
         payload: { plan: grant.plan },
       });
+      void sendEmailBestEffort({ to: beneficiary.email, ...compRevokeEmail(grant.plan) });
       await logLifecycleEvent({
         userId: beneficiary.id,
         userEmail: beneficiary.email,

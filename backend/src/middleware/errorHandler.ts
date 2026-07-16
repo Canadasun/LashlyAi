@@ -4,6 +4,8 @@ import OpenAI from "openai";
 import { logger } from "../utils/logger";
 import { ImageValidationError } from "../services/storage.service";
 import { createErrorLog } from "../models/ErrorLog";
+import { sendSmsBestEffort } from "../services/sms.service";
+import { ADMIN_ALERT_PHONE_NUMBER, adminErrorAlertSms } from "../services/notificationTemplates";
 
 const MULTER_ERROR_MESSAGES: Partial<Record<MulterError["code"], string>> = {
   LIMIT_FILE_SIZE: "Photo is too large. Maximum size is 10MB.",
@@ -36,6 +38,22 @@ function persistErrorLog(err: unknown, req: Request, statusCode: number) {
   }).catch((logErr) => {
     logger.error("Failed to persist error log", logErr);
   });
+}
+
+// True production-incident signal (an unhandled 500, not an expected 400 validation
+// error or a 502 from a flaky third-party API) — genuinely worth an SMS, but only ever
+// one per window, so an incident that throws on every request for ten minutes doesn't
+// also become a texting incident. Module-level state is fine: this only needs to be
+// "per server process", not shared/persisted.
+const ERROR_ALERT_COOLDOWN_MS = 15 * 60 * 1000;
+let lastErrorAlertAt = 0;
+
+function alertAdminOfServerError(path: string) {
+  if (!ADMIN_ALERT_PHONE_NUMBER) return;
+  const now = Date.now();
+  if (now - lastErrorAlertAt < ERROR_ALERT_COOLDOWN_MS) return;
+  lastErrorAlertAt = now;
+  void sendSmsBestEffort({ to: ADMIN_ALERT_PHONE_NUMBER, body: adminErrorAlertSms(path) });
 }
 
 // Express identifies error-handling middleware by arity — the unused params must
@@ -73,5 +91,6 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
   }
 
   persistErrorLog(err, req, 500);
+  alertAdminOfServerError(req.originalUrl);
   res.status(500).json({ error: "Internal server error" });
 }
