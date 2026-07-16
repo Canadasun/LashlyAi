@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Request, Response, Router } from "express";
 import { requireAdminAccount } from "./middleware/requireAdminAccount";
 import { requireUser } from "./middleware/requireUser";
 import { requireAdminUser } from "./middleware/requireAdminUser";
@@ -16,8 +16,15 @@ import { logLifecycleEvent, getRecentLifecycleEvents } from "../models/UserLifec
 import { expireLapsedSubscriptions } from "../services/subscriptionLifecycle.service";
 import { getOpenForumReports, resolveForumReport } from "../models/Forum";
 import { sendEmailBestEffort } from "../services/email.service";
-import { compGrantEmail, compRevokeEmail, adminTwoFactorCodeEmail } from "../services/notificationTemplates";
+import {
+  compGrantEmail,
+  compRevokeEmail,
+  adminTwoFactorCodeEmail,
+  supportReplyEmail,
+  adminDirectContactEmail,
+} from "../services/notificationTemplates";
 import { createAdminActionCode, verifyAdminActionCode } from "../models/AdminActionCode";
+import { createFeedbackReply, getFeedbackById } from "../models/Feedback";
 import rateLimit from "express-rate-limit";
 
 export const adminRouter = Router();
@@ -325,6 +332,98 @@ adminRouter.post(
   }),
 );
 
+function validateSupportMessage(body: unknown): string | null {
+  const message = (body as { message?: unknown })?.message;
+  if (typeof message !== "string" || !message.trim() || message.length > 4000) {
+    return null;
+  }
+  return message.trim();
+}
+
+/**
+ * Closes the loop on feedback/support requests — previously admin could only view what
+ * a user sent (see getRecentFeedbackForAdmin), with no way to respond. Emails the
+ * sender directly; if the account since deleted itself (feedback.user_id survives via
+ * ON DELETE SET NULL upstream), the reply is still recorded but has nowhere to send.
+ */
+async function handleFeedbackReply(req: Request, res: Response) {
+  const message = validateSupportMessage(req.body);
+  if (!message) {
+    res.status(400).json({ error: "message is required (max 4000 characters)" });
+    return;
+  }
+
+  const feedback = await getFeedbackById(req.params.id);
+  if (!feedback) {
+    res.status(404).json({ error: "Feedback not found" });
+    return;
+  }
+
+  const reply = await createFeedbackReply({
+    feedbackId: feedback.id,
+    adminId: req.currentUser!.id,
+    message,
+  });
+
+  if (feedback.user_id) {
+    const user = await findUserById(feedback.user_id);
+    if (user) {
+      void sendEmailBestEffort({ to: user.email, ...supportReplyEmail(feedback.message, message) });
+    }
+  }
+
+  res.status(201).json(reply);
+}
+
+adminRouter.post(
+  "/feedback/:id/reply",
+  requireUser,
+  requireAdminUser,
+  asyncHandler(async (req, res) => handleFeedbackReply(req, res)),
+);
+
+// Same dashboard-vs-Bearer split as forum-reports/:id/resolve-dashboard above.
+adminRouter.post(
+  "/feedback/:id/reply-dashboard",
+  requireAdminAccount,
+  asyncHandler(async (req, res) => handleFeedbackReply(req, res)),
+);
+
+/**
+ * Lets admin proactively reach out to any user/business directly from the portal —
+ * distinct from replying to an existing feedback thread, for cases where support needs
+ * to initiate contact rather than respond to one.
+ */
+async function handleDirectContact(req: Request, res: Response) {
+  const message = validateSupportMessage(req.body);
+  if (!message) {
+    res.status(400).json({ error: "message is required (max 4000 characters)" });
+    return;
+  }
+
+  const user = await findUserById(req.params.id);
+  if (!user) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  void sendEmailBestEffort({ to: user.email, ...adminDirectContactEmail(message) });
+  res.status(200).json({ message: "Message sent." });
+}
+
+adminRouter.post(
+  "/users/:id/contact",
+  requireUser,
+  requireAdminUser,
+  asyncHandler(async (req, res) => handleDirectContact(req, res)),
+);
+
+adminRouter.post(
+  "/users/:id/contact-dashboard",
+  requireAdminAccount,
+  asyncHandler(async (req, res) => handleDirectContact(req, res)),
+);
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -342,14 +441,20 @@ adminRouter.get(
     const userRows = stats.recentUsers
       .map(
         (u) =>
-          `<tr><td>${escapeHtml(u.email)}</td><td>${escapeHtml(u.role)}</td><td>${new Date(u.created_at).toLocaleString()}</td></tr>`,
+          `<tr id="user-${u.id}"><td>${escapeHtml(u.email)}</td><td>${escapeHtml(u.role)}</td><td>${new Date(u.created_at).toLocaleString()}</td>` +
+          `<td><button onclick="contactUser('${u.id}')">Contact</button></td></tr>`,
       )
       .join("");
 
     const feedbackRows = stats.recentFeedback
       .map(
         (f) =>
-          `<tr><td>${f.is_priority ? "⭐ Priority" : ""}</td><td>${escapeHtml(f.message)}</td><td>${new Date(f.created_at).toLocaleString()}</td></tr>`,
+          `<tr id="feedback-${f.id}"><td>${f.is_priority ? "⭐ Priority" : ""}</td>` +
+          `<td>${f.user_email ? escapeHtml(f.user_email) : "<em>account deleted</em>"}</td>` +
+          `<td>${escapeHtml(f.message)}</td>` +
+          `<td>${f.reply_count > 0 ? `✓ replied (${f.reply_count})` : ""}</td>` +
+          `<td>${new Date(f.created_at).toLocaleString()}</td>` +
+          `<td>${f.user_id ? `<button onclick="replyToFeedback('${f.id}')">Reply</button>` : ""}</td></tr>`,
       )
       .join("");
 
@@ -491,12 +596,12 @@ adminRouter.get(
 
     <section>
       <h2>Recent Signups</h2>
-      <table><tr><th>Email</th><th>Role</th><th>Signed Up</th></tr>${userRows || '<tr><td colspan="3" class="empty">None yet</td></tr>'}</table>
+      <table><tr><th>Email</th><th>Role</th><th>Signed Up</th><th>Action</th></tr>${userRows || '<tr><td colspan="4" class="empty">None yet</td></tr>'}</table>
     </section>
 
     <section>
       <h2>Recent Feedback</h2>
-      <table><tr><th>Priority</th><th>Message</th><th>Submitted</th></tr>${feedbackRows || '<tr><td colspan="3" class="empty">None yet</td></tr>'}</table>
+      <table><tr><th>Priority</th><th>From</th><th>Message</th><th>Status</th><th>Submitted</th><th>Action</th></tr>${feedbackRows || '<tr><td colspan="6" class="empty">None yet</td></tr>'}</table>
     </section>
   </main>
   <script>
@@ -512,6 +617,39 @@ adminRouter.get(
         document.getElementById('report-' + id).remove();
       } else {
         alert('Failed to resolve report (' + res.status + ')');
+      }
+    }
+
+    async function replyToFeedback(id) {
+      const message = prompt('Reply to this feedback (emails the sender):');
+      if (!message || !message.trim()) return;
+      const res = await fetch('/admin/feedback/' + id + '/reply-dashboard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: message.trim() }),
+      });
+      if (res.ok) {
+        alert('Reply sent.');
+        location.reload();
+      } else {
+        const body = await res.json().catch(() => ({}));
+        alert('Failed to send reply: ' + (body.error || res.status));
+      }
+    }
+
+    async function contactUser(id) {
+      const message = prompt('Message to send this user by email:');
+      if (!message || !message.trim()) return;
+      const res = await fetch('/admin/users/' + id + '/contact-dashboard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: message.trim() }),
+      });
+      if (res.ok) {
+        alert('Message sent.');
+      } else {
+        const body = await res.json().catch(() => ({}));
+        alert('Failed to send message: ' + (body.error || res.status));
       }
     }
   </script>

@@ -14,6 +14,18 @@ const BRAND = "LashlyAI";
 export const ADMIN_ALERT_EMAIL = process.env.ADMIN_ALERT_EMAIL ?? "support@lashlyai.com";
 export const ADMIN_ALERT_PHONE_NUMBER = process.env.ADMIN_ALERT_PHONE_NUMBER;
 
+// Every template above this point only ever interpolates our own copy or plan/date
+// values — this one exists because supportReplyEmail and adminDirectContactEmail below
+// are the first templates to embed actual user- or admin-authored free text into HTML.
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/\n/g, "<br>");
+}
+
 function wrapHtml(bodyHtml: string): string {
   return `<!doctype html>
 <html>
@@ -63,6 +75,34 @@ export function passwordResetEmail(code: string): EmailContent {
        Enter this code in the app to set a new password. It expires in 15 minutes.
      </p>
      <p style="font-size:13px; color:#746A6E;">If you didn't request this, you can safely ignore this email.</p>`,
+  );
+  return { subject, html, text };
+}
+
+export function supportReplyEmail(originalMessage: string, replyMessage: string): EmailContent {
+  const subject = `Reply from ${BRAND} support`;
+  const text =
+    `You wrote:\n"${originalMessage}"\n\n` +
+    `Our reply:\n${replyMessage}\n\n` +
+    `Reply to this email if you have more questions.`;
+  const html = wrapHtml(
+    `<p style="font-size:16px; line-height:1.6;">Reply from ${BRAND} support</p>
+     <p style="font-size:13px; color:#746A6E; border-left:3px solid #EAE2DE; padding-left:12px; margin:16px 0;">
+       You wrote: "${escapeHtml(originalMessage)}"
+     </p>
+     <p style="font-size:14px; line-height:1.6; color:#342B2F;">${escapeHtml(replyMessage)}</p>
+     <p style="font-size:13px; color:#746A6E;">Reply to this email if you have more questions.</p>`,
+  );
+  return { subject, html, text };
+}
+
+export function adminDirectContactEmail(message: string): EmailContent {
+  const subject = `A message from ${BRAND}`;
+  const text = `${message}\n\nReply to this email if you have questions.`;
+  const html = wrapHtml(
+    `<p style="font-size:16px; line-height:1.6;">A message from ${BRAND}</p>
+     <p style="font-size:14px; line-height:1.6; color:#342B2F;">${escapeHtml(message)}</p>
+     <p style="font-size:13px; color:#746A6E;">Reply to this email if you have questions.</p>`,
   );
   return { subject, html, text };
 }
@@ -141,8 +181,8 @@ export function adminNewForumReportEmail(input: {
   const html = wrapHtml(
     `<p style="font-size:16px; line-height:1.6;">New forum report</p>
      <p style="font-size:14px; line-height:1.6; color:#342B2F;">
-       A <strong>${input.targetType}</strong> was reported.<br/>
-       Reason: ${input.reason}
+       A <strong>${escapeHtml(input.targetType)}</strong> was reported.<br/>
+       Reason: ${escapeHtml(input.reason)}
      </p>
      <p style="font-size:13px; color:#746A6E;">Review and resolve it from the admin dashboard.</p>`,
   );

@@ -2,6 +2,7 @@ import { pool } from "../db";
 import { getRecentErrorLogs, getErrorLogCountSince, ErrorLog } from "./ErrorLog";
 import { getRecentLifecycleEvents, UserLifecycleEvent } from "./UserLifecycleEvent";
 import { getOpenForumReports, ForumReport } from "./Forum";
+import { getRecentFeedbackForAdmin, FeedbackForAdmin } from "./Feedback";
 
 export interface AdminStats {
   totalUsers: number;
@@ -9,7 +10,7 @@ export interface AdminStats {
   totalClients: number;
   totalLashMaps: number;
   mockEyeAnalysisCount: number;
-  recentFeedback: { id: string; message: string; is_priority: boolean; created_at: string }[];
+  recentFeedback: FeedbackForAdmin[];
   subscriptionsByPlan: { plan: string; count: number }[];
   errorCountLast24h: number;
   recentErrors: ErrorLog[];
@@ -54,9 +55,7 @@ export async function getAdminStats(): Promise<AdminStats> {
     pool.query(
       "SELECT COUNT(*)::int AS count FROM client_profiles WHERE eye_analysis ->> 'mock' = 'true'",
     ),
-    pool.query(
-      "SELECT id, message, is_priority, created_at FROM feedback ORDER BY is_priority DESC, created_at DESC LIMIT 20",
-    ),
+    getRecentFeedbackForAdmin(20),
     pool.query("SELECT plan, COUNT(*)::int AS count FROM subscriptions GROUP BY plan"),
     getErrorLogCountSince(24),
     getRecentErrorLogs(30),
@@ -82,7 +81,7 @@ export async function getAdminStats(): Promise<AdminStats> {
     totalClients: totalClientsResult.rows[0].count,
     totalLashMaps: totalLashMapsResult.rows[0].count,
     mockEyeAnalysisCount: mockEyeAnalysisResult.rows[0].count,
-    recentFeedback: recentFeedbackResult.rows,
+    recentFeedback: recentFeedbackResult,
     subscriptionsByPlan: subscriptionsByPlanResult.rows,
     errorCountLast24h: errorCountLast24hResult,
     recentErrors: recentErrorsResult,

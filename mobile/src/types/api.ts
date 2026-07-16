@@ -70,6 +70,24 @@ export interface LashMap {
   lash_style_label?: string;
 }
 
+export interface FeedbackReply {
+  id: string;
+  feedback_id: string;
+  admin_id: string | null;
+  message: string;
+  created_at: string;
+}
+
+export interface Feedback {
+  id: string;
+  user_id: string | null;
+  message: string;
+  context: unknown;
+  is_priority: boolean;
+  created_at: string;
+  replies: FeedbackReply[];
+}
+
 export interface PhotoFeedback {
   id: string;
   client_profile_id: string;
