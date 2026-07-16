@@ -374,3 +374,25 @@ account's empty lash-map/photo history, so they didn't add much over the four ab
   in this pass. Scroll gestures via `idb ui swipe` didn't visibly scroll the Dashboard
   earlier — worth debugging (different coordinates/direction) if those screens are
   wanted later; they're reachable via the bottom nav bar, not scrolling.
+
+## 2026-07-16 — Build 37 submitted for external Beta App Review
+
+Found and fixed a stale `betaAppReviewDetail.notes` entry before submitting: it said
+"Auth is email-only (no password) during this beta — enter any email to log in," which
+described a dev-stub auth flow that no longer exists (`POST /auth/login` now requires a
+real password against a scrypt hash, confirmed by reading `auth.routes.ts`). Left as-is,
+this would have given external reviewers wrong login instructions. The `demo@lashlyai.com`
+account (used for the screenshot set above) already has a real password from earlier
+setup and it isn't recoverable from its hash, so rather than reset it, updated the notes
+to tell reviewers to self-register via Sign Up — no demo account needed
+(`demoAccountRequired: false`).
+
+Then: added build 37 (uploaded 2026-07-15, `processingState: VALID`) to the existing
+"External Testers" `betaGroup`, and created a `betaAppReviewSubmissions` entry for it —
+confirmed `betaReviewState: WAITING_FOR_REVIEW`. Marketing version 1.0 was already
+approved for external testing previously (builds 10 and 14 had gone through it), so this
+should be a fast supplemental review rather than a first-time one, though Apple's timeline
+isn't guaranteed.
+
+- [ ] **Follow-up**: check back on `betaReviewState` for build 37 — should move to
+  `APPROVED` (or flag a rejection reason) within Apple's normal beta review window.
