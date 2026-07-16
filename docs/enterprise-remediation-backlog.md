@@ -290,3 +290,33 @@ confirmed via Railway logs that the welcome-email stub actually fired for it.
   `0020_password_reset_and_error_logs.sql` migration only added `must_change_password`
   and `error_logs` — no actual reset-token infrastructure) — that's part of the still-
   queued "forgot password" feature, not something to half-build a template for here.
+
+## 2026-07-16 — hosting resolved: repo made public, GitHub Pages live
+
+The GitHub Pages blocker from the previous entry is resolved. Ran a full secret scan
+across the *entire* git history first (not just the working tree) before flipping
+visibility, since a public repo exposes history permanently, not just the current
+state: searched for AWS keys, private key blocks, OpenAI-style tokens, Slack tokens,
+`.env` files ever committed, database URLs with embedded credentials, and hardcoded
+API-key/secret/token/password assignments. Found nothing — the only matches were safe
+GitHub Actions secret *references* (`${{ secrets.ASC_API_KEY_P8 }}`, never the actual
+value) and local filesystem paths. Owner chose to make `Canadasun/LashlyAi` public
+(over paying for GitHub Pro or standing up a new free-host account) with that
+confirmed clean.
+
+- [x] Repo visibility flipped to public, GitHub Pages enabled on the `gh-pages` branch
+  (`https://canadasun.github.io/LashlyAi/`), verified live.
+- [x] `support.html` set as the App Store Connect support URL.
+- [x] Privacy policy and terms of service converted from the `docs/legal/*.md` drafts to
+  HTML and published, per owner instruction, **with `[PLACEHOLDER]` text still visibly
+  flagged** (red highlight) rather than invented — including the "REQUIRES LEGAL REVIEW
+  BEFORE PUBLISHING" warning banner, which stays visible on the live page itself, not
+  hidden. Owner explicitly chose "publish with placeholders visible" over waiting for a
+  real legal review or providing the missing legal entity name / address / governing
+  law right now. **This still needs a real pass**: replace every remaining
+  `[PLACEHOLDER]` and get an actual legal review before this is production-final — it's
+  unblocking for submission purposes only, not a substitute for that review.
+  `privacyPolicyUrl` set in App Store Connect.
+- Not set: `marketingUrl` — optional for submission, and there's no dedicated marketing
+  page to point it at (the GitHub Pages root has no `index.html`). Skipped rather than
+  pointing it at something that would 404 or feel like an awkward substitute.
