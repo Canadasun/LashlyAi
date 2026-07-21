@@ -42,9 +42,11 @@ import {
 } from "../services/lashmap.service";
 import {
   deleteStoredMediaAsset,
+  mediaUrlFor,
   prepareImage,
   readStoredObject,
   uploadImage,
+  uploadVideo,
 } from "../services/storage.service";
 import { asyncHandler } from "../utils/asyncHandler";
 import {
@@ -60,6 +62,7 @@ import {
   checkRetentionCheckQuota,
   checkClientNotesAccess,
   checkRetentionInsightsAccess,
+  checkVideoRetouchQuota,
   ENFORCEMENT_ENABLED,
   getUserPlan,
 } from "../services/planLimits.service";
@@ -69,6 +72,10 @@ import { getMediaAssetsByClientProfileId } from "../models/MediaAsset";
 
 export const clientsRouter = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+// Videos are processed entirely on-device (Skia paint mask + native AVFoundation
+// masked export, no AI call) — this only needs to accept the already-final export,
+// so the size ceiling just needs to cover a short chairside clip, not a raw capture.
+const uploadVideoFile = multer({ storage: multer.memoryStorage(), limits: { fileSize: 200 * 1024 * 1024 } });
 
 async function loadOwnedClient(req: import("express").Request, res: import("express").Response) {
   const client = await getClientProfileById(req.params.id);
@@ -518,6 +525,65 @@ clientsRouter.post(
     await logUsageEvent(req.currentUser!.id, "photo_retouch_generation");
 
     res.status(201).json({ photo_url: uploaded.url, mock });
+  }),
+);
+
+// Persists the final export from the mobile Video Retouch tool — the artist paints a
+// mask over blemish spots on a freeze-frame (Skia canvas), a native AVFoundation pass
+// bakes a masked blur into the actual video file entirely on-device, and this just
+// stores the already-finished result. No AI call, same shape as /photo-edit above.
+clientsRouter.post(
+  "/:id/video-retouch",
+  requireUser,
+  uploadVideoFile.single("video"),
+  asyncHandler(async (req, res) => {
+    const client = await loadOwnedClient(req, res);
+    if (!client) return;
+
+    if (!req.file) {
+      res.status(400).json({ error: 'Missing "video" file in multipart body' });
+      return;
+    }
+
+    const quota = await checkVideoRetouchQuota(req.currentUser!.id);
+    if (!quota.allowed) {
+      res.status(403).json({
+        error:
+          quota.limit === 0
+            ? "Video Retouch is a Pro feature. Upgrade to Pro to use it."
+            : `Video Retouch is limited to ${quota.limit} exports per day. Try again tomorrow.`,
+      });
+      return;
+    }
+
+    const uploaded = await uploadVideo({
+      buffer: req.file.buffer,
+      ownerUserId: req.currentUser!.id,
+      clientProfileId: client.id,
+      purpose: "video_retouch",
+    });
+    await logUsageEvent(req.currentUser!.id, "video_retouch");
+
+    res.status(201).json({ video_url: uploaded.url });
+  }),
+);
+
+clientsRouter.get(
+  "/:id/videos",
+  requireUser,
+  asyncHandler(async (req, res) => {
+    const client = await loadOwnedClient(req, res);
+    if (!client) return;
+
+    const assets = await getMediaAssetsByClientProfileId(client.id);
+    const videos = assets
+      .filter((asset) => asset.purpose === "video_retouch")
+      .map((asset) => ({
+        id: asset.id,
+        url: mediaUrlFor(asset.id),
+        created_at: asset.created_at,
+      }));
+    res.json({ videos });
   }),
 );
 

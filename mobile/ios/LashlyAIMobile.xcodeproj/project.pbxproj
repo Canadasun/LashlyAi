@@ -12,6 +12,8 @@
 		4C6BA61A8C7144C2CC9A3496 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
+		90832EAAACD6D49E983E6A65 /* VideoRetouch.m in Sources */ = {isa = PBXBuildFile; fileRef = 9043804689C0D7930E08C9E3 /* VideoRetouch.m */; };
+		9ABBABEA7C80A2B2B3742BED /* VideoRetouch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48CE8FAB925E0F031A049DBC /* VideoRetouch.swift */; };
 		E568BCC6F2990C81F16CE660 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 60F17654362DA8A8C1C98FC4 /* GoogleService-Info.plist */; };
 /* End PBXBuildFile section */
 
@@ -21,12 +23,14 @@
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = LashlyAIMobile/Info.plist; sourceTree = "<group>"; };
 		13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = LashlyAIMobile/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		3B4392A12AC88292D35C810B /* Pods-LashlyAIMobile.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-LashlyAIMobile.debug.xcconfig"; path = "Target Support Files/Pods-LashlyAIMobile/Pods-LashlyAIMobile.debug.xcconfig"; sourceTree = "<group>"; };
+		48CE8FAB925E0F031A049DBC /* VideoRetouch.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LashlyAIMobile/VideoRetouch.swift; sourceTree = "<group>"; };
 		5709B34CF0A7D63546082F79 /* Pods-LashlyAIMobile.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-LashlyAIMobile.release.xcconfig"; path = "Target Support Files/Pods-LashlyAIMobile/Pods-LashlyAIMobile.release.xcconfig"; sourceTree = "<group>"; };
 		5DCACB8F33CDC322A6C60F78 /* libPods-LashlyAIMobile.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-LashlyAIMobile.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		60F17654362DA8A8C1C98FC4 /* GoogleService-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "GoogleService-Info.plist"; path = "LashlyAIMobile/GoogleService-Info.plist"; sourceTree = "<group>"; };
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = LashlyAIMobile/AppDelegate.swift; sourceTree = "<group>"; };
 		7A1E9C0A2E1B0001006654EE /* LashlyAIMobile.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = LashlyAIMobile.entitlements; path = LashlyAIMobile/LashlyAIMobile.entitlements; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = LashlyAIMobile/LaunchScreen.storyboard; sourceTree = "<group>"; };
+		9043804689C0D7930E08C9E3 /* VideoRetouch.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = LashlyAIMobile/VideoRetouch.m; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
@@ -52,6 +56,8 @@
 				13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */,
 				60F17654362DA8A8C1C98FC4 /* GoogleService-Info.plist */,
 				7A1E9C0A2E1B0001006654EE /* LashlyAIMobile.entitlements */,
+				48CE8FAB925E0F031A049DBC /* VideoRetouch.swift */,
+				9043804689C0D7930E08C9E3 /* VideoRetouch.m */,
 			);
 			name = LashlyAIMobile;
 			sourceTree = "<group>";
@@ -282,6 +288,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				761780ED2CA45674006654EE /* AppDelegate.swift in Sources */,
+				9ABBABEA7C80A2B2B3742BED /* VideoRetouch.swift in Sources */,
+				90832EAAACD6D49E983E6A65 /* VideoRetouch.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

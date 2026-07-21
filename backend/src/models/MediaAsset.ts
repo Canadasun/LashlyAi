@@ -5,14 +5,15 @@ export type MediaPurpose =
   | "photo_feedback"
   | "lash_preview"
   | "photo_edit"
-  | "photo_retouch";
+  | "photo_retouch"
+  | "video_retouch";
 
 export interface MediaAsset {
   id: string;
   owner_user_id: string;
   client_profile_id: string;
   object_key: string;
-  content_type: "image/jpeg" | "image/png" | "image/webp";
+  content_type: "image/jpeg" | "image/png" | "image/webp" | "video/mp4" | "video/quicktime";
   byte_size: number;
   purpose: MediaPurpose;
   // Only set for purpose = 'lash_preview' or 'photo_retouch' — which technician

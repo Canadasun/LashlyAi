@@ -43,6 +43,11 @@ const FREE_LIMITS = {
 // an eventually-unlimited one.
 const PAID_PHOTO_EDIT_DAILY_CAP = 10;
 
+// Video retouch is entirely on-device/free-to-run (no AI call, unlike lash preview /
+// photo retouch), but exports are large files and slower to process than a photo edit,
+// so the daily cap is lower than PAID_PHOTO_EDIT_DAILY_CAP rather than unlimited.
+const PAID_VIDEO_RETOUCH_DAILY_CAP = 5;
+
 // Exported so the expiry sweep (subscriptionLifecycle.service.ts) checks the exact
 // same set of "currently grants access" statuses this file uses — one definition,
 // not two that could silently drift apart.
@@ -163,6 +168,15 @@ export async function checkPhotoRetouchQuota(userId: string): Promise<QuotaStatu
   const plan = await getUserPlan(userId);
   const used = await countEventsThisMonth(userId, "photo_retouch_generation");
   const limit = plan === "free" ? FREE_LIMITS.photoRetouchesPerMonth : null;
+  return quotaStatus(used, limit);
+}
+
+// Free tier gets none (same shape as photo editor above); paid tiers get a flat daily
+// cap rather than unlimited, since exports are large video files.
+export async function checkVideoRetouchQuota(userId: string): Promise<QuotaStatus> {
+  const plan = await getUserPlan(userId);
+  const used = await countEventsToday(userId, "video_retouch");
+  const limit = plan === "free" ? 0 : PAID_VIDEO_RETOUCH_DAILY_CAP;
   return quotaStatus(used, limit);
 }
 

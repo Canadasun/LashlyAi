@@ -11,4 +11,14 @@ module.exports = {
     hasPermission: false,
     requestPermission: jest.fn().mockResolvedValue(false),
   })),
+  usePhotoOutput: jest.fn(() => ({
+    capturePhotoToFile: jest.fn().mockResolvedValue({ filePath: '/tmp/mock-photo.jpg' }),
+  })),
+  useVideoOutput: jest.fn(() => ({
+    createRecorder: jest.fn().mockResolvedValue({
+      filePath: '/tmp/mock-video.mp4',
+      startRecording: jest.fn().mockResolvedValue(undefined),
+      stopRecording: jest.fn().mockResolvedValue(undefined),
+    }),
+  })),
 };

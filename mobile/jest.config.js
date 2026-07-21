@@ -13,6 +13,7 @@ module.exports = {
     '^@react-native-voice/voice$': '<rootDir>/__mocks__/reactNativeVoice.js',
     '^react-native-vision-camera$': '<rootDir>/__mocks__/reactNativeVisionCamera.js',
     '^react-native-vision-camera-face-detector$': '<rootDir>/__mocks__/visionCameraFaceDetection.js',
+    '^react-native-video$': '<rootDir>/__mocks__/reactNativeVideo.js',
     '^@invertase/react-native-apple-authentication$':
       '<rootDir>/__mocks__/reactNativeAppleAuthentication.js',
   },

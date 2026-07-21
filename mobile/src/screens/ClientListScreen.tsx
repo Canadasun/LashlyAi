@@ -53,7 +53,7 @@ function quotaLabel(field: QuotaField) {
 interface ToolChip {
   label: string;
   screen: keyof RootStackParamList;
-  params?: { pickerMode: 'photoEdit' };
+  params?: { pickerMode: 'photoEdit' | 'videoRetouch' };
   // Tablet-only entry points: the bigger iPad screen has room for cross-client
   // analytics views a phone-sized tool row doesn't (see the retention-insights audit).
   tabletOnly?: boolean;
@@ -62,6 +62,7 @@ interface ToolChip {
 const TOOLS: ToolChip[] = [
   { label: 'Ask the Coach', screen: 'Coach' },
   { label: 'Photo Editor', screen: 'ClientList', params: { pickerMode: 'photoEdit' } },
+  { label: 'Video Retouch', screen: 'ClientList', params: { pickerMode: 'videoRetouch' } },
   { label: 'Lessons', screen: 'LessonList' },
   { label: 'Community', screen: 'ForumList' },
   { label: 'Inventory', screen: 'Inventory' },
@@ -76,10 +77,10 @@ export function ClientListScreen({ route, navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { signOut } = useAuth();
   const { isTablet } = useDeviceClass();
-  const pickerMode = route.params?.pickerMode === 'photoEdit';
+  const pickerMode = route.params?.pickerMode;
   // Split view only makes sense for normal browsing — picker mode already has its own
-  // tap behavior (import/use-last-photo prompt), so it keeps pushing PhotoEditor
-  // full-screen exactly as on phone regardless of device size.
+  // tap behavior (import/use-last-photo prompt, or straight into Video Retouch), so it
+  // keeps pushing full-screen exactly as on phone regardless of device size.
   const splitView = isTablet && !pickerMode;
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
 
@@ -169,7 +170,11 @@ export function ClientListScreen({ route, navigation }: Props) {
       : clients;
 
   const openClient = (client: ClientProfile) => {
-    if (pickerMode) {
+    if (pickerMode === 'videoRetouch') {
+      navigation.navigate('VideoRetouch', { clientId: client.id });
+      return;
+    }
+    if (pickerMode === 'photoEdit') {
       if (client.photos.length > 0) {
         Alert.alert(
           'Choose a Photo',
@@ -212,8 +217,13 @@ export function ClientListScreen({ route, navigation }: Props) {
               <Text style={styles.homeButtonText}>‹ Home</Text>
             </TouchableOpacity>
           )}
-          <Text style={styles.headerTitle}>{pickerMode ? 'Photo Editor' : 'LashlyAI'}</Text>
-          {pickerMode && <Text style={styles.headerSubtitle}>Choose a client to edit a photo</Text>}
+          <Text style={styles.headerTitle}>
+            {pickerMode === 'videoRetouch' ? 'Video Retouch' : pickerMode === 'photoEdit' ? 'Photo Editor' : 'LashlyAI'}
+          </Text>
+          {pickerMode === 'photoEdit' && <Text style={styles.headerSubtitle}>Choose a client to edit a photo</Text>}
+          {pickerMode === 'videoRetouch' && (
+            <Text style={styles.headerSubtitle}>Choose a client to record a retouched video</Text>
+          )}
         </View>
         <TouchableOpacity onPress={pickerMode ? () => navigation.goBack() : confirmSignOut}>
           <Text style={styles.link}>{pickerMode ? 'Cancel' : 'Sign out'}</Text>
@@ -292,7 +302,9 @@ export function ClientListScreen({ route, navigation }: Props) {
           }
           renderItem={({ item }) => {
             const hasPhoto = item.photos.length > 0;
-            const disabledInPicker = pickerMode && !hasPhoto;
+            // Video Retouch always captures a fresh reference frame itself, so it has
+            // no "needs an existing photo" gate the way Photo Editor's picker does.
+            const disabledInPicker = pickerMode === 'photoEdit' && !hasPhoto;
             const difficulty = latestDifficulty(item);
             return (
               <TouchableOpacity

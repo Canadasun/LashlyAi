@@ -29,6 +29,7 @@ import { NewClientScreen } from '../screens/NewClientScreen';
 import { PaywallScreen } from '../screens/PaywallScreen';
 import { PhotoEditorScreen } from '../screens/PhotoEditorScreen';
 import { PhotoFeedbackScreen } from '../screens/PhotoFeedbackScreen';
+import { VideoRetouchScreen } from '../screens/VideoRetouchScreen';
 import { ReferenceGuideScreen } from '../screens/ReferenceGuideScreen';
 import { RetentionAnalyticsScreen } from '../screens/RetentionAnalyticsScreen';
 import { RootStackParamList } from './types';
@@ -182,6 +183,11 @@ export function RootNavigator() {
                 name="PhotoEditor"
                 component={PhotoEditorScreen}
                 options={{ title: 'Photo Editor' }}
+              />
+              <Stack.Screen
+                name="VideoRetouch"
+                component={VideoRetouchScreen}
+                options={{ title: 'Video Retouch' }}
               />
               <Stack.Screen
                 name="ReferenceGuide"
