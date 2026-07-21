@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
 import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { BlobServiceClient, ContainerClient } from "@azure/storage-blob";
 import { createMediaAsset, deleteMediaAsset, MediaAsset, MediaPurpose } from "../models/MediaAsset";
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -16,18 +17,32 @@ const PUBLIC_BASE_URL =
 const bucketName = process.env.AWS_S3_BUCKET_NAME ?? process.env.AWS_S3_BUCKET;
 const endpoint = process.env.AWS_ENDPOINT_URL;
 const region = process.env.AWS_DEFAULT_REGION ?? process.env.AWS_REGION ?? "auto";
-const hasObjectStorage = Boolean(
+const hasS3ObjectStorage = Boolean(
   bucketName && endpoint && process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY,
 );
 
+const azureConnectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
+const azureContainerName = process.env.AZURE_STORAGE_CONTAINER;
+const hasAzureObjectStorage = Boolean(azureConnectionString && azureContainerName);
+
+const hasObjectStorage = hasS3ObjectStorage || hasAzureObjectStorage;
+
 if (!hasObjectStorage && ["production", "staging"].includes(process.env.NODE_ENV ?? "")) {
   throw new Error(
-    "Private object storage is required: configure AWS_ENDPOINT_URL, AWS_ACCESS_KEY_ID, " +
-      "AWS_SECRET_ACCESS_KEY, and AWS_S3_BUCKET_NAME.",
+    "Private object storage is required: configure either AZURE_STORAGE_CONNECTION_STRING + " +
+      "AZURE_STORAGE_CONTAINER, or AWS_ENDPOINT_URL + AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY + " +
+      "AWS_S3_BUCKET_NAME.",
   );
 }
 
-const s3 = hasObjectStorage
+if (hasS3ObjectStorage && hasAzureObjectStorage) {
+  throw new Error(
+    "Both S3 and Azure object storage are configured — set only one so uploads and reads use " +
+      "the same backend.",
+  );
+}
+
+const s3 = hasS3ObjectStorage
   ? new S3Client({
       endpoint,
       region,
@@ -37,6 +52,10 @@ const s3 = hasObjectStorage
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
       },
     })
+  : null;
+
+const azureContainer: ContainerClient | null = hasAzureObjectStorage
+  ? BlobServiceClient.fromConnectionString(azureConnectionString!).getContainerClient(azureContainerName!)
   : null;
 
 export class ImageValidationError extends Error {}
@@ -112,6 +131,11 @@ export async function uploadImage(input: {
         Metadata: { purpose: input.purpose, owner: input.ownerUserId },
       }),
     );
+  } else if (azureContainer) {
+    await azureContainer.getBlockBlobClient(key).upload(input.buffer, input.buffer.length, {
+      blobHTTPHeaders: { blobContentType: contentType, blobCacheControl: "private, no-store" },
+      metadata: { purpose: input.purpose, owner: input.ownerUserId },
+    });
   } else {
     const localPath = path.join(LOCAL_STORAGE_DIR, key);
     fs.mkdirSync(path.dirname(localPath), { recursive: true });
@@ -141,12 +165,20 @@ export async function readStoredObject(key: string): Promise<Uint8Array> {
     if (!result.Body) throw new Error("Stored photo has no content.");
     return result.Body.transformToByteArray();
   }
+  if (azureContainer) {
+    const download = await azureContainer.getBlockBlobClient(key).downloadToBuffer();
+    return new Uint8Array(download.buffer, download.byteOffset, download.byteLength);
+  }
   return fs.promises.readFile(path.join(LOCAL_STORAGE_DIR, key));
 }
 
 export async function deleteStoredObject(key: string): Promise<void> {
   if (s3) {
     await s3.send(new DeleteObjectCommand({ Bucket: bucketName!, Key: key }));
+    return;
+  }
+  if (azureContainer) {
+    await azureContainer.getBlockBlobClient(key).deleteIfExists();
     return;
   }
   await fs.promises.rm(path.join(LOCAL_STORAGE_DIR, key), { force: true });
