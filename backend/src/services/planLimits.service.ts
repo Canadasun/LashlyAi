@@ -211,3 +211,15 @@ export async function checkCustomLashMapAccess(userId: string): Promise<{ allowe
   const plan = await getUserPlan(userId);
   return { allowed: plan !== "free" || !ENFORCEMENT_ENABLED };
 }
+
+/**
+ * Retention Intelligence (per-client next-fill estimate + cross-client lash-set/glue
+ * aggregates) is a flat Pro-only read feature, same shape as inventory/custom lash
+ * maps above — retention troubleshooting itself is already Paid-exclusive
+ * (retentionChecksPerMonth: 0 in FREE_LIMITS), so the insights built from that data
+ * follow the same gate rather than a separate quota.
+ */
+export async function checkRetentionInsightsAccess(userId: string): Promise<{ allowed: boolean }> {
+  const plan = await getUserPlan(userId);
+  return { allowed: plan !== "free" || !ENFORCEMENT_ENABLED };
+}

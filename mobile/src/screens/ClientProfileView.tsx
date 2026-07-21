@@ -15,7 +15,7 @@ import {
 import { api, authenticatedImageSource } from '../services/api';
 import { colors } from '../theme/colors';
 import { RootStackParamList } from '../navigation/types';
-import { ClientProfile, LashMap } from '../types/api';
+import { ClientProfile, ClientRetentionInsights, LashMap } from '../types/api';
 
 interface ClientProfileViewProps {
   clientId: string;
@@ -36,6 +36,7 @@ interface ClientProfileViewProps {
 export function ClientProfileView({ clientId, navigation, onDeleted }: ClientProfileViewProps) {
   const [client, setClient] = useState<ClientProfile | null>(null);
   const [lashMaps, setLashMaps] = useState<LashMap[]>([]);
+  const [retentionInsights, setRetentionInsights] = useState<ClientRetentionInsights | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -78,6 +79,15 @@ export function ClientProfileView({ clientId, navigation, onDeleted }: ClientPro
       setError(err instanceof Error ? err.message : 'Failed to load client');
     } finally {
       setLoading(false);
+    }
+
+    // Separate from the load above: a free-tier 403 here shouldn't break the rest of
+    // the screen, so this section just stays empty rather than surfacing an error.
+    try {
+      const insights = await api.get<ClientRetentionInsights>(`/clients/${clientId}/retention-insights`);
+      setRetentionInsights(insights);
+    } catch {
+      setRetentionInsights(null);
     }
   }, [clientId]);
 
@@ -166,6 +176,31 @@ export function ClientProfileView({ clientId, navigation, onDeleted }: ClientPro
         </TouchableOpacity>
       )}
 
+      {retentionInsights && retentionInsights.checks.length > 0 && (
+        <View style={styles.retentionCard}>
+          <Text style={styles.retentionTitle}>Retention Trend</Text>
+          {retentionInsights.next_fill_estimate && (
+            <Text style={styles.retentionFillEstimate}>
+              {retentionInsights.next_fill_estimate.estimated_days_remaining === 0
+                ? 'Likely due for a fill now (estimate)'
+                : `Next fill in ~${retentionInsights.next_fill_estimate.estimated_days_remaining} days (estimate)`}
+            </Text>
+          )}
+          {retentionInsights.checks
+            .slice(-3)
+            .reverse()
+            .map((check) => (
+              <View key={check.id} style={styles.retentionRow}>
+                <Text style={styles.retentionRowText}>
+                  Day {check.days_since_application} · {Math.round(Number(check.retention_pct))}% retained
+                  {check.glue_used ? ` · ${check.glue_used}` : ''}
+                </Text>
+                <Text style={styles.retentionRowDate}>{new Date(check.created_at).toLocaleDateString()}</Text>
+              </View>
+            ))}
+        </View>
+      )}
+
       <Text style={styles.sectionTitle}>Lash Map History</Text>
       {lashMaps.length === 0 ? (
         <Text style={styles.empty}>No lash maps saved yet.</Text>
@@ -220,6 +255,23 @@ const styles = StyleSheet.create({
   secondaryButtonText: { color: colors.text, fontWeight: '600' },
   sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.text, marginTop: 28, marginBottom: 10 },
   empty: { color: colors.text, opacity: 0.6 },
+  retentionCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 14,
+    marginTop: 8,
+  },
+  retentionTitle: { fontSize: 14, fontWeight: '700', color: colors.text, marginBottom: 8 },
+  retentionFillEstimate: { fontSize: 12, fontWeight: '700', color: colors.primary, marginBottom: 10 },
+  retentionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  retentionRowText: { fontSize: 12, color: colors.text, flex: 1, marginRight: 8 },
+  retentionRowDate: { fontSize: 11, color: colors.muted },
   mapRow: {
     backgroundColor: '#ffffff',
     borderRadius: 10,

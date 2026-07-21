@@ -50,13 +50,23 @@ function quotaLabel(field: QuotaField) {
   return field.limit === null ? `${field.used}` : `${field.used}/${field.limit}`;
 }
 
-const TOOLS: { label: string; screen: keyof RootStackParamList; params?: { pickerMode: 'photoEdit' } }[] = [
+interface ToolChip {
+  label: string;
+  screen: keyof RootStackParamList;
+  params?: { pickerMode: 'photoEdit' };
+  // Tablet-only entry points: the bigger iPad screen has room for cross-client
+  // analytics views a phone-sized tool row doesn't (see the retention-insights audit).
+  tabletOnly?: boolean;
+}
+
+const TOOLS: ToolChip[] = [
   { label: 'Ask the Coach', screen: 'Coach' },
   { label: 'Photo Editor', screen: 'ClientList', params: { pickerMode: 'photoEdit' } },
   { label: 'Lessons', screen: 'LessonList' },
   { label: 'Community', screen: 'ForumList' },
   { label: 'Inventory', screen: 'Inventory' },
   { label: 'Marketing', screen: 'MarketingTools' },
+  { label: 'Retention Analytics', screen: 'RetentionAnalytics', tabletOnly: true },
   { label: 'Report Issue', screen: 'Feedback' },
   { label: 'Upgrade', screen: 'Paywall' },
 ];
@@ -240,7 +250,7 @@ export function ClientListScreen({ route, navigation }: Props) {
           showsHorizontalScrollIndicator={false}
           style={styles.toolsRow}
           contentContainerStyle={styles.toolsRowContent}>
-          {TOOLS.map((tool) => (
+          {TOOLS.filter((tool) => !tool.tabletOnly || isTablet).map((tool) => (
             <TouchableOpacity
               key={tool.label}
               style={styles.toolChip}

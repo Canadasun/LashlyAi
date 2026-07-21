@@ -13,11 +13,14 @@ import {
   checkPhotoFeedbackQuota,
   checkPhotoRetouchQuota,
   checkRetentionCheckQuota,
+  checkRetentionInsightsAccess,
   ENFORCEMENT_ENABLED,
   getUserPlan,
 } from "../services/planLimits.service";
 import { deleteUserById } from "../models/User";
 import { getMediaAssetsByOwnerUserId } from "../models/MediaAsset";
+import { getRetentionChecksByOwner } from "../models/RetentionCheck";
+import { aggregateByGlue, aggregateByLashSet } from "../services/retentionInsights.service";
 import { deleteStoredMediaAsset } from "../services/storage.service";
 import { getUnseenNotifications, markNotificationSeen } from "../models/UserNotification";
 import { logLifecycleEvent } from "../models/UserLifecycleEvent";
@@ -134,6 +137,31 @@ usersRouter.get(
   asyncHandler(async (req, res) => {
     const notifications = await getUnseenNotifications(req.currentUser!.id);
     res.json(notifications);
+  }),
+);
+
+// Cross-client Retention Intelligence (the iPad-only "Retention Analytics" view on
+// mobile) — which lash set/glue held up best across every client this artist has ever
+// logged a retention check for, not just one client's own trend (see the per-client
+// version at GET /clients/:id/retention-insights).
+usersRouter.get(
+  "/me/retention-insights",
+  requireUser,
+  asyncHandler(async (req, res) => {
+    const access = await checkRetentionInsightsAccess(req.currentUser!.id);
+    if (!access.allowed) {
+      res.status(403).json({
+        error: "Retention Intelligence is a Pro feature. Upgrade to Pro to see retention trends.",
+      });
+      return;
+    }
+
+    const checks = await getRetentionChecksByOwner(req.currentUser!.id);
+    res.json({
+      by_lash_set: aggregateByLashSet(checks),
+      by_glue: aggregateByGlue(checks),
+      total_checks: checks.length,
+    });
   }),
 );
 

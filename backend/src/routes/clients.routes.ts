@@ -17,6 +17,8 @@ import {
   updateLashMapRetention,
 } from "../models/LashMap";
 import { getLashMapTemplateById } from "../models/LashMapTemplate";
+import { createRetentionCheck, getRetentionChecksByClientProfileId } from "../models/RetentionCheck";
+import { estimateNextFill } from "../services/retentionInsights.service";
 import {
   createPhotoFeedback,
   getPhotoFeedbackByClientProfileId,
@@ -54,6 +56,7 @@ import {
   checkPhotoFeedbackQuota,
   checkPhotoRetouchQuota,
   checkRetentionCheckQuota,
+  checkRetentionInsightsAccess,
   ENFORCEMENT_ENABLED,
   getUserPlan,
 } from "../services/planLimits.service";
@@ -566,8 +569,42 @@ clientsRouter.post(
       glueUsed: typeof glueUsed === "string" ? glueUsed : undefined,
     });
     const updated = await updateLashMapRetention(lashMap.id, retentionPct);
+    // Previously this data only fed the one AI advice call above and was then
+    // discarded — persisted now so Retention Intelligence (GET .../retention-insights)
+    // has real history to compute a next-fill estimate and lash-set/glue aggregates from.
+    await createRetentionCheck({
+      lashMapId: lashMap.id,
+      daysSinceApplication,
+      retentionPct,
+      humidityPct: typeof humidityPct === "number" ? humidityPct : undefined,
+      glueUsed: typeof glueUsed === "string" ? glueUsed : undefined,
+      symptoms: Array.isArray(symptoms) ? symptoms : [],
+    });
     await logUsageEvent(req.currentUser!.id, "retention_check");
 
     res.json({ advice, mock, lash_map: updated });
+  }),
+);
+
+clientsRouter.get(
+  "/:id/retention-insights",
+  requireUser,
+  asyncHandler(async (req, res) => {
+    const client = await loadOwnedClient(req, res);
+    if (!client) return;
+
+    const access = await checkRetentionInsightsAccess(req.currentUser!.id);
+    if (!access.allowed) {
+      res.status(403).json({
+        error: "Retention Intelligence is a Pro feature. Upgrade to Pro to see retention trends.",
+      });
+      return;
+    }
+
+    const checks = await getRetentionChecksByClientProfileId(client.id);
+    res.json({
+      checks,
+      next_fill_estimate: estimateNextFill(checks),
+    });
   }),
 );

@@ -162,7 +162,10 @@ Response `201`:
 
 ### `POST /clients/:id/lash-maps/:mapId/retention-check`
 Pro tier: reports symptoms of a retention problem and gets AI troubleshooting advice.
-Persists `retention_pct` onto the referenced `LashMap` row.
+Persists `retention_pct` onto the referenced `LashMap` row, and (as of 2026-07-21) a full
+`RetentionCheck` row (`days_since_application`, `retention_pct`, `humidity_pct`,
+`glue_used`, `symptoms`) feeding Retention Intelligence below — previously this data
+only fed the one AI call and was discarded.
 
 Request:
 ```json
@@ -172,6 +175,36 @@ Request:
 Response `200`:
 ```json
 { "advice": "string", "mock": false, "lash_map": { "...": "updated LashMap record" } }
+```
+
+### `GET /clients/:id/retention-insights`
+Pro tier (`checkRetentionInsightsAccess`, same flat gate as inventory/custom lash maps).
+Returns this client's full retention-check history plus a linear next-fill projection
+from the most recent check — an estimate (`backend/src/services/retentionInsights.service.ts`),
+not a clinical model.
+
+Response `200`:
+```json
+{
+  "checks": [{ "days_since_application": 14, "retention_pct": "80.00", "humidity_pct": "45.00", "glue_used": "string", "symptoms": [], "lash_set": "volume", "style": "volume", "created_at": "..." }],
+  "next_fill_estimate": { "estimated_days_remaining": 14, "estimated_fill_day": 28 }
+}
+```
+`next_fill_estimate` is `null` when there isn't enough signal to project from (no
+checks yet, or retention hasn't dropped).
+
+### `GET /users/me/retention-insights`
+Pro tier. Cross-client aggregate across every retention check this artist has ever
+logged — "which lash set/glue held up best" — the iPad-only "Retention Analytics" view
+on mobile (not shown on phone; screen size drove that call, not a plan gate).
+
+Response `200`:
+```json
+{
+  "by_lash_set": [{ "label": "volume", "average_retention_pct": 80, "sample_size": 1 }],
+  "by_glue": [{ "label": "Glue A", "average_retention_pct": 80, "sample_size": 1 }],
+  "total_checks": 1
+}
 ```
 
 ## Coach

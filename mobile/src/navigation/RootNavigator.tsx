@@ -28,6 +28,7 @@ import { PaywallScreen } from '../screens/PaywallScreen';
 import { PhotoEditorScreen } from '../screens/PhotoEditorScreen';
 import { PhotoFeedbackScreen } from '../screens/PhotoFeedbackScreen';
 import { ReferenceGuideScreen } from '../screens/ReferenceGuideScreen';
+import { RetentionAnalyticsScreen } from '../screens/RetentionAnalyticsScreen';
 import { RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -129,6 +130,11 @@ export function RootNavigator() {
                 name="Inventory"
                 component={InventoryScreen}
                 options={{ title: 'Inventory' }}
+              />
+              <Stack.Screen
+                name="RetentionAnalytics"
+                component={RetentionAnalyticsScreen}
+                options={{ title: 'Retention Analytics' }}
               />
               <Stack.Screen
                 name="MarketingTools"

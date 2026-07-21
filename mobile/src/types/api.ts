@@ -100,6 +100,41 @@ export interface LashMapTemplate {
   created_at: string;
 }
 
+export interface RetentionCheckEntry {
+  id: string;
+  lash_map_id: string;
+  days_since_application: number;
+  retention_pct: string;
+  humidity_pct: string | null;
+  glue_used: string | null;
+  symptoms: string[];
+  created_at: string;
+  style: string;
+  lash_set: string | null;
+}
+
+export interface NextFillEstimate {
+  estimated_days_remaining: number;
+  estimated_fill_day: number;
+}
+
+export interface ClientRetentionInsights {
+  checks: RetentionCheckEntry[];
+  next_fill_estimate: NextFillEstimate | null;
+}
+
+export interface RetentionAggregateRow {
+  label: string;
+  average_retention_pct: number;
+  sample_size: number;
+}
+
+export interface RetentionInsightsSummary {
+  by_lash_set: RetentionAggregateRow[];
+  by_glue: RetentionAggregateRow[];
+  total_checks: number;
+}
+
 export interface FeedbackReply {
   id: string;
   feedback_id: string;

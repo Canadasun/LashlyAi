@@ -18,6 +18,7 @@ export type RootStackParamList = {
   Paywall: undefined;
   PhotoFeedback: { clientId: string };
   Inventory: undefined;
+  RetentionAnalytics: undefined;
   MarketingTools: undefined;
   LessonList: undefined;
   LessonDetail: { lesson: Lesson };
