@@ -8,6 +8,7 @@ import {
   LASH_SET_GUIDE,
   LASH_STYLE_GUIDE,
 } from '../data/lashReferenceData';
+import { ResponsiveContainer } from '../components/ResponsiveContainer';
 
 type Section = 'eyeShapes' | 'lashSets' | 'lashStyles' | 'diameters' | 'glue';
 
@@ -46,6 +47,7 @@ export function ReferenceGuideScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
+        <ResponsiveContainer maxWidth={700}>
         <Text style={styles.disclaimer}>
           Quick reference only, not a substitute for your own training. Rows tagged
           "Estimate" haven't been confirmed against real lash-industry standards yet.
@@ -158,6 +160,7 @@ export function ReferenceGuideScreen() {
             ))}
           </>
         )}
+        </ResponsiveContainer>
       </ScrollView>
     </View>
   );

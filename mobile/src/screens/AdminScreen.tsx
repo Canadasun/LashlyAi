@@ -14,6 +14,7 @@ import {
 import { api } from '../services/api';
 import { colors } from '../theme/colors';
 import { AdminOverview } from '../types/api';
+import { ResponsiveContainer } from '../components/ResponsiveContainer';
 
 const GRANTABLE_PLANS = ['pro', 'educator', 'salon', 'enterprise'] as const;
 
@@ -185,6 +186,7 @@ export function AdminScreen() {
       style={styles.container}
       contentContainerStyle={styles.content}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={colors.primary} />}>
+      <ResponsiveContainer maxWidth={900}>
       {error && <Text style={styles.error}>{error}</Text>}
 
       {overview && (
@@ -306,6 +308,7 @@ export function AdminScreen() {
       ) : (
         <Text style={styles.empty}>No users yet.</Text>
       )}
+      </ResponsiveContainer>
     </ScrollView>
   );
 }

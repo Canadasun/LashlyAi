@@ -15,10 +15,12 @@ import { isQuotaExceededError, showQuotaExceededAlert } from '../services/quotaE
 import { colors } from '../theme/colors';
 import { RootStackParamList } from '../navigation/types';
 import { ForumPost } from '../types/api';
+import { useDeviceClass } from '../hooks/useDeviceClass';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ForumList'>;
 
 export function ForumListScreen({ navigation }: Props) {
+  const { isTablet } = useDeviceClass();
   const [posts, setPosts] = useState<ForumPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -78,7 +80,7 @@ export function ForumListScreen({ navigation }: Props) {
       <FlatList
         data={posts}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, isTablet && styles.listTablet]}
         ListEmptyComponent={<Text style={styles.empty}>No posts yet — start the conversation.</Text>}
         renderItem={({ item }) => (
           <TouchableOpacity
@@ -94,7 +96,7 @@ export function ForumListScreen({ navigation }: Props) {
       />
 
       {showNewPost && (
-        <View style={styles.newPostForm}>
+        <View style={[styles.newPostForm, isTablet && styles.newPostFormTablet]}>
           <TextInput style={styles.input} placeholder="Title" value={title} onChangeText={setTitle} />
           <TextInput
             style={[styles.input, styles.bodyInput]}
@@ -122,10 +124,12 @@ const styles = StyleSheet.create({
   error: { color: '#B3261E', paddingHorizontal: 16 },
   empty: { color: colors.text, opacity: 0.6, textAlign: 'center', marginTop: 40 },
   list: { padding: 16 },
+  listTablet: { maxWidth: 700, width: '100%', alignSelf: 'center' },
   row: { backgroundColor: '#ffffff', borderRadius: 10, padding: 14, marginBottom: 8 },
   rowTitle: { color: colors.text, fontWeight: '600', fontSize: 14 },
   rowMeta: { color: colors.accent, fontSize: 12, marginTop: 4 },
   newPostForm: { backgroundColor: '#ffffff', padding: 16, borderTopWidth: 1, borderTopColor: '#eee' },
+  newPostFormTablet: { maxWidth: 460, width: '100%', alignSelf: 'center' },
   input: {
     backgroundColor: colors.background,
     borderRadius: 10,

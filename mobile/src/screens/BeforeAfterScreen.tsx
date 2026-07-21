@@ -17,6 +17,7 @@ import { colors } from '../theme/colors';
 import { RootStackParamList } from '../navigation/types';
 import { ClientProfile, PhotoFeedback } from '../types/api';
 import { BeforeAfterSlider } from '../components/BeforeAfterSlider';
+import { ResponsiveContainer } from '../components/ResponsiveContainer';
 
 function SavePhotoButton({ uri, label }: { uri: string; label: string }) {
   const [saving, setSaving] = useState(false);
@@ -130,6 +131,7 @@ export function BeforeAfterScreen({ route, navigation }: Props) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <ResponsiveContainer maxWidth={700}>
       <Text style={styles.title}>Before & After</Text>
       <Text style={styles.subtitle}>{client.name}</Text>
 
@@ -179,6 +181,7 @@ export function BeforeAfterScreen({ route, navigation }: Props) {
           </Text>
         </>
       )}
+      </ResponsiveContainer>
     </ScrollView>
   );
 }

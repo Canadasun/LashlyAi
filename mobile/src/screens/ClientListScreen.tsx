@@ -20,6 +20,8 @@ import { api, authenticatedImageSource } from '../services/api';
 import { colors } from '../theme/colors';
 import { RootStackParamList } from '../navigation/types';
 import { ClientProfile } from '../types/api';
+import { useDeviceClass } from '../hooks/useDeviceClass';
+import { ClientProfileView } from './ClientProfileView';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ClientList'>;
 
@@ -54,7 +56,13 @@ const TOOLS: { label: string; screen: keyof RootStackParamList; params?: { picke
 export function ClientListScreen({ route, navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { signOut } = useAuth();
+  const { isTablet } = useDeviceClass();
   const pickerMode = route.params?.pickerMode === 'photoEdit';
+  // Split view only makes sense for normal browsing — picker mode already has its own
+  // tap behavior (import/use-last-photo prompt), so it keeps pushing PhotoEditor
+  // full-screen exactly as on phone regardless of device size.
+  const splitView = isTablet && !pickerMode;
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
 
   const confirmSignOut = () => {
     Alert.alert('Sign out?', "You'll need to sign back in to access your clients and lash maps.", [
@@ -80,12 +88,18 @@ export function ClientListScreen({ route, navigation }: Props) {
       const suffix = search ? `?q=${encodeURIComponent(search)}` : '';
       const result = await api.get<ClientProfile[]>(`/clients${suffix}`);
       setClients(result);
+      // Split view: land on the first client instead of an empty detail pane, but
+      // only if nothing is already selected — a search that narrows the list must
+      // not yank the user away from whoever they already have open.
+      if (splitView) {
+        setSelectedClientId((prev) => prev ?? result[0]?.id ?? null);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load clients');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [splitView]);
 
   const loadUsage = useCallback(async () => {
     try {
@@ -143,11 +157,16 @@ export function ClientListScreen({ route, navigation }: Props) {
       }
       return;
     }
+    if (splitView) {
+      setSelectedClientId(client.id);
+      return;
+    }
     navigation.navigate('ClientProfile', { clientId: client.id });
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, splitView && styles.containerSplit]}>
+      <View style={splitView ? styles.listPaneSplit : styles.listPaneFull}>
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <View style={styles.headerLeft}>
           {!pickerMode && (
@@ -229,7 +248,11 @@ export function ClientListScreen({ route, navigation }: Props) {
             const disabledInPicker = pickerMode && !hasPhoto;
             return (
               <TouchableOpacity
-                style={[styles.clientRow, disabledInPicker && styles.clientRowMuted]}
+                style={[
+                  styles.clientRow,
+                  disabledInPicker && styles.clientRowMuted,
+                  splitView && item.id === selectedClientId && styles.clientRowSelected,
+                ]}
                 onPress={() => openClient(item)}>
                 {hasPhoto ? (
                   <Image
@@ -263,12 +286,43 @@ export function ClientListScreen({ route, navigation }: Props) {
           <Text style={styles.fabText}>+ New Client</Text>
         </TouchableOpacity>
       )}
+      </View>
+
+      {splitView && (
+        <View style={styles.detailPane}>
+          {selectedClientId ? (
+            <ClientProfileView
+              key={selectedClientId}
+              clientId={selectedClientId}
+              navigation={navigation}
+              onDeleted={() => {
+                setSelectedClientId(null);
+                loadClients(debouncedQuery);
+              }}
+            />
+          ) : (
+            <View style={styles.detailEmpty}>
+              <Text style={styles.detailEmptyText}>Select a client to view their profile.</Text>
+            </View>
+          )}
+        </View>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
+  containerSplit: { flexDirection: 'row' },
+  listPaneFull: { flex: 1 },
+  // Fixed-width list column (not flex:1) so the detail pane on its right gets the
+  // rest of the iPad's width instead of a 50/50 split — mirrors Mail/Notes-style
+  // master-detail proportions.
+  listPaneSplit: { width: 380, borderRightWidth: 1, borderRightColor: colors.border },
+  detailPane: { flex: 1, backgroundColor: colors.background },
+  detailEmpty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
+  detailEmptyText: { color: colors.muted, fontSize: 13, textAlign: 'center' },
+  clientRowSelected: { borderColor: colors.primary, borderWidth: 2 },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',

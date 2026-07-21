@@ -14,10 +14,12 @@ import { api } from '../services/api';
 import { colors } from '../theme/colors';
 import { RootStackParamList } from '../navigation/types';
 import { Lesson } from '../types/api';
+import { useDeviceClass } from '../hooks/useDeviceClass';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LessonList'>;
 
 export function LessonListScreen({ navigation }: Props) {
+  const { isTablet } = useDeviceClass();
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -75,7 +77,7 @@ export function LessonListScreen({ navigation }: Props) {
       <FlatList
         data={lessons}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, isTablet && styles.listTablet]}
         renderItem={({ item }) => (
           <TouchableOpacity style={[styles.row, item.locked && styles.rowLocked]} onPress={() => openLesson(item)}>
             <View style={styles.rowText}>
@@ -111,6 +113,7 @@ const styles = StyleSheet.create({
   },
   error: { color: '#B3261E', paddingHorizontal: 16 },
   list: { padding: 16 },
+  listTablet: { maxWidth: 700, width: '100%', alignSelf: 'center' },
   row: {
     backgroundColor: '#ffffff',
     borderRadius: 10,

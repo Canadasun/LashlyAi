@@ -14,8 +14,10 @@ import {
 import { api } from '../services/api';
 import { colors } from '../theme/colors';
 import { Feedback } from '../types/api';
+import { useDeviceClass } from '../hooks/useDeviceClass';
 
 export function FeedbackScreen() {
+  const { isTablet } = useDeviceClass();
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +72,7 @@ export function FeedbackScreen() {
   return (
     <FlatList
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, isTablet && styles.contentTablet]}
       data={history}
       keyExtractor={(item) => item.id}
       ListHeaderComponent={
@@ -126,6 +128,7 @@ export function FeedbackScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: 20 },
+  contentTablet: { maxWidth: 640, width: '100%', alignSelf: 'center' },
   title: { fontSize: 20, fontWeight: '700', color: colors.text },
   subtitle: { fontSize: 13, color: colors.accent, marginTop: 6, marginBottom: 12 },
   priorityBadge: {

@@ -4,6 +4,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View
 import { api } from '../services/api';
 import { colors } from '../theme/colors';
 import { RootStackParamList } from '../navigation/types';
+import { ResponsiveContainer } from '../components/ResponsiveContainer';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LessonDetail'>;
 
@@ -19,12 +20,14 @@ export function LessonDetailScreen({ route, navigation }: Props) {
   if (lesson.locked || !lesson.content) {
     return (
       <View style={styles.centered}>
+        <ResponsiveContainer maxWidth={520}>
         <Text style={styles.title}>{lesson.title}</Text>
         <Text style={styles.summary}>{lesson.summary}</Text>
         <Text style={styles.lockedText}>This lesson is part of the full curriculum on Pro.</Text>
         <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('Paywall')}>
           <Text style={styles.buttonText}>Upgrade to Pro</Text>
         </TouchableOpacity>
+        </ResponsiveContainer>
       </View>
     );
   }
@@ -44,6 +47,7 @@ export function LessonDetailScreen({ route, navigation }: Props) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <ResponsiveContainer maxWidth={640}>
       <View style={styles.draftBadge}>
         <Text style={styles.draftBadgeText}>DRAFT — full lesson content coming soon</Text>
       </View>
@@ -63,6 +67,7 @@ export function LessonDetailScreen({ route, navigation }: Props) {
           <Text style={styles.buttonText}>{completed ? '✓ Completed' : 'Mark as Complete'}</Text>
         )}
       </TouchableOpacity>
+      </ResponsiveContainer>
     </ScrollView>
   );
 }

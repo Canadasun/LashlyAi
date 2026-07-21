@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { appleAuth, AppleButton } from '@invertase/react-native-apple-authentication';
 import { useAuth } from '../context/AuthContext';
+import { ResponsiveContainer } from '../components/ResponsiveContainer';
 import { colors } from '../theme/colors';
 
 type Mode = 'signIn' | 'signUp' | 'forgotPassword' | 'resetPassword';
@@ -138,6 +139,7 @@ export function AuthScreen() {
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ResponsiveContainer maxWidth={440}>
       <Text style={styles.title}>LashlyAI</Text>
       <Text style={styles.subtitle}>{subtitle}</Text>
 
@@ -262,6 +264,7 @@ export function AuthScreen() {
           <Text style={styles.switchModeText}>Back to sign in</Text>
         </TouchableOpacity>
       )}
+      </ResponsiveContainer>
     </KeyboardAvoidingView>
   );
 }

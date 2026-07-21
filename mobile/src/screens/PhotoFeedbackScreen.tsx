@@ -15,6 +15,7 @@ import { isQuotaExceededError, showQuotaExceededAlert } from '../services/quotaE
 import { colors } from '../theme/colors';
 import { RootStackParamList } from '../navigation/types';
 import { PhotoFeedback } from '../types/api';
+import { ResponsiveContainer } from '../components/ResponsiveContainer';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PhotoFeedback'>;
 
@@ -85,6 +86,7 @@ export function PhotoFeedbackScreen({ route, navigation }: Props) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <ResponsiveContainer maxWidth={520}>
       <Text style={styles.title}>Score My Work</Text>
       <Text style={styles.subtitle}>
         Photograph the completed lash application to get AI feedback on isolation,
@@ -135,6 +137,7 @@ export function PhotoFeedbackScreen({ route, navigation }: Props) {
           {feedback.notes ? <Text style={styles.notes}>{feedback.notes}</Text> : null}
         </View>
       )}
+      </ResponsiveContainer>
     </ScrollView>
   );
 }

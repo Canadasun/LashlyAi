@@ -15,11 +15,13 @@ import { api } from '../services/api';
 import { colors } from '../theme/colors';
 import { RootStackParamList } from '../navigation/types';
 import { ForumComment, ForumPostDetail } from '../types/api';
+import { useDeviceClass } from '../hooks/useDeviceClass';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ForumPostDetail'>;
 
 export function ForumPostDetailScreen({ navigation, route }: Props) {
   const { postId } = route.params;
+  const { isTablet } = useDeviceClass();
   const [post, setPost] = useState<ForumPostDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -125,7 +127,7 @@ export function ForumPostDetailScreen({ navigation, route }: Props) {
       <FlatList<ForumComment>
         data={post.comments}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, isTablet && styles.listTablet]}
         ListHeaderComponent={
           <View style={styles.postCard}>
             <Text style={styles.title}>{post.title}</Text>
@@ -157,7 +159,7 @@ export function ForumPostDetailScreen({ navigation, route }: Props) {
         )}
       />
 
-      <View style={styles.commentInputRow}>
+      <View style={[styles.commentInputRow, isTablet && styles.commentInputRowTablet]}>
         <TextInput
           style={styles.input}
           placeholder="Add a comment..."
@@ -181,6 +183,7 @@ const styles = StyleSheet.create({
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background },
   error: { color: '#B3261E' },
   list: { padding: 16 },
+  listTablet: { maxWidth: 700, width: '100%', alignSelf: 'center' },
   postCard: { backgroundColor: '#ffffff', borderRadius: 10, padding: 16, marginBottom: 16 },
   title: { fontSize: 18, fontWeight: '700', color: colors.text },
   meta: { fontSize: 12, color: colors.accent, marginTop: 4, marginBottom: 10 },
@@ -198,6 +201,7 @@ const styles = StyleSheet.create({
     borderTopColor: '#eee',
     backgroundColor: colors.background,
   },
+  commentInputRowTablet: { maxWidth: 700, width: '100%', alignSelf: 'center' },
   input: {
     flex: 1,
     backgroundColor: '#ffffff',

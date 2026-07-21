@@ -12,6 +12,7 @@ import { api } from '../services/api';
 import { colors } from '../theme/colors';
 import { RootStackParamList } from '../navigation/types';
 import { ClientProfile } from '../types/api';
+import { ResponsiveContainer } from '../components/ResponsiveContainer';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'NewClient'>;
 
@@ -40,6 +41,7 @@ export function NewClientScreen({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
+      <ResponsiveContainer maxWidth={440}>
       <Text style={styles.label}>Client name</Text>
       <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Jane Doe" />
 
@@ -61,6 +63,7 @@ export function NewClientScreen({ navigation }: Props) {
           <Text style={styles.buttonText}>Continue to Photo</Text>
         )}
       </TouchableOpacity>
+      </ResponsiveContainer>
     </View>
   );
 }

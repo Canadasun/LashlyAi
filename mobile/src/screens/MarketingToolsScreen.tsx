@@ -15,6 +15,7 @@ import { generateCaption } from '../services/marketing';
 import { isQuotaExceededError, showQuotaExceededAlert } from '../services/quotaError';
 import { colors } from '../theme/colors';
 import { RootStackParamList } from '../navigation/types';
+import { ResponsiveContainer } from '../components/ResponsiveContainer';
 
 type Mode = 'caption' | 'reply';
 
@@ -59,6 +60,7 @@ export function MarketingToolsScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <ResponsiveContainer maxWidth={640}>
       <Text style={styles.title}>Marketing Tools</Text>
 
       <View style={styles.tabRow}>
@@ -117,6 +119,7 @@ export function MarketingToolsScreen() {
           </Text>
         </View>
       )}
+      </ResponsiveContainer>
     </ScrollView>
   );
 }

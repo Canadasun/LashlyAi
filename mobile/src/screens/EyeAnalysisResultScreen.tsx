@@ -17,6 +17,7 @@ import { isQuotaExceededError, showQuotaExceededAlert } from '../services/quotaE
 import { colors } from '../theme/colors';
 import { RootStackParamList } from '../navigation/types';
 import { ClientProfile, EyeAnalysis, LashMap } from '../types/api';
+import { ResponsiveContainer } from '../components/ResponsiveContainer';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'EyeAnalysisResult'>;
 
@@ -231,6 +232,7 @@ export function EyeAnalysisResultScreen({ route, navigation }: Props) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <ResponsiveContainer maxWidth={640}>
       {photoUrl ? (
         <>
           <Image source={authenticatedImageSource(photoUrl)} style={styles.photo} />
@@ -366,6 +368,7 @@ export function EyeAnalysisResultScreen({ route, navigation }: Props) {
           <Text style={styles.buttonText}>Generate Lash Map</Text>
         )}
       </TouchableOpacity>
+      </ResponsiveContainer>
     </ScrollView>
   );
 }

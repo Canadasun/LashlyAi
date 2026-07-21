@@ -14,12 +14,14 @@ import { api, ApiError } from '../services/api';
 import { colors } from '../theme/colors';
 import { RootStackParamList } from '../navigation/types';
 import { InventoryCategory, InventoryItem } from '../types/api';
+import { useDeviceClass } from '../hooks/useDeviceClass';
 
 const CATEGORIES: InventoryCategory[] = ['lash_trays', 'glue', 'tools', 'other'];
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Inventory'>;
 
 export function InventoryScreen({ navigation }: Props) {
+  const { isTablet } = useDeviceClass();
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -114,7 +116,7 @@ export function InventoryScreen({ navigation }: Props) {
         <FlatList
           data={items}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[styles.list, isTablet && styles.listTablet]}
           ListEmptyComponent={<Text style={styles.empty}>No inventory items yet.</Text>}
           renderItem={({ item }) => (
             <View
@@ -151,7 +153,7 @@ export function InventoryScreen({ navigation }: Props) {
       )}
 
       {showAddForm && (
-        <View style={styles.addForm}>
+        <View style={[styles.addForm, isTablet && styles.addFormTablet]}>
           <TextInput
             style={styles.input}
             placeholder="Item name"
@@ -226,6 +228,7 @@ const styles = StyleSheet.create({
   upgradeButtonText: { color: colors.background, fontWeight: '700', fontSize: 14 },
   empty: { color: colors.text, textAlign: 'center', marginTop: 40, opacity: 0.6 },
   list: { padding: 16 },
+  listTablet: { maxWidth: 700, width: '100%', alignSelf: 'center' },
   row: {
     backgroundColor: '#ffffff',
     borderRadius: 10,
@@ -251,6 +254,7 @@ const styles = StyleSheet.create({
   },
   stepButtonText: { color: colors.text, fontWeight: '700', fontSize: 16 },
   addForm: { backgroundColor: '#ffffff', padding: 16, borderTopWidth: 1, borderTopColor: '#eee' },
+  addFormTablet: { maxWidth: 460, width: '100%', alignSelf: 'center' },
   input: {
     backgroundColor: colors.background,
     borderRadius: 10,

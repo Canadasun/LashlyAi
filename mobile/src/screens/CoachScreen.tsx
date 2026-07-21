@@ -16,6 +16,7 @@ import { api } from '../services/api';
 import { isQuotaExceededError, showQuotaExceededAlert } from '../services/quotaError';
 import { colors } from '../theme/colors';
 import { RootStackParamList } from '../navigation/types';
+import { useDeviceClass } from '../hooks/useDeviceClass';
 
 interface Message {
   id: string;
@@ -33,6 +34,7 @@ let nextId = 0;
 
 export function CoachScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { isTablet } = useDeviceClass();
   const [messages, setMessages] = useState<Message[]>([]);
   const [question, setQuestion] = useState('');
   const [sending, setSending] = useState(false);
@@ -134,7 +136,7 @@ export function CoachScreen() {
       <FlatList
         data={messages}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, isTablet && styles.listTablet]}
         ListEmptyComponent={
           <Text style={styles.empty}>Ask the AI Lash Coach a troubleshooting question.</Text>
         }
@@ -146,7 +148,7 @@ export function CoachScreen() {
         )}
       />
 
-      <View style={styles.inputRow}>
+      <View style={[styles.inputRow, isTablet && styles.inputRowTablet]}>
         <TextInput
           style={styles.input}
           placeholder="Why are my fans closing?"
@@ -177,6 +179,7 @@ const styles = StyleSheet.create({
   },
   historyHint: { fontSize: 10, color: colors.muted, textAlign: 'center', marginTop: 2 },
   list: { padding: 16, flexGrow: 1 },
+  listTablet: { maxWidth: 760, width: '100%', alignSelf: 'center' },
   empty: { color: colors.text, opacity: 0.6, textAlign: 'center', marginTop: 40 },
   bubble: { borderRadius: 12, padding: 12, marginBottom: 10, maxWidth: '85%' },
   userBubble: { backgroundColor: colors.primary, alignSelf: 'flex-end' },
@@ -191,6 +194,7 @@ const styles = StyleSheet.create({
     borderTopColor: '#eee',
     backgroundColor: colors.background,
   },
+  inputRowTablet: { maxWidth: 760, width: '100%', alignSelf: 'center' },
   input: {
     flex: 1,
     backgroundColor: '#ffffff',

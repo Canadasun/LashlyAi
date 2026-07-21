@@ -18,6 +18,7 @@ import {
 } from 'react-native-iap';
 import { api } from '../services/api';
 import { colors } from '../theme/colors';
+import { ResponsiveContainer } from '../components/ResponsiveContainer';
 
 const SUBSCRIPTION_SKUS = ['lashlyai_pro_monthly', 'lashlyai_pro_yearly'];
 
@@ -180,6 +181,7 @@ export function PaywallScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <ResponsiveContainer maxWidth={640}>
       <View style={styles.hero}>
         <Text style={styles.kicker}>Upgrade path</Text>
         <Text style={styles.title}>Built for serious lash businesses</Text>
@@ -281,6 +283,7 @@ export function PaywallScreen() {
           entitlement, and keeps access tied to the verified status and expiry date.
         </Text>
       </View>
+      </ResponsiveContainer>
     </ScrollView>
   );
 }

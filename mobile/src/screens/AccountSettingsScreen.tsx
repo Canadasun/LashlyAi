@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
+import { ResponsiveContainer } from '../components/ResponsiveContainer';
 import { colors } from '../theme/colors';
 
 const DELETE_CONFIRM_WORD = 'DELETE';
@@ -51,6 +52,7 @@ export function AccountSettingsScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.content}>
+        <ResponsiveContainer maxWidth={560}>
         <Text style={styles.sectionTitle}>Account</Text>
         <View style={styles.card}>
           <Text style={styles.label}>Signed in as</Text>
@@ -115,6 +117,7 @@ export function AccountSettingsScreen() {
             </>
           )}
         </View>
+        </ResponsiveContainer>
       </ScrollView>
     </KeyboardAvoidingView>
   );

@@ -17,6 +17,8 @@ import { RootStackParamList } from '../navigation/types';
 import { api, ApiError } from '../services/api';
 import { colors } from '../theme/colors';
 import { ClientProfile, InventoryItem } from '../types/api';
+import { ResponsiveContainer } from '../components/ResponsiveContainer';
+import { useDeviceClass } from '../hooks/useDeviceClass';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Dashboard'>;
 
@@ -52,7 +54,10 @@ const QUICK_ACTIONS: {
   },
 ];
 
-const QUICK_ACTION_ROWS = [QUICK_ACTIONS.slice(0, 2), QUICK_ACTIONS.slice(2, 4)];
+const QUICK_ACTION_ROWS_PHONE = [QUICK_ACTIONS.slice(0, 2), QUICK_ACTIONS.slice(2, 4)];
+// One row of 4 instead of 2x2 — makes real use of a tablet's extra width instead of
+// leaving the same cramped phone grid centered in a lot of empty space.
+const QUICK_ACTION_ROWS_TABLET = [QUICK_ACTIONS];
 
 function quotaText(field?: QuotaField) {
   if (!field) return '—';
@@ -62,6 +67,8 @@ function quotaText(field?: QuotaField) {
 export function HomeDashboardScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { session, signOut, verifyEmail, resendVerification } = useAuth();
+  const { isTablet } = useDeviceClass();
+  const quickActionRows = isTablet ? QUICK_ACTION_ROWS_TABLET : QUICK_ACTION_ROWS_PHONE;
 
   const confirmSignOut = () => {
     Alert.alert('Sign out?', "You'll need to sign back in to access your clients and lash maps.", [
@@ -178,6 +185,7 @@ export function HomeDashboardScreen({ navigation }: Props) {
             tintColor={colors.primary}
           />
         }>
+        <ResponsiveContainer maxWidth={900}>
         <View style={styles.topBar}>
           <View style={styles.brandRow}>
             <View style={styles.brandMark}><Text style={styles.brandMarkText}>L</Text></View>
@@ -249,7 +257,7 @@ export function HomeDashboardScreen({ navigation }: Props) {
             <Text style={styles.sectionTitle}>Run your day</Text>
             <Text style={styles.sectionSubtitle}>The things you reach for most, one tap away.</Text>
             <View style={styles.actionGrid}>
-              {QUICK_ACTION_ROWS.map((row, rowIndex) => (
+              {quickActionRows.map((row, rowIndex) => (
                 <View key={rowIndex} style={styles.actionRow}>
                   {row.map((action) => (
                     <TouchableOpacity
@@ -325,6 +333,7 @@ export function HomeDashboardScreen({ navigation }: Props) {
             </View>
           </>
         )}
+        </ResponsiveContainer>
       </ScrollView>
     </View>
   );

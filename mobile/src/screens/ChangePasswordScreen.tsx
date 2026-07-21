@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
+import { ResponsiveContainer } from '../components/ResponsiveContainer';
 import { colors } from '../theme/colors';
 
 // Rendered by RootNavigator as a full gate — nothing else in the app is reachable
@@ -47,6 +48,7 @@ export function ChangePasswordScreen() {
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ResponsiveContainer maxWidth={440}>
       <Text style={styles.title}>Set a new password</Text>
       <Text style={styles.subtitle}>
         This account was created with a temporary password. Choose a new one before
@@ -91,6 +93,7 @@ export function ChangePasswordScreen() {
       <TouchableOpacity onPress={() => signOut()}>
         <Text style={styles.signOutText}>Sign out</Text>
       </TouchableOpacity>
+      </ResponsiveContainer>
     </KeyboardAvoidingView>
   );
 }

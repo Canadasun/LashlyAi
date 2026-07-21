@@ -18,6 +18,7 @@ import { saveImageToDevice, saveLocalImageToDevice } from '../services/saveToDev
 import { isQuotaExceededError, showQuotaExceededAlert } from '../services/quotaError';
 import { colors } from '../theme/colors';
 import { RootStackParamList } from '../navigation/types';
+import { ResponsiveContainer } from '../components/ResponsiveContainer';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LashMap'>;
 
@@ -166,6 +167,7 @@ export function LashMapScreen({ route, navigation }: Props) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <ResponsiveContainer maxWidth={640}>
       <Text style={styles.title}>Lash Map</Text>
       <Text style={styles.savedNote}>Saved to this client's history</Text>
 
@@ -357,6 +359,7 @@ export function LashMapScreen({ route, navigation }: Props) {
         onPress={() => navigation.navigate('ClientProfile', { clientId })}>
         <Text style={styles.buttonText}>Back to Client</Text>
       </TouchableOpacity>
+      </ResponsiveContainer>
     </ScrollView>
   );
 }
