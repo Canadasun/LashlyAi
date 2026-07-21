@@ -223,3 +223,14 @@ export async function checkRetentionInsightsAccess(userId: string): Promise<{ al
   const plan = await getUserPlan(userId);
   return { allowed: plan !== "free" || !ENFORCEMENT_ENABLED };
 }
+
+/**
+ * Asking the Coach "about this client" (folds that client's eye analysis/lash map/
+ * retention history into the prompt, see ai.service.ts's askCoach()) is a flat Pro-only
+ * enhancement layered on top of the base Coach quota — the question itself still
+ * counts against checkCoachQuota as normal, this only gates the extra context.
+ */
+export async function checkClientAwareCoachAccess(userId: string): Promise<{ allowed: boolean }> {
+  const plan = await getUserPlan(userId);
+  return { allowed: plan !== "free" || !ENFORCEMENT_ENABLED };
+}

@@ -215,6 +215,15 @@ Request:
 { "question": "Why are my fans closing?" }
 ```
 
+Optional `client_id` (Pro tier, `checkClientAwareCoachAccess`, as of 2026-07-21): folds
+that client's eye analysis, most recent lash map, and retention-check history into the
+prompt so the answer is grounded in their actual data instead of generic
+troubleshooting. 404 if the client isn't owned by the caller; the question itself still
+counts against the normal Coach quota either way.
+```json
+{ "question": "Why is retention low for this client?", "client_id": "..." }
+```
+
 Response `200`:
 ```json
 { "answer": "string" }

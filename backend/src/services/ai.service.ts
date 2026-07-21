@@ -321,7 +321,16 @@ const COACH_SYSTEM_PROMPT =
   "adhesive curing, aftercare). If asked about anything unrelated to lash artistry, " +
   "politely decline and redirect to lash topics.";
 
-export async function askCoach(question: string): Promise<{ answer: string; mock: boolean }> {
+/**
+ * clientContext (Pro tier, see coach.routes.ts's buildClientContext()) grounds the
+ * answer in one specific client's own eye analysis/lash map/retention history instead
+ * of pure generic troubleshooting — passed as its own system message so it informs the
+ * answer without being mistaken for the artist's own question.
+ */
+export async function askCoach(
+  question: string,
+  clientContext?: string,
+): Promise<{ answer: string; mock: boolean }> {
   if (!client) {
     return {
       answer:
@@ -335,6 +344,16 @@ export async function askCoach(question: string): Promise<{ answer: string; mock
     model: "gpt-4o-mini",
     messages: [
       { role: "system", content: COACH_SYSTEM_PROMPT },
+      ...(clientContext
+        ? [
+            {
+              role: "system" as const,
+              content:
+                "Context about the specific client this question concerns — use it to ground " +
+                `your answer when relevant, but don't just restate it:\n${clientContext}`,
+            },
+          ]
+        : []),
       { role: "user", content: question },
     ],
     max_tokens: 500,

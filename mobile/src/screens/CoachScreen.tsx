@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   ActivityIndicator,
@@ -34,6 +34,9 @@ let nextId = 0;
 
 export function CoachScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const route = useRoute<RouteProp<RootStackParamList, 'Coach'>>();
+  const clientId = route.params?.clientId;
+  const clientName = route.params?.clientName;
   const { isTablet } = useDeviceClass();
   const [messages, setMessages] = useState<Message[]>([]);
   const [question, setQuestion] = useState('');
@@ -92,6 +95,7 @@ export function CoachScreen() {
     try {
       const result = await api.post<{ answer: string; mock: boolean }>('/coach/ask', {
         question: trimmed,
+        client_id: clientId,
       });
       setMessages((prev) => [
         ...prev,
@@ -125,6 +129,13 @@ export function CoachScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={80}>
+      {clientId && (
+        <View style={styles.contextBanner}>
+          <Text style={styles.contextBannerText}>
+            Answering with context from {clientName ?? 'this client'}
+          </Text>
+        </View>
+      )}
       {quota && quota.limit !== null && (
         <>
           <Text style={styles.quotaText}>
@@ -178,6 +189,15 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   historyHint: { fontSize: 10, color: colors.muted, textAlign: 'center', marginTop: 2 },
+  contextBanner: {
+    backgroundColor: colors.primarySoft,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    marginTop: 10,
+    marginHorizontal: 16,
+    borderRadius: 8,
+  },
+  contextBannerText: { fontSize: 11, fontWeight: '600', color: colors.primaryDark, textAlign: 'center' },
   list: { padding: 16, flexGrow: 1 },
   listTablet: { maxWidth: 760, width: '100%', alignSelf: 'center' },
   empty: { color: colors.text, opacity: 0.6, textAlign: 'center', marginTop: 40 },

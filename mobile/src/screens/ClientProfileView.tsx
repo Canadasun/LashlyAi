@@ -176,6 +176,12 @@ export function ClientProfileView({ clientId, navigation, onDeleted }: ClientPro
         </TouchableOpacity>
       )}
 
+      <TouchableOpacity
+        style={styles.secondaryButton}
+        onPress={() => navigation.navigate('Coach', { clientId, clientName: client.name })}>
+        <Text style={styles.secondaryButtonText}>Ask the Coach About {client.name} (Pro)</Text>
+      </TouchableOpacity>
+
       {retentionInsights && retentionInsights.checks.length > 0 && (
         <View style={styles.retentionCard}>
           <Text style={styles.retentionTitle}>Retention Trend</Text>
