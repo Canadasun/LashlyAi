@@ -59,6 +59,11 @@ export interface ZoneSummary {
   outer: ZoneRange;
 }
 
+export interface TexturedMap {
+  base_layer: { zones: VisualMapZone[] };
+  spike_layer: { zones: VisualMapZone[]; pattern: string };
+}
+
 export interface LashMap {
   id: string;
   client_profile_id: string;
@@ -82,6 +87,7 @@ export interface LashMap {
   difficulty_score?: number;
   difficulty_label?: DifficultyLabel;
   estimated_minutes?: { min: number; max: number };
+  textured_map?: TexturedMap;
 }
 
 export interface LashMapTemplate {

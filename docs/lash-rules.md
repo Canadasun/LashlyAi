@@ -193,13 +193,14 @@ separate maps rather than the single 5-zone length table used for every other se
 
 The final design combines both maps into a structured, symmetrical, textured result.
 
-> **Engineering note:** the current `LashMap.visual_map` JSONB shape (see
-> `backend/src/services/lashmap.service.ts`'s `VisualMapZone`/`GeneratedLashMap` types)
-> only models a single flat list of zones plus an optional `spike_lengths` array — it
-> does not yet have a distinct "base layer" concept. Representing this properly needs a
-> schema/type addition, not just a data-table update, so it has not been implemented in
-> code yet. Flagged here so it isn't lost; pick up as a scoped follow-up rather than
-> bolting it on ad hoc.
+> **Engineering note (updated 2026-07-21): implemented.** `GeneratedLashMap.textured_map`
+> (`backend/src/services/lashmap.service.ts`'s `buildTexturedMap()`) now generates a
+> distinct `base_layer` (supporting lashes, `BASE_LAYER_RATIO` of the full zone length,
+> floored at `MIN_BASE_LAYER_LENGTH_MM`) and `spike_layer` (the full documented zone
+> length, with a descriptive — not numeric — distribution `pattern` pulled from this
+> table's own set descriptions) for Wet Wispy Set / Medusa Set / Anime Set only. The
+> base-layer ratio itself is still a PLACEHOLDER estimate, not owner-provided — same
+> caveat as the rest of this file's numbers, flagged for review.
 
 ## 9b. Lash Mapping Variables & General Mapping Structure (owner-provided 2026-07-15)
 

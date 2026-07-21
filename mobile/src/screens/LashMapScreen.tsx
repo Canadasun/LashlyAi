@@ -14,6 +14,7 @@ import {
 import ViewShot, { ViewShotRef } from 'react-native-view-shot';
 import { LashMapZoneDiagram } from '../components/LashMapZoneDiagram';
 import { DifficultyBadge } from '../components/DifficultyBadge';
+import { useDeviceClass } from '../hooks/useDeviceClass';
 import { api, authenticatedImageSource } from '../services/api';
 import { saveImageToDevice, saveLocalImageToDevice } from '../services/saveToDevice';
 import { isQuotaExceededError, showQuotaExceededAlert } from '../services/quotaError';
@@ -43,6 +44,10 @@ const SYMPTOM_OPTIONS = [
 
 export function LashMapScreen({ route, navigation }: Props) {
   const { clientId, lashMap } = route.params;
+  const { isTablet } = useDeviceClass();
+  // Phone: tabbed (screen isn't wide enough for both at once). iPad: shown side by
+  // side instead — see the split-view render below.
+  const [texturedTab, setTexturedTab] = useState<'base' | 'spike'>('spike');
   const [showRetentionCheck, setShowRetentionCheck] = useState(false);
   const [days, setDays] = useState('');
   const [retentionPct, setRetentionPct] = useState('');
@@ -207,6 +212,56 @@ export function LashMapScreen({ route, navigation }: Props) {
         <View style={styles.statsRow}>
           {lashMap.lash_set_label && <Stat label="Lash Set" value={lashMap.lash_set_label} />}
           {lashMap.lash_style_label && <Stat label="Lash Style" value={lashMap.lash_style_label} />}
+        </View>
+      )}
+
+      {lashMap.textured_map && (
+        <View style={styles.texturedCard}>
+          <Text style={styles.texturedTitle}>Base Layer + Spike Map</Text>
+          <Text style={styles.texturedPattern}>{lashMap.textured_map.spike_layer.pattern}</Text>
+          {isTablet ? (
+            <View style={styles.texturedSplit}>
+              <View style={styles.texturedSplitPane}>
+                <Text style={styles.texturedTabLabel}>Base Layer</Text>
+                <LashMapZoneDiagram zones={lashMap.textured_map.base_layer.zones} />
+              </View>
+              <View style={styles.texturedSplitPane}>
+                <Text style={styles.texturedTabLabel}>Spike Layer</Text>
+                <LashMapZoneDiagram zones={lashMap.textured_map.spike_layer.zones} />
+              </View>
+            </View>
+          ) : (
+            <>
+              <View style={styles.texturedTabs}>
+                <TouchableOpacity
+                  style={[styles.texturedTabButton, texturedTab === 'base' && styles.texturedTabButtonActive]}
+                  onPress={() => setTexturedTab('base')}>
+                  <Text
+                    style={[styles.texturedTabButtonText, texturedTab === 'base' && styles.texturedTabButtonTextActive]}>
+                    Base Layer
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.texturedTabButton, texturedTab === 'spike' && styles.texturedTabButtonActive]}
+                  onPress={() => setTexturedTab('spike')}>
+                  <Text
+                    style={[
+                      styles.texturedTabButtonText,
+                      texturedTab === 'spike' && styles.texturedTabButtonTextActive,
+                    ]}>
+                    Spike Layer
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              <LashMapZoneDiagram
+                zones={
+                  texturedTab === 'base'
+                    ? lashMap.textured_map.base_layer.zones
+                    : lashMap.textured_map.spike_layer.zones
+                }
+              />
+            </>
+          )}
         </View>
       )}
 
@@ -388,6 +443,31 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 20,
   },
+  texturedCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 20,
+    width: '100%',
+  },
+  texturedTitle: { fontSize: 13, fontWeight: '700', color: colors.text, marginBottom: 4 },
+  texturedPattern: { fontSize: 12, color: colors.muted, marginBottom: 12, fontStyle: 'italic' },
+  texturedTabs: { flexDirection: 'row', marginBottom: 8 },
+  texturedTabButton: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: colors.background,
+    marginRight: 8,
+  },
+  texturedTabButtonActive: { backgroundColor: colors.primary },
+  texturedTabButtonText: { fontSize: 12, fontWeight: '600', color: colors.text },
+  texturedTabButtonTextActive: { color: colors.background },
+  // iPad only — screen is wide enough to show both layers at once instead of tabbing.
+  texturedSplit: { flexDirection: 'row' },
+  texturedSplitPane: { flex: 1 },
+  texturedTabLabel: { fontSize: 12, fontWeight: '600', color: colors.accent, marginBottom: 4, textAlign: 'center' },
   mappingCard: {
     backgroundColor: '#ffffff',
     borderRadius: 12,

@@ -262,6 +262,33 @@ export const ADVANCED_LASH_SETS: LashSetOption[] = [
   "anime_set",
 ];
 
+/**
+ * Textured Lash Sets (docs/lash-rules.md §9a, owner-provided 2026-07-15): these three
+ * are spiky/mixed-length looks that need a distinct Base Layer Map (supporting lashes
+ * between spikes) *and* Spike Map (spike location/length/distribution), rather than
+ * the single flat zone list every other Lash Set uses. Previously flagged in §9a as
+ * "not yet implemented in code" — see lashmap.service.ts's buildTexturedMap().
+ */
+export const TEXTURED_LASH_SETS: LashSetOption[] = ["wet_wispy_set", "medusa_set", "anime_set"];
+
+export function isTexturedLashSet(value: LashSetOption): boolean {
+  return TEXTURED_LASH_SETS.includes(value);
+}
+
+// Descriptive spike-distribution pattern per set, taken directly from the set's own
+// existing §9 characterization in lash-rules.md rather than inventing a new claim.
+export const TEXTURE_PATTERN_LABEL: Partial<Record<LashSetOption, string>> = {
+  wet_wispy_set: "Evenly distributed mixed lengths across all zones (textured wet-look).",
+  medusa_set: "Irregular, spiky placement across all zones — not a smooth curve.",
+  anime_set: "Concentrated toward the center with a dramatic length increase.",
+};
+
+// Base layer (supporting lashes under the spikes) as a fraction of the full Lash Set
+// zone length — PLACEHOLDER ratio, not owner-provided; flagged for review same as the
+// rest of this file's estimated numbers.
+export const BASE_LAYER_RATIO = 0.7;
+export const MIN_BASE_LAYER_LENGTH_MM = 5;
+
 export function isLashSetOption(value: unknown): value is LashSetOption {
   return LASH_SET_OPTIONS.includes(value as LashSetOption);
 }

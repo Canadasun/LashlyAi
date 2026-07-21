@@ -4,11 +4,13 @@ import {
   ADVANCED_STYLE_CURL,
   ADVANCED_STYLES,
   AdvancedLashStyle,
+  BASE_LAYER_RATIO,
   CURL_BUMP,
   DIAMETER_BY_DENSITY,
   FAN_TYPE_BY_DENSITY,
   isLashSetOption,
   isLashStyleOption,
+  isTexturedLashSet,
   LASH_SET_CURL,
   LASH_SET_DIAMETERS_MM,
   LASH_SET_LABELS,
@@ -18,8 +20,10 @@ import {
   LashSetOption,
   LashStyleOption,
   LashTechnique,
+  MIN_BASE_LAYER_LENGTH_MM,
   STYLE_CURL_BY_EYE_SHAPE,
   STYLE_LABELS,
+  TEXTURE_PATTERN_LABEL,
   ZONE_LENGTHS_MM,
   ZoneName,
 } from "./lashMapRules.data";
@@ -105,6 +109,17 @@ export interface ZoneSummary {
   outer: ZoneRange;
 }
 
+/**
+ * Base Layer + Spike Map for textured sets (docs/lash-rules.md §9a) — Wet Wispy/
+ * Medusa/Anime Set only. base_layer is the shorter, denser supporting layer under the
+ * spikes; spike_layer is the mixed-length textured layer on top, with a descriptive
+ * (not numeric) distribution pattern pulled from the set's own §9 characterization.
+ */
+export interface TexturedMap {
+  base_layer: { zones: VisualMapZone[] };
+  spike_layer: { zones: VisualMapZone[]; pattern: string };
+}
+
 export interface GeneratedLashMap {
   style: string;
   curl: string;
@@ -134,6 +149,8 @@ export interface GeneratedLashMap {
   difficulty_score?: number;
   difficulty_label?: DifficultyLabel;
   estimated_minutes?: { min: number; max: number };
+  // Only set for Wet Wispy Set / Medusa Set / Anime Set — see TexturedMap doc comment.
+  textured_map?: TexturedMap;
 }
 
 const ZONE_ORDER: ZoneName[] = ["inner", "inner_mid", "center", "outer_mid", "outer"];
@@ -165,6 +182,32 @@ function buildSpikeLengths(lengths: Record<ZoneName, number>): number[] {
   const max = Math.max(...values);
   if (max === min) return Array(7).fill(min);
   return Array.from({ length: 7 }, (_, i) => Math.round(min + ((max - min) * i) / 6));
+}
+
+// Base Layer + Spike Map (docs/lash-rules.md §9a) for the three textured Lash Sets.
+// The spike layer reaches each zone's full documented length; the base layer beneath
+// it is a shorter, denser supporting layer (BASE_LAYER_RATIO of the same length,
+// floored at MIN_BASE_LAYER_LENGTH_MM) — both deterministic from the same
+// LASH_SET_ZONE_LENGTHS_MM table used everywhere else, not freeform.
+function buildTexturedMap(lashSet: LashSetOption, lengths: Record<ZoneName, number>): TexturedMap | undefined {
+  if (!isTexturedLashSet(lashSet)) return undefined;
+
+  const toZones = (lengthFor: (zone: ZoneName) => number): VisualMapZone[] =>
+    ZONE_ORDER.map((zone) => ({
+      zone,
+      length_mm: lengthFor(zone),
+      direction: zone === "center" ? "vertical" : "outward",
+    }));
+
+  return {
+    base_layer: {
+      zones: toZones((zone) => Math.max(Math.round(lengths[zone] * BASE_LAYER_RATIO), MIN_BASE_LAYER_LENGTH_MM)),
+    },
+    spike_layer: {
+      zones: toZones((zone) => lengths[zone]),
+      pattern: TEXTURE_PATTERN_LABEL[lashSet] ?? "",
+    },
+  };
 }
 
 function buildStyleLabel(style: string, technique: LashTechnique): string {
@@ -264,6 +307,10 @@ export function generateLashMap(
   const spikeLengths = technique === "wispy" ? buildSpikeLengths(lengths) : undefined;
   const zoneSummary = bandify(spikeLengths ?? ZONE_ORDER.map((zone) => lengths[zone]));
 
+  // Only for a recognized (non-custom) Lash Set — a custom map's lengths are the
+  // artist's own direct input, not one of the owner-vetted §9 tables this derives from.
+  const texturedMap = !customLashMap && lashSet ? buildTexturedMap(lashSet, lengths) : undefined;
+
   const difficulty = computeServiceDifficulty({
     eyeShape: eyeAnalysis.eye_shape,
     lashDensity: eyeAnalysis.lash_density,
@@ -289,5 +336,6 @@ export function generateLashMap(
     difficulty_score: difficulty.score,
     difficulty_label: difficulty.label,
     estimated_minutes: difficulty.estimated_minutes,
+    ...(texturedMap ? { textured_map: texturedMap } : {}),
   };
 }
