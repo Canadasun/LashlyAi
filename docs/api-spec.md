@@ -105,6 +105,34 @@ Pro tier. Returns the current user's saved templates, newest first.
 ### `DELETE /lash-map-templates/:id`
 Pro tier, ownership-checked (403 if it belongs to another user). Response `204`.
 
+### `POST /clients/:id/lash-preview`
+Pro tier (`checkLashPreviewQuota`, zero access on free). AI "after-look" preview —
+a real `gpt-image-1` `images.edit` call on the client's own most recent eye-scan photo
+(not a synthetic face), requires `consented: true`. As of 2026-07-21, an optional
+`angles` array (`["open_eye", "closed_eye"]`, defaults to `["open_eye"]` if omitted)
+generates a multi-angle batch in one Pro action — both are edits of the same straight-
+on eye photo (open vs. closed eyelid), not a true side-profile, since that's the only
+angle this app has a photo for. One quota charge/usage event per action regardless of
+how many angles are requested.
+
+Request:
+```json
+{ "lash_set_label": "Volume", "lash_style_label": "Cat Eye", "consented": true, "angles": ["open_eye", "closed_eye"] }
+```
+
+Response `201` (`preview_url`/`mock` at the top level mirror `previews[0]`, kept for
+callers written before the multi-angle batch existed):
+```json
+{
+  "preview_url": "string",
+  "mock": false,
+  "previews": [
+    { "angle": "open_eye", "preview_url": "string", "mock": false },
+    { "angle": "closed_eye", "preview_url": "string", "mock": false }
+  ]
+}
+```
+
 ### `POST /clients/:id/photo-feedback`
 Multipart upload (photo of the artist's **completed** lash application, not the
 pre-work client eye) → AI scores isolation, direction, and styling (see

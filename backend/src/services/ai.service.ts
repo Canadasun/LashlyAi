@@ -469,10 +469,18 @@ export async function generateCaption(
  * a real gpt-image-1 call, gated separately (see planLimits.service.ts
  * checkLashPreviewQuota) since image generation is pricier than the text calls above.
  */
+// "Angles" a multi-look preview batch can request — both are edits of the same
+// straight-on eye close-up (the only photo this app has), so a true side-profile/head-
+// turn isn't achievable here; open-vs-closed eyelid state is, and is also how lash
+// techs actually show a finished set (closed to show the fan/line, open for the
+// client's own "wow" reaction) — see clients.routes.ts's lash-preview route.
+export type LashPreviewAngle = "open_eye" | "closed_eye";
+
 export async function generateLashPreview(
   baseImageBuffer: Buffer,
   lashSetLabel: string,
   lashStyleLabel: string,
+  angle: LashPreviewAngle = "open_eye",
 ): Promise<{ imageBuffer: Buffer; mock: boolean }> {
   if (!client) {
     // No real preview possible without a key — return the original photo back
@@ -480,12 +488,21 @@ export async function generateLashPreview(
     return { imageBuffer: baseImageBuffer, mock: true };
   }
 
+  const angleInstruction =
+    angle === "closed_eye"
+      ? "Show the client with their eyes gently closed, so the finished lash line, fan " +
+        "pattern, and curl are clearly visible from above, the way a lash artist checks " +
+        "a completed set right after application."
+      : "Show the client with their eyes open, looking straight ahead, so the finished " +
+        "look reads naturally.";
+
   const prompt =
     `Edit this client's eye photo to show a realistic, photorealistic preview of ` +
     `finished eyelash extensions in the "${lashSetLabel}" lash set with a "${lashStyleLabel}" ` +
-    `finished eye look. Keep the client's actual eye shape, skin, lighting, and facial ` +
-    `features unchanged — only add the lash extensions matching the requested set and ` +
-    `look. No text, watermarks, or unrelated changes to the rest of the photo.`;
+    `finished eye look. ${angleInstruction} Keep the client's actual eye shape, skin, ` +
+    `lighting, and facial features unchanged — only add the lash extensions matching ` +
+    `the requested set and look, adjusting eyelid position only as instructed above. ` +
+    `No text, watermarks, or unrelated changes to the rest of the photo.`;
 
   const file = await toFile(baseImageBuffer, "eye.jpg", { type: "image/jpeg" });
   // Image generation legitimately takes much longer than the chat/vision calls above

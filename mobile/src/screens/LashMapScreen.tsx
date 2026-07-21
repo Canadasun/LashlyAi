@@ -33,6 +33,8 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
+const ANGLE_LABELS: Record<string, string> = { open_eye: 'Eyes Open', closed_eye: 'Eyes Closed' };
+
 const SYMPTOM_OPTIONS = [
   'excess oil',
   'rubbing eyes',
@@ -62,8 +64,12 @@ export function LashMapScreen({ route, navigation }: Props) {
   const [consented, setConsented] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
-  const [preview, setPreview] = useState<{ url: string; mock: boolean } | null>(null);
-  const [savingPreview, setSavingPreview] = useState(false);
+  // Multi-angle batch: one Pro action returns both an open-eye and a closed-eye
+  // preview (see clients.routes.ts's lash-preview route) — both edits of the same
+  // base photo, not a true side-profile (this app only ever has a straight-on eye
+  // close-up to edit from).
+  const [previews, setPreviews] = useState<{ angle: string; url: string; mock: boolean }[]>([]);
+  const [savingPreviewAngle, setSavingPreviewAngle] = useState<string | null>(null);
 
   const saveDiagram = async () => {
     if (!diagramRef.current?.capture) {
@@ -139,15 +145,15 @@ export function LashMapScreen({ route, navigation }: Props) {
     setPreviewLoading(true);
     setPreviewError(null);
     try {
-      const result = await api.post<{ preview_url: string; mock: boolean }>(
-        `/clients/${clientId}/lash-preview`,
-        {
-          lash_set_label: lashMap.lash_set_label ?? lashMap.style_label,
-          lash_style_label: lashMap.lash_style_label,
-          consented: true,
-        },
-      );
-      setPreview({ url: result.preview_url, mock: result.mock });
+      const result = await api.post<{
+        previews: { angle: string; preview_url: string; mock: boolean }[];
+      }>(`/clients/${clientId}/lash-preview`, {
+        lash_set_label: lashMap.lash_set_label ?? lashMap.style_label,
+        lash_style_label: lashMap.lash_style_label,
+        consented: true,
+        angles: ['open_eye', 'closed_eye'],
+      });
+      setPreviews(result.previews.map((p) => ({ angle: p.angle, url: p.preview_url, mock: p.mock })));
     } catch (err) {
       if (isQuotaExceededError(err)) {
         showQuotaExceededAlert(err, navigation);
@@ -159,11 +165,10 @@ export function LashMapScreen({ route, navigation }: Props) {
     }
   };
 
-  const savePreview = async () => {
-    if (!preview) return;
-    setSavingPreview(true);
-    const result = await saveImageToDevice(preview.url);
-    setSavingPreview(false);
+  const savePreview = async (angle: string, url: string) => {
+    setSavingPreviewAngle(angle);
+    const result = await saveImageToDevice(url);
+    setSavingPreviewAngle(null);
     if (result.success) {
       Alert.alert('Saved', 'AI preview saved to your photo library.');
     } else {
@@ -322,24 +327,50 @@ export function LashMapScreen({ route, navigation }: Props) {
           )}
         </TouchableOpacity>
 
-        {preview && (
-          <View style={styles.previewResult}>
-            {preview.mock && <Text style={styles.mockTag}>MOCK PREVIEW</Text>}
-            <Image
-              source={authenticatedImageSource(preview.url)}
-              style={styles.previewImage}
-            />
-            <TouchableOpacity
-              style={styles.secondaryButton}
-              onPress={savePreview}
-              disabled={savingPreview}>
-              {savingPreview ? (
-                <ActivityIndicator color={colors.text} size="small" />
-              ) : (
-                <Text style={styles.secondaryButtonText}>Save to Photos</Text>
-              )}
-            </TouchableOpacity>
-          </View>
+        {previews.length > 0 && (
+          isTablet ? (
+            // iPad: room to show every angle at once, no swiping needed.
+            <View style={styles.previewSplit}>
+              {previews.map((item) => (
+                <View key={item.angle} style={styles.previewSplitPane}>
+                  <Text style={styles.previewAngleLabel}>{ANGLE_LABELS[item.angle] ?? item.angle}</Text>
+                  {item.mock && <Text style={styles.mockTag}>MOCK PREVIEW</Text>}
+                  <Image source={authenticatedImageSource(item.url)} style={styles.previewImage} />
+                  <TouchableOpacity
+                    style={styles.secondaryButton}
+                    onPress={() => savePreview(item.angle, item.url)}
+                    disabled={savingPreviewAngle === item.angle}>
+                    {savingPreviewAngle === item.angle ? (
+                      <ActivityIndicator color={colors.text} size="small" />
+                    ) : (
+                      <Text style={styles.secondaryButtonText}>Save to Photos</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          ) : (
+            // Phone: not enough width for both at once — swipe between angles instead.
+            <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false}>
+              {previews.map((item) => (
+                <View key={item.angle} style={styles.previewCarouselPane}>
+                  <Text style={styles.previewAngleLabel}>{ANGLE_LABELS[item.angle] ?? item.angle}</Text>
+                  {item.mock && <Text style={styles.mockTag}>MOCK PREVIEW</Text>}
+                  <Image source={authenticatedImageSource(item.url)} style={styles.previewImage} />
+                  <TouchableOpacity
+                    style={styles.secondaryButton}
+                    onPress={() => savePreview(item.angle, item.url)}
+                    disabled={savingPreviewAngle === item.angle}>
+                    {savingPreviewAngle === item.angle ? (
+                      <ActivityIndicator color={colors.text} size="small" />
+                    ) : (
+                      <Text style={styles.secondaryButtonText}>Save to Photos</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </ScrollView>
+          )
         )}
       </View>
 
@@ -561,6 +592,11 @@ const styles = StyleSheet.create({
   checkboxChecked: { backgroundColor: colors.primary, borderColor: colors.primary },
   checkboxMark: { color: colors.background, fontSize: 12, fontWeight: '700' },
   consentText: { flex: 1, fontSize: 12, color: colors.text },
-  previewResult: { marginTop: 16, width: '100%', alignItems: 'center' },
   previewImage: { width: '100%', height: 260, borderRadius: 12 },
+  previewAngleLabel: { fontSize: 12, fontWeight: '700', color: colors.accent, marginTop: 16, marginBottom: 6 },
+  // iPad: both angles side by side, no swiping needed.
+  previewSplit: { flexDirection: 'row', width: '100%' },
+  previewSplitPane: { flex: 1, alignItems: 'center', paddingHorizontal: 6 },
+  // Phone: each pane fills the carousel's own width so pagingEnabled snaps cleanly.
+  previewCarouselPane: { width: '100%', alignItems: 'center' },
 });

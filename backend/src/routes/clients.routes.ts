@@ -28,6 +28,7 @@ import {
   generateLashPreview,
   isValidEyeShape,
   isValidLashDensity,
+  LashPreviewAngle,
   retouchPhoto,
   scoreLashPhoto,
   troubleshootRetention,
@@ -291,6 +292,7 @@ clientsRouter.post(
       lash_set_label: lashSetLabel,
       lash_style_label: lashStyleLabel,
       consented,
+      angles,
     } = req.body ?? {};
 
     if (!consented) {
@@ -301,6 +303,17 @@ clientsRouter.post(
     }
     if (!lashSetLabel || typeof lashSetLabel !== "string") {
       res.status(400).json({ error: "lash_set_label is required" });
+      return;
+    }
+
+    // Defaults to the original single open-eye preview — additive, not a breaking
+    // change for any caller that predates the multi-angle batch. Deduped and capped to
+    // the two angles ai.service.ts actually supports; anything else 400s rather than
+    // silently ignoring a typo.
+    const requestedAngles: LashPreviewAngle[] =
+      Array.isArray(angles) && angles.length > 0 ? Array.from(new Set(angles)) : ["open_eye"];
+    if (requestedAngles.some((angle) => angle !== "open_eye" && angle !== "closed_eye")) {
+      res.status(400).json({ error: 'angles must only contain "open_eye" and/or "closed_eye"' });
       return;
     }
 
@@ -323,22 +336,29 @@ clientsRouter.post(
     }
 
     const baseImage = Buffer.from(await readStoredObject(eyePhotoAsset.object_key));
-    const { imageBuffer, mock } = await generateLashPreview(
-      baseImage,
-      lashSetLabel,
-      typeof lashStyleLabel === "string" ? lashStyleLabel : "natural finish",
-    );
+    const styleLabel = typeof lashStyleLabel === "string" ? lashStyleLabel : "natural finish";
 
-    const uploaded = await uploadImage({
-      buffer: imageBuffer,
-      ownerUserId: req.currentUser!.id,
-      clientProfileId: client.id,
-      purpose: "lash_preview",
-      consentedByUserId: req.currentUser!.id,
-    });
+    // One user action, one quota/usage-event charge, even though a 2-angle batch makes
+    // 2 real billed gpt-image-1 calls underneath — same per-action (not per-OpenAI-call)
+    // accounting the rest of this file already uses.
+    const previews = await Promise.all(
+      requestedAngles.map(async (angle) => {
+        const { imageBuffer, mock } = await generateLashPreview(baseImage, lashSetLabel, styleLabel, angle);
+        const uploaded = await uploadImage({
+          buffer: imageBuffer,
+          ownerUserId: req.currentUser!.id,
+          clientProfileId: client.id,
+          purpose: "lash_preview",
+          consentedByUserId: req.currentUser!.id,
+        });
+        return { angle, preview_url: uploaded.url, mock };
+      }),
+    );
     await logUsageEvent(req.currentUser!.id, "lash_preview_generation");
 
-    res.status(201).json({ preview_url: uploaded.url, mock });
+    // previews[0] duplicated at the top level keeps this response shape backward
+    // compatible with any caller still expecting the original single-preview fields.
+    res.status(201).json({ preview_url: previews[0].preview_url, mock: previews[0].mock, previews });
   }),
 );
 
