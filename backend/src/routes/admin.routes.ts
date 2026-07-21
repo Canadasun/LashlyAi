@@ -1,4 +1,5 @@
 import { Request, Response, Router } from "express";
+import Stripe from "stripe";
 import { requireAdminAccount } from "./middleware/requireAdminAccount";
 import { requireUser } from "./middleware/requireUser";
 import { requireAdminUser } from "./middleware/requireAdminUser";
@@ -14,6 +15,7 @@ import {
 import { createUserNotification } from "../models/UserNotification";
 import { logLifecycleEvent, getRecentLifecycleEvents } from "../models/UserLifecycleEvent";
 import { expireLapsedSubscriptions } from "../services/subscriptionLifecycle.service";
+import { refundLatestInvoiceForSubscription } from "../services/stripe.service";
 import { getOpenForumReports, resolveForumReport } from "../models/Forum";
 import { sendEmailBestEffort } from "../services/email.service";
 import {
@@ -22,6 +24,7 @@ import {
   adminTwoFactorCodeEmail,
   supportReplyEmail,
   adminDirectContactEmail,
+  stripeRefundIssuedEmail,
 } from "../services/notificationTemplates";
 import { createAdminActionCode, verifyAdminActionCode } from "../models/AdminActionCode";
 import { createFeedbackReply, getFeedbackById } from "../models/Feedback";
@@ -138,11 +141,11 @@ adminRouter.post(
     const existingSubscription = await getSubscriptionByUserId(targetUser.id);
     if (
       existingSubscription?.status === "active" &&
-      existingSubscription.apple_transaction_id
+      (existingSubscription.apple_transaction_id || existingSubscription.stripe_subscription_id)
     ) {
       res.status(409).json({
         error:
-          "This user already has an active paid subscription verified through Apple. Granting a comp subscription would overwrite it, so this was blocked.",
+          "This user already has an active paid subscription verified through Apple or Stripe. Granting a comp subscription would overwrite it, so this was blocked.",
       });
       return;
     }
@@ -211,7 +214,11 @@ adminRouter.post(
     const beneficiary = await findUserById(grant.user_id);
     const currentSubscription = await getSubscriptionByUserId(grant.user_id);
     let subscriptionTouched = false;
-    if (currentSubscription && !currentSubscription.apple_transaction_id) {
+    if (
+      currentSubscription &&
+      !currentSubscription.apple_transaction_id &&
+      !currentSubscription.stripe_subscription_id
+    ) {
       await upsertSubscription({
         userId: grant.user_id,
         plan: currentSubscription.plan,
@@ -244,6 +251,78 @@ adminRouter.post(
     }
 
     res.json({ ...revoked, subscription_downgraded: subscriptionTouched });
+  }),
+);
+
+/**
+ * Refunds a Stripe-billed subscriber's most recent payment (web billing portal only —
+ * Apple/StoreKit subscribers must be refunded through App Store Connect, Apple doesn't
+ * expose a refund API to third parties). Same 2FA-gated pattern as /grants above.
+ * Full refund only in v1, matching stripe.service.ts's refundLatestInvoiceForSubscription.
+ */
+adminRouter.post(
+  "/billing/refund",
+  requireUser,
+  requireAdminUser,
+  asyncHandler(async (req, res) => {
+    if (!(await requireTwoFactorCode(req, res))) return;
+
+    const { email, reason } = (req.body ?? {}) as { email?: unknown; reason?: unknown };
+    if (typeof email !== "string" || !email.trim()) {
+      res.status(400).json({ error: "email is required" });
+      return;
+    }
+    const validReasons: Stripe.RefundCreateParams.Reason[] = [
+      "duplicate",
+      "fraudulent",
+      "requested_by_customer",
+    ];
+    const refundReason =
+      typeof reason === "string" && validReasons.includes(reason as Stripe.RefundCreateParams.Reason)
+        ? (reason as Stripe.RefundCreateParams.Reason)
+        : undefined;
+
+    const targetUser = await findUserByEmail(email);
+    if (!targetUser) {
+      res.status(404).json({ error: `No user found with email ${email}` });
+      return;
+    }
+
+    const subscription = await getSubscriptionByUserId(targetUser.id);
+    if (!subscription?.stripe_subscription_id) {
+      res.status(404).json({
+        error: "This user has no Stripe subscription to refund. Apple/StoreKit subscribers must be refunded via App Store Connect.",
+      });
+      return;
+    }
+
+    const refund = await refundLatestInvoiceForSubscription(
+      subscription.stripe_subscription_id,
+      refundReason,
+    );
+
+    await logLifecycleEvent({
+      userId: targetUser.id,
+      userEmail: targetUser.email,
+      eventType: "mover_refund_issued",
+      details: {
+        source: "admin_refund",
+        stripe_refund_id: refund.id,
+        amount: refund.amount,
+        currency: refund.currency,
+        plan: subscription.plan,
+        reason: refundReason ?? null,
+        issued_by_admin_id: req.currentUser!.id,
+      },
+    });
+    void sendEmailBestEffort({ to: targetUser.email, ...stripeRefundIssuedEmail(subscription.plan) });
+
+    res.status(201).json({
+      stripe_refund_id: refund.id,
+      amount: refund.amount,
+      currency: refund.currency,
+      status: refund.status,
+    });
   }),
 );
 

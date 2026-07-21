@@ -203,6 +203,74 @@ export function subscriptionExpiredEmail(plan: string): EmailContent {
   return { subject, html, text };
 }
 
+export function stripeSubscriptionActiveEmail(plan: string): EmailContent {
+  const subject = `You're on ${BRAND} ${plan}`;
+  const text =
+    `Your ${plan} subscription is now active on ${BRAND}.\n\n` +
+    `Manage your billing details, payment method, or cancel any time from your billing ` +
+    `portal link (sent separately) — no need to contact support for routine changes.`;
+  const html = wrapHtml(
+    `<p style="font-size:16px; line-height:1.6;">You're on ${plan} 🎉</p>
+     <p style="font-size:14px; line-height:1.6; color:#342B2F;">
+       Your ${plan} subscription is now active on ${BRAND}.
+     </p>
+     <p style="font-size:13px; color:#746A6E;">
+       Manage your billing details, payment method, or cancel any time from your
+       billing portal — no need to contact support for routine changes.
+     </p>`,
+  );
+  return { subject, html, text };
+}
+
+// Distinct from subscriptionExpiredEmail above, which points Apple/mobile subscribers
+// to "the app's Subscription screen" — a Stripe/web subscriber never had one, so that
+// copy would be actively wrong for this audience.
+export function stripeSubscriptionCanceledEmail(plan: string): EmailContent {
+  const subject = `Your ${BRAND} ${plan} subscription has ended`;
+  const text =
+    `Your ${plan} subscription on ${BRAND} has ended. Reply to this email or contact ` +
+    `support@lashlyai.com any time to resubscribe.`;
+  const html = wrapHtml(
+    `<p style="font-size:16px; line-height:1.6;">Your ${plan} subscription has ended</p>
+     <p style="font-size:14px; line-height:1.6; color:#342B2F;">
+       Reply to this email or contact support@lashlyai.com any time to resubscribe.
+     </p>`,
+  );
+  return { subject, html, text };
+}
+
+export function stripePaymentFailedEmail(plan: string): EmailContent {
+  const subject = `A payment for your ${BRAND} ${plan} subscription failed`;
+  const text =
+    `We couldn't process your latest payment for ${BRAND} ${plan}. We'll automatically ` +
+    `retry over the next few days — update your payment method from your billing portal ` +
+    `to avoid any interruption to your access.`;
+  const html = wrapHtml(
+    `<p style="font-size:16px; line-height:1.6;">A payment didn't go through</p>
+     <p style="font-size:14px; line-height:1.6; color:#342B2F;">
+       We couldn't process your latest payment for ${BRAND} ${plan}. We'll automatically
+       retry over the next few days — update your payment method from your billing
+       portal to avoid any interruption to your access.
+     </p>`,
+  );
+  return { subject, html, text };
+}
+
+export function stripeRefundIssuedEmail(plan: string): EmailContent {
+  const subject = `Your ${BRAND} ${plan} payment has been refunded`;
+  const text =
+    `A refund has been issued for your ${plan} subscription on ${BRAND}. It typically ` +
+    `takes 5-10 business days to appear on your original payment method.`;
+  const html = wrapHtml(
+    `<p style="font-size:16px; line-height:1.6;">Your payment has been refunded</p>
+     <p style="font-size:14px; line-height:1.6; color:#342B2F;">
+       A refund has been issued for your ${plan} subscription on ${BRAND}. It typically
+       takes 5-10 business days to appear on your original payment method.
+     </p>`,
+  );
+  return { subject, html, text };
+}
+
 export function adminNewForumReportEmail(input: {
   targetType: string;
   reason: string;

@@ -34,6 +34,9 @@ export async function expireLapsedSubscriptions(): Promise<{
       status: "expired",
       appleTransactionId: subscription.apple_transaction_id ?? undefined,
       renewsAt: subscription.renews_at ?? undefined,
+      paymentProvider: subscription.payment_provider,
+      stripeCustomerId: subscription.stripe_customer_id ?? undefined,
+      stripeSubscriptionId: subscription.stripe_subscription_id ?? undefined,
     });
 
     const user = await findUserById(subscription.user_id);

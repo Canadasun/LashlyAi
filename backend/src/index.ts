@@ -8,6 +8,7 @@ import { clientsRouter } from "./routes/clients.routes";
 import { coachRouter } from "./routes/coach.routes";
 import { feedbackRouter } from "./routes/feedback.routes";
 import { subscriptionsRouter } from "./routes/subscriptions.routes";
+import { billingRouter, billingWebhookRouter } from "./routes/billing.routes";
 import { adminRouter } from "./routes/admin.routes";
 import { inventoryRouter } from "./routes/inventory.routes";
 import { marketingRouter } from "./routes/marketing.routes";
@@ -32,6 +33,14 @@ app.use(helmet());
 // the way there would be with cookie-based auth. Revisit if a web frontend with
 // cookie-based sessions is ever added.
 app.use(cors());
+
+// Stripe's webhook signature is verified against the exact raw request bytes, so this
+// must be mounted BEFORE express.json() with its own raw body parser. Scoped to the
+// exact /billing/webhook path (not all of /billing) — express.raw() consumes the
+// request stream, so if it ran for e.g. /billing/checkout too, the later
+// express.json() below would find an already-drained stream instead of real JSON.
+app.use("/billing/webhook", express.raw({ type: "application/json" }), billingWebhookRouter);
+
 app.use(express.json());
 app.use(requestLogger);
 
@@ -45,6 +54,7 @@ app.use("/clients", clientsRouter);
 app.use("/coach", coachRouter);
 app.use("/feedback", feedbackRouter);
 app.use("/subscriptions", subscriptionsRouter);
+app.use("/billing", billingRouter);
 app.use("/admin", adminRouter);
 app.use("/inventory", inventoryRouter);
 app.use("/marketing", marketingRouter);

@@ -264,5 +264,65 @@ Response `200`: updated `Subscription` record.
 
 ---
 
+## Billing (Stripe, web-only)
+
+Separate from the Subscriptions section above — this is for salon/enterprise
+customers who sign up via lashlyai.com, not the mobile app. The mobile app never
+calls any of these; it stays 100% Apple StoreKit / Google Play Billing per App Store
+guideline 3.1.1. Every route below returns `503` if `STRIPE_SECRET_KEY` isn't
+configured, same philosophy as `/subscriptions/verify` and `APPLE_SHARED_SECRET`.
+
+### `POST /billing/checkout`
+Creates a Stripe Checkout Session (hosted by Stripe — no custom checkout UI in this
+repo) for the given plan and returns its URL to redirect the browser to.
+
+Request:
+```json
+{ "plan": "pro" }
+```
+`plan` must be one of `pro`, `educator`, `salon`, `enterprise` — `free` isn't billable.
+Returns `503` if that specific plan has no `STRIPE_PRICE_ID_*` configured yet.
+
+Response `200`: `{ "url": "https://checkout.stripe.com/..." }`
+
+### `POST /billing/portal`
+Creates a Stripe Billing Portal session (hosted by Stripe — cancel, upgrade/downgrade,
+update payment method, view invoices, all without custom UI in this repo) for the
+current user's existing Stripe customer. `404` if the user has never checked out via
+Stripe (no `stripe_customer_id` on their `Subscription` row yet).
+
+Response `200`: `{ "url": "https://billing.stripe.com/..." }`
+
+### `POST /billing/webhook`
+Stripe calls this directly (not the mobile app or a browser) — verified via the
+`stripe-signature` header against `STRIPE_WEBHOOK_SECRET`, not a Bearer token. Handles
+`checkout.session.completed`, `customer.subscription.updated`,
+`customer.subscription.deleted`, `invoice.payment_failed`, and `charge.refunded`,
+syncing the same `Subscription` row the mobile app's `getUserPlan()` reads — a user's
+plan/quota access is correct regardless of which provider they paid through.
+Idempotent per Stripe event id (`stripe_webhook_events` table) — safe against Stripe's
+automatic retries.
+
+### `GET /billing/success` / `GET /billing/cancel`
+Minimal branded landing pages Checkout redirects the browser to after payment
+succeeds or is canceled. No side effects — the actual subscription sync happens via
+the webhook above, not these pages.
+
+### `POST /admin/billing/refund`
+Admin-only (2FA-gated, same pattern as `/admin/grants`). Refunds a Stripe-billed
+subscriber's most recent invoice in full. Apple/StoreKit subscribers must be refunded
+via App Store Connect instead — Apple doesn't expose a refund API to third parties.
+
+Request:
+```json
+{ "email": "artist@example.com", "reason": "requested_by_customer" }
+```
+`reason` is optional, one of Stripe's own reason enum (`duplicate`, `fraudulent`,
+`requested_by_customer`) if provided.
+
+Response `201`: `{ "stripe_refund_id": "...", "amount": 4900, "currency": "usd", "status": "succeeded" }`
+
+---
+
 This spec will grow as Phase 1+ features land. Keep it in sync with actual route
 handlers in `backend/src/routes/`.

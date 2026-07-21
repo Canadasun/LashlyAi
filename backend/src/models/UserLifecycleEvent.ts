@@ -6,6 +6,7 @@ export type LifecycleEventType =
   | "mover_admin_grant"
   | "mover_admin_grant_revoked"
   | "mover_admin_status_changed"
+  | "mover_refund_issued"
   | "leaver_subscription_expired"
   | "leaver_account_deleted";
 
