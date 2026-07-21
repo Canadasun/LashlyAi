@@ -3,6 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { colors } from '../theme/colors';
+import { AccountSettingsScreen } from '../screens/AccountSettingsScreen';
 import { AdminScreen } from '../screens/AdminScreen';
 import { AuthScreen } from '../screens/AuthScreen';
 import { BeforeAfterScreen } from '../screens/BeforeAfterScreen';
@@ -173,6 +174,11 @@ export function RootNavigator() {
                 name="Admin"
                 component={AdminScreen}
                 options={{ title: 'Admin' }}
+              />
+              <Stack.Screen
+                name="AccountSettings"
+                component={AccountSettingsScreen}
+                options={{ title: 'Account Settings' }}
               />
             </>
           )}

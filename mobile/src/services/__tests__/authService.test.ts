@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Keychain from 'react-native-keychain';
 import {
   clearPersistedSession,
+  deleteAccount,
   loadPersistedSession,
   persistSession,
   signIn,
@@ -10,7 +11,7 @@ import {
 import { api } from '../api';
 
 jest.mock('../api', () => ({
-  api: { post: jest.fn() },
+  api: { post: jest.fn(), delete: jest.fn() },
 }));
 
 describe('authService session persistence', () => {
@@ -131,5 +132,35 @@ describe('authService session persistence', () => {
       isAdmin: false,
       emailVerified: true,
     });
+  });
+
+  it('deleteAccount calls DELETE /users/me and clears the persisted session', async () => {
+    await persistSession({
+      email: 'artist@example.com',
+      token: 'abc.def.ghi',
+      mustChangePassword: false,
+      isAdmin: false,
+      emailVerified: false,
+    });
+    (api.delete as jest.Mock).mockResolvedValue(undefined);
+
+    await deleteAccount();
+
+    expect(api.delete).toHaveBeenCalledWith('/users/me');
+    expect(await loadPersistedSession()).toBeNull();
+  });
+
+  it('deleteAccount leaves the session intact when the request fails', async () => {
+    await persistSession({
+      email: 'artist@example.com',
+      token: 'abc.def.ghi',
+      mustChangePassword: false,
+      isAdmin: false,
+      emailVerified: false,
+    });
+    (api.delete as jest.Mock).mockRejectedValue(new Error('network error'));
+
+    await expect(deleteAccount()).rejects.toThrow('network error');
+    expect(await loadPersistedSession()).not.toBeNull();
   });
 });

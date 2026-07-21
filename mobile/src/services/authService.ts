@@ -138,6 +138,14 @@ export async function signOut(): Promise<void> {
   await clearPersistedSession();
 }
 
+// Backend deletes the user row (and their media assets) synchronously, so a 204 here
+// means the account is already gone server-side — just clear the local session same as
+// signOut, there's nothing left to sign back into.
+export async function deleteAccount(): Promise<void> {
+  await api.delete('/users/me');
+  await clearPersistedSession();
+}
+
 // Sessions previously only lived in React state — closing the app (not just
 // backgrounding it) signed everyone out every time, since nothing survived a fresh
 // launch. Restored by AuthContext on mount.

@@ -170,6 +170,25 @@ export function compRevokeEmail(plan: string): EmailContent {
   return { subject, html, text };
 }
 
+export function accountDeletedEmail(): EmailContent {
+  const subject = `Your ${BRAND} account has been deleted`;
+  const text =
+    `Your ${BRAND} account and its data — client profiles, photos, and lash maps — ` +
+    `have been permanently deleted.\n\n` +
+    `If you didn't request this, contact us right away at support@lashlyai.com.`;
+  const html = wrapHtml(
+    `<p style="font-size:16px; line-height:1.6;">Your account has been deleted</p>
+     <p style="font-size:14px; line-height:1.6; color:#342B2F;">
+       Your ${BRAND} account and its data — client profiles, photos, and lash maps —
+       have been permanently deleted.
+     </p>
+     <p style="font-size:13px; color:#746A6E;">
+       If you didn't request this, contact us right away at support@lashlyai.com.
+     </p>`,
+  );
+  return { subject, html, text };
+}
+
 export function subscriptionExpiredEmail(plan: string): EmailContent {
   const subject = `Your ${BRAND} ${plan} subscription has expired`;
   const text =

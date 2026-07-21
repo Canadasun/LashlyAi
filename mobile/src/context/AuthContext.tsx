@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useState } fr
 import { setAuthToken, setUnauthorizedHandler } from '../services/api';
 import {
   changePassword as doChangePassword,
+  deleteAccount as doDeleteAccount,
   forgotPassword as doForgotPassword,
   loadPersistedSession,
   persistSession,
@@ -26,6 +27,7 @@ interface AuthContextValue {
     fullName?: { givenName?: string | null; familyName?: string | null } | null,
   ) => Promise<void>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   forgotPassword: (email: string) => Promise<void>;
   resetPassword: (email: string, code: string, newPassword: string) => Promise<void>;
@@ -126,6 +128,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setSession(null);
   }, []);
 
+  const deleteAccount = useCallback(async () => {
+    await doDeleteAccount();
+    setAuthToken(undefined);
+    setSession(null);
+  }, []);
+
   const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {
     const s = await doChangePassword(currentPassword, newPassword);
     await persistSession(s);
@@ -143,6 +151,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signIn,
         signInWithApple,
         signOut,
+        deleteAccount,
         changePassword,
         forgotPassword,
         resetPassword,

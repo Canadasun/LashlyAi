@@ -27,4 +27,5 @@ export type RootStackParamList = {
   PhotoEditor: { clientId: string; photoUri: string };
   ReferenceGuide: undefined;
   Admin: undefined;
+  AccountSettings: undefined;
 };

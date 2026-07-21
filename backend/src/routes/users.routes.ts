@@ -22,6 +22,8 @@ import { deleteStoredMediaAsset } from "../services/storage.service";
 import { getUnseenNotifications, markNotificationSeen } from "../models/UserNotification";
 import { logLifecycleEvent } from "../models/UserLifecycleEvent";
 import { getSubscriptionByUserId } from "../models/Subscription";
+import { sendEmailBestEffort } from "../services/email.service";
+import { accountDeletedEmail } from "../services/notificationTemplates";
 
 export const usersRouter = Router();
 
@@ -59,6 +61,15 @@ usersRouter.delete(
       await deleteStoredMediaAsset(asset);
     }
     await deleteUserById(userId);
+
+    // Sent after the row is actually gone, not before — this confirms a deletion that
+    // happened, never one that's merely been requested. Best-effort like every other
+    // lifecycle email: a delivery failure here must not roll back or fail the deletion.
+    await sendEmailBestEffort({
+      to: req.currentUser!.email,
+      ...accountDeletedEmail(),
+    });
+
     res.status(204).send();
   }),
 );

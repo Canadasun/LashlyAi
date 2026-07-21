@@ -318,6 +318,7 @@ export function HomeDashboardScreen({ navigation }: Props) {
               <TouchableOpacity style={styles.growLink} onPress={() => navigation.navigate('LessonList')}><Text style={styles.growText}>Learn & improve</Text></TouchableOpacity>
               <TouchableOpacity style={styles.growLink} onPress={() => navigation.navigate('ForumList')}><Text style={styles.growText}>Community</Text></TouchableOpacity>
               <TouchableOpacity style={styles.growLink} onPress={() => navigation.navigate('ReferenceGuide')}><Text style={styles.growText}>Reference guide</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.growLink} onPress={() => navigation.navigate('AccountSettings')}><Text style={styles.growText}>Settings</Text></TouchableOpacity>
               {session?.isAdmin && (
                 <TouchableOpacity style={styles.growLink} onPress={() => navigation.navigate('Admin')}><Text style={styles.growText}>Admin</Text></TouchableOpacity>
               )}
