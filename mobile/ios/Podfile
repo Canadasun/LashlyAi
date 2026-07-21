@@ -5,7 +5,10 @@ require Pod::Executable.execute_command('node', ['-p',
     {paths: [process.argv[1]]},
   )', __dir__]).strip
 
-platform :ios, min_ios_version_supported
+# AR Lash Preview's face-detection pod (GoogleMLKit/FaceDetection) requires iOS 15.5+ —
+# a small bump from RN's own 15.1 floor (min_ios_version_supported), overridden here
+# rather than left at the default.
+platform :ios, '15.5'
 prepare_react_native_project!
 
 # Firebase's Swift pods (FirebaseCoreInternal, FirebaseCrashlytics, FirebaseSessions)

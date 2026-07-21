@@ -14,6 +14,7 @@ export type RootStackParamList = {
   };
   LashMap: { clientId: string; lashMap: LashMap };
   ChairsideMode: { clientId: string; lashMap: LashMap };
+  ARLashPreview: undefined;
   Coach: { clientId?: string; clientName?: string } | undefined;
   Feedback: undefined;
   Paywall: undefined;

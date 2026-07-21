@@ -38,7 +38,7 @@
 		<true/>
 	</dict>
 	<key>NSCameraUsageDescription</key>
-	<string>LashlyAI needs camera access to photograph a client's eye for AI lash mapping.</string>
+	<string>LashlyAI needs camera access to photograph a client's eye for AI lash mapping, and for the live AR lash preview.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>LashlyAI needs photo library access to attach an existing eye photo for AI lash mapping.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>

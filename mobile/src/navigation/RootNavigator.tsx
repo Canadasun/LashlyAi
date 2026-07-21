@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { colors } from '../theme/colors';
 import { AccountSettingsScreen } from '../screens/AccountSettingsScreen';
 import { AdminScreen } from '../screens/AdminScreen';
+import { ARLashPreviewScreen } from '../screens/ARLashPreviewScreen';
 import { AuthScreen } from '../screens/AuthScreen';
 import { BeforeAfterScreen } from '../screens/BeforeAfterScreen';
 import { CameraUploadScreen } from '../screens/CameraUploadScreen';
@@ -110,6 +111,11 @@ export function RootNavigator() {
               <Stack.Screen
                 name="ChairsideMode"
                 component={ChairsideModeScreen}
+                options={{ headerShown: false, presentation: 'fullScreenModal' }}
+              />
+              <Stack.Screen
+                name="ARLashPreview"
+                component={ARLashPreviewScreen}
                 options={{ headerShown: false, presentation: 'fullScreenModal' }}
               />
               <Stack.Screen

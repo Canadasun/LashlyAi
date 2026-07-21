@@ -11,6 +11,8 @@ module.exports = {
     '^react-native-iap$': '<rootDir>/__mocks__/reactNativeIap.js',
     '^react-native-keychain$': '<rootDir>/__mocks__/reactNativeKeychain.js',
     '^@react-native-voice/voice$': '<rootDir>/__mocks__/reactNativeVoice.js',
+    '^react-native-vision-camera$': '<rootDir>/__mocks__/reactNativeVisionCamera.js',
+    '^react-native-vision-camera-face-detector$': '<rootDir>/__mocks__/visionCameraFaceDetection.js',
     '^@invertase/react-native-apple-authentication$':
       '<rootDir>/__mocks__/reactNativeAppleAuthentication.js',
   },
