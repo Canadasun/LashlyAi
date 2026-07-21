@@ -13,6 +13,7 @@ import {
   findUserByEmail,
   linkAppleIdToUser,
   markEmailVerified,
+  syncAdminFlagFromAllowlist,
   updateUserPasswordHash,
   User,
   UserRole,
@@ -134,12 +135,18 @@ function validateCredentials(reqBody: unknown): { email: string; password: strin
   return { email, password: body.password, role };
 }
 
-function issueSession(user: User) {
-  const token = createSessionToken({ userId: user.id, email: user.email });
+// Async so every session-issuing entry point (register/login/Apple/password-reset)
+// reflects a same-request ADMIN_EMAILS sync — without this, a brand-new admin's very
+// first login would cache a stale isAdmin:false client-side until their next
+// authenticated request (requireUser's own sync) quietly fixed the DB row underneath
+// them, invisible to the client until they signed out and back in.
+async function issueSession(user: User) {
+  const synced = await syncAdminFlagFromAllowlist(user);
+  const token = createSessionToken({ userId: synced.id, email: synced.email });
   // Defensive strip: callers may pass a UserRow (which carries password_hash) here —
   // TS structural typing lets that through silently since UserRow extends User, and
   // JSON.stringify would otherwise serialize the hash straight into the response body.
-  const { password_hash: _passwordHash, ...safeUser } = user as User & { password_hash?: unknown };
+  const { password_hash: _passwordHash, ...safeUser } = synced as User & { password_hash?: unknown };
   return { user: safeUser, token };
 }
 
@@ -162,7 +169,7 @@ authRouter.post(
     if (existing) {
       const passwordHash = hashPassword(password);
       const upgraded = await updateUserPasswordHash(existing.id, passwordHash);
-      res.status(200).json(issueSession(upgraded));
+      res.status(200).json(await issueSession(upgraded));
       return;
     }
 
@@ -184,7 +191,7 @@ authRouter.post(
     const verificationCode = await createEmailVerificationCode(user.id);
     void sendEmailBestEffort({ to: user.email, ...emailVerificationEmail(verificationCode) });
 
-    res.status(201).json(issueSession(user));
+    res.status(201).json(await issueSession(user));
   }),
 );
 
@@ -200,7 +207,7 @@ authRouter.post(
       return;
     }
 
-    res.status(200).json(issueSession(user));
+    res.status(200).json(await issueSession(user));
   }),
 );
 
@@ -239,7 +246,7 @@ authRouter.post(
 
     const existingByAppleId = await findUserByAppleId(identity.appleUserId);
     if (existingByAppleId) {
-      res.status(200).json(issueSession(existingByAppleId));
+      res.status(200).json(await issueSession(existingByAppleId));
       return;
     }
 
@@ -262,7 +269,7 @@ authRouter.post(
         return;
       }
       const linked = await linkAppleIdToUser(existingByEmail.id, identity.appleUserId);
-      res.status(200).json(issueSession(linked));
+      res.status(200).json(await issueSession(linked));
       return;
     }
 
@@ -287,7 +294,7 @@ authRouter.post(
       void sendEmailBestEffort({ to: user.email, ...emailVerificationEmail(verificationCode) });
     }
 
-    res.status(201).json(issueSession(user));
+    res.status(201).json(await issueSession(user));
   }),
 );
 
@@ -323,7 +330,7 @@ authRouter.post(
     }
 
     const updated = await updateUserPasswordHash(user.id, hashPassword(newPassword), false);
-    res.status(200).json(issueSession(updated));
+    res.status(200).json(await issueSession(updated));
   }),
 );
 
@@ -391,7 +398,7 @@ authRouter.post(
     }
 
     const updated = await updateUserPasswordHash(user.id, hashPassword(newPassword), false);
-    res.status(200).json(issueSession(updated));
+    res.status(200).json(await issueSession(updated));
   }),
 );
 
@@ -418,7 +425,7 @@ authRouter.post(
     }
 
     const updated = await markEmailVerified(req.currentUser!.id);
-    res.status(200).json(issueSession(updated));
+    res.status(200).json(await issueSession(updated));
   }),
 );
 
