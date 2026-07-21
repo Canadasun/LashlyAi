@@ -182,6 +182,14 @@ export function LashMapScreen({ route, navigation }: Props) {
       <Text style={styles.title}>Lash Map</Text>
       <Text style={styles.savedNote}>Saved to this client's history</Text>
 
+      {isTablet && (
+        <TouchableOpacity
+          style={styles.chairsideButton}
+          onPress={() => navigation.navigate('ChairsideMode', { clientId, lashMap })}>
+          <Text style={styles.chairsideButtonText}>Chairside Mode</Text>
+        </TouchableOpacity>
+      )}
+
       {lashMap.difficulty_label && (
         <View style={styles.difficultyRow}>
           <DifficultyBadge label={lashMap.difficulty_label} estimatedMinutes={lashMap.estimated_minutes} />
@@ -468,6 +476,15 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   difficultyRow: { alignSelf: 'flex-start', marginBottom: 16 },
+  chairsideButton: {
+    alignSelf: 'stretch',
+    backgroundColor: colors.ink,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  chairsideButtonText: { color: colors.background, fontWeight: '700', fontSize: 14 },
   diagramCard: {
     backgroundColor: '#ffffff',
     borderRadius: 12,

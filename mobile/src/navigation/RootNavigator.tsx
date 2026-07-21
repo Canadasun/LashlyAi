@@ -8,6 +8,7 @@ import { AdminScreen } from '../screens/AdminScreen';
 import { AuthScreen } from '../screens/AuthScreen';
 import { BeforeAfterScreen } from '../screens/BeforeAfterScreen';
 import { CameraUploadScreen } from '../screens/CameraUploadScreen';
+import { ChairsideModeScreen } from '../screens/ChairsideModeScreen';
 import { ChangePasswordScreen } from '../screens/ChangePasswordScreen';
 import { ClientListScreen } from '../screens/ClientListScreen';
 import { ClientProfileScreen } from '../screens/ClientProfileScreen';
@@ -105,6 +106,11 @@ export function RootNavigator() {
                 name="LashMap"
                 component={LashMapScreen}
                 options={{ title: 'Lash Map' }}
+              />
+              <Stack.Screen
+                name="ChairsideMode"
+                component={ChairsideModeScreen}
+                options={{ headerShown: false, presentation: 'fullScreenModal' }}
               />
               <Stack.Screen
                 name="Coach"

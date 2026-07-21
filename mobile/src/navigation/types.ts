@@ -13,6 +13,7 @@ export type RootStackParamList = {
     photoUrl?: string;
   };
   LashMap: { clientId: string; lashMap: LashMap };
+  ChairsideMode: { clientId: string; lashMap: LashMap };
   Coach: { clientId?: string; clientName?: string } | undefined;
   Feedback: undefined;
   Paywall: undefined;
