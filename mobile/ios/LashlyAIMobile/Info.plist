@@ -43,6 +43,10 @@
 	<string>LashlyAI needs photo library access to attach an existing eye photo for AI lash mapping.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>LashlyAI needs permission to save lash maps and photos to your camera roll.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>LashlyAI needs microphone access to dictate hands-free client notes during a service.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>LashlyAI uses on-device speech recognition to turn your dictated notes into text.</string>
 	<key>RCTNewArchEnabled</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

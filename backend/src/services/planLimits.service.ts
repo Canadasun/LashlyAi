@@ -234,3 +234,13 @@ export async function checkClientAwareCoachAccess(userId: string): Promise<{ all
   const plan = await getUserPlan(userId);
   return { allowed: plan !== "free" || !ENFORCEMENT_ENABLED };
 }
+
+/**
+ * Voice-dictated client notes (mobile/src/hooks/useVoiceDictation.ts, on-device
+ * speech-to-text) are a flat Pro-only feature — same shape as the other flat gates in
+ * this file.
+ */
+export async function checkClientNotesAccess(userId: string): Promise<{ allowed: boolean }> {
+  const plan = await getUserPlan(userId);
+  return { allowed: plan !== "free" || !ENFORCEMENT_ENABLED };
+}

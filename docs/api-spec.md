@@ -235,6 +235,23 @@ Response `200`:
 }
 ```
 
+### `POST /clients/:id/notes`
+Pro tier (`checkClientNotesAccess`). Quick client notes — dictated hands-free via
+on-device speech-to-text (`source: "voice"`, see Chairside Mode's mic button on
+mobile) or typed manually (`source: "manual"`, the default). Kept as its own table,
+separate from the single `client_profiles.notes` scalar (which has no append/history
+mechanism) and from `lash_history` (which is specifically lash-map-shaped entries).
+
+Request:
+```json
+{ "text": "Switching outer zone to D curl, client blinking a lot", "source": "voice" }
+```
+
+Response `201`: the saved `ClientNote` record.
+
+### `GET /clients/:id/notes`
+Pro tier. Returns the client's notes, newest first.
+
 ## Coach
 
 ### `POST /coach/ask`

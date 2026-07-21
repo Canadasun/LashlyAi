@@ -19,6 +19,7 @@ import {
 import { getLashMapTemplateById } from "../models/LashMapTemplate";
 import { createRetentionCheck, getRetentionChecksByClientProfileId } from "../models/RetentionCheck";
 import { estimateNextFill } from "../services/retentionInsights.service";
+import { createClientNote, getClientNotesByClientProfileId } from "../models/ClientNote";
 import {
   createPhotoFeedback,
   getPhotoFeedbackByClientProfileId,
@@ -57,6 +58,7 @@ import {
   checkPhotoFeedbackQuota,
   checkPhotoRetouchQuota,
   checkRetentionCheckQuota,
+  checkClientNotesAccess,
   checkRetentionInsightsAccess,
   ENFORCEMENT_ENABLED,
   getUserPlan,
@@ -626,5 +628,55 @@ clientsRouter.get(
       checks,
       next_fill_estimate: estimateNextFill(checks),
     });
+  }),
+);
+
+clientsRouter.post(
+  "/:id/notes",
+  requireUser,
+  asyncHandler(async (req, res) => {
+    const client = await loadOwnedClient(req, res);
+    if (!client) return;
+
+    const access = await checkClientNotesAccess(req.currentUser!.id);
+    if (!access.allowed) {
+      res.status(403).json({ error: "Client notes are a Pro feature. Upgrade to Pro to use them." });
+      return;
+    }
+
+    const { text, source } = req.body ?? {};
+    if (!text || typeof text !== "string" || !text.trim()) {
+      res.status(400).json({ error: "text is required" });
+      return;
+    }
+    if (source !== undefined && source !== "manual" && source !== "voice") {
+      res.status(400).json({ error: 'source must be "manual" or "voice"' });
+      return;
+    }
+
+    const note = await createClientNote({
+      clientProfileId: client.id,
+      text: text.trim(),
+      source: source === "voice" ? "voice" : "manual",
+    });
+    res.status(201).json(note);
+  }),
+);
+
+clientsRouter.get(
+  "/:id/notes",
+  requireUser,
+  asyncHandler(async (req, res) => {
+    const client = await loadOwnedClient(req, res);
+    if (!client) return;
+
+    const access = await checkClientNotesAccess(req.currentUser!.id);
+    if (!access.allowed) {
+      res.status(403).json({ error: "Client notes are a Pro feature. Upgrade to Pro to use them." });
+      return;
+    }
+
+    const notes = await getClientNotesByClientProfileId(client.id);
+    res.json(notes);
   }),
 );

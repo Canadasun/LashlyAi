@@ -7,7 +7,8 @@ import { colors } from '../theme/colors';
 import { RootStackParamList } from '../navigation/types';
 import { LashMapZoneDiagram } from '../components/LashMapZoneDiagram';
 import { DifficultyBadge } from '../components/DifficultyBadge';
-import { DifficultyLabel } from '../types/api';
+import { VoiceNoteRecorder } from '../components/VoiceNoteRecorder';
+import { ClientNote, DifficultyLabel } from '../types/api';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ChairsideMode'>;
 
@@ -31,15 +32,18 @@ function BigStat({ label, value }: { label: string; value: string }) {
  * iPad-only chairside reference mode (see LashMapScreen's tablet-only entry point):
  * a high-contrast, large-text, distraction-free full-screen readout of the current
  * lash map, meant to be glanced at from across the propped-up tablet's own stand
- * during application — not a data-entry screen, purely a display. Deliberately no
- * "keep screen awake" — that needs a new native dependency (react-native-keep-awake)
- * this pass didn't take on; if the screen auto-locks mid-service, a tap wakes it back
- * to the same content since nothing here is stateful beyond the passed-in lashMap.
+ * during application. The one interactive element is the voice-note recorder below —
+ * a single tap to start/stop dictating, no typing — everything else stays read-only by
+ * design. Deliberately no "keep screen awake" — that needs a new native dependency
+ * (react-native-keep-awake) this pass didn't take on; if the screen auto-locks
+ * mid-service, a tap wakes it back to the same content since nothing here is stateful
+ * beyond the passed-in lashMap and the notes saved so far.
  */
 export function ChairsideModeScreen({ route, navigation }: Props) {
   const { clientId, lashMap } = route.params;
   const insets = useSafeAreaInsets();
   const [clientName, setClientName] = useState('');
+  const [savedNotes, setSavedNotes] = useState<ClientNote[]>([]);
 
   useEffect(() => {
     api
@@ -97,6 +101,20 @@ export function ChairsideModeScreen({ route, navigation }: Props) {
           </View>
         </View>
       )}
+
+      <View style={styles.notesSection}>
+        <Text style={styles.notesTitle}>Quick Note</Text>
+        <VoiceNoteRecorder
+          clientId={clientId}
+          dark
+          onSaved={(note) => setSavedNotes((prev) => [note, ...prev])}
+        />
+        {savedNotes.map((note) => (
+          <Text key={note.id} style={styles.savedNoteText}>
+            ✓ {note.text}
+          </Text>
+        ))}
+      </View>
     </ScrollView>
   );
 }
@@ -156,4 +174,13 @@ const styles = StyleSheet.create({
   texturedPane: { alignItems: 'center', marginHorizontal: 24 },
   texturedLabel: { color: colors.accent, fontSize: 18, fontWeight: '700', marginBottom: 8 },
   texturedCard: { backgroundColor: colors.surface, borderRadius: 14, padding: 10 },
+  notesSection: { width: '100%', maxWidth: 480, marginTop: 36 },
+  notesTitle: {
+    color: colors.background,
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  savedNoteText: { color: colors.background, fontSize: 13, marginTop: 10, opacity: 0.85 },
 });

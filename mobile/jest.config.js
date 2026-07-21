@@ -10,6 +10,7 @@ module.exports = {
     '^react-native-view-shot$': '<rootDir>/__mocks__/reactNativeViewShot.js',
     '^react-native-iap$': '<rootDir>/__mocks__/reactNativeIap.js',
     '^react-native-keychain$': '<rootDir>/__mocks__/reactNativeKeychain.js',
+    '^@react-native-voice/voice$': '<rootDir>/__mocks__/reactNativeVoice.js',
     '^@invertase/react-native-apple-authentication$':
       '<rootDir>/__mocks__/reactNativeAppleAuthentication.js',
   },

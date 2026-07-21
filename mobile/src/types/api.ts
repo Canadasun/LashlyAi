@@ -135,6 +135,14 @@ export interface RetentionInsightsSummary {
   total_checks: number;
 }
 
+export interface ClientNote {
+  id: string;
+  client_profile_id: string;
+  text: string;
+  source: 'manual' | 'voice';
+  created_at: string;
+}
+
 export interface FeedbackReply {
   id: string;
   feedback_id: string;

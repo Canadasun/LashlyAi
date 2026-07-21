@@ -15,7 +15,7 @@ import {
 import { api, authenticatedImageSource } from '../services/api';
 import { colors } from '../theme/colors';
 import { RootStackParamList } from '../navigation/types';
-import { ClientProfile, ClientRetentionInsights, LashMap } from '../types/api';
+import { ClientNote, ClientProfile, ClientRetentionInsights, LashMap } from '../types/api';
 
 interface ClientProfileViewProps {
   clientId: string;
@@ -37,6 +37,7 @@ export function ClientProfileView({ clientId, navigation, onDeleted }: ClientPro
   const [client, setClient] = useState<ClientProfile | null>(null);
   const [lashMaps, setLashMaps] = useState<LashMap[]>([]);
   const [retentionInsights, setRetentionInsights] = useState<ClientRetentionInsights | null>(null);
+  const [notes, setNotes] = useState<ClientNote[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -88,6 +89,13 @@ export function ClientProfileView({ clientId, navigation, onDeleted }: ClientPro
       setRetentionInsights(insights);
     } catch {
       setRetentionInsights(null);
+    }
+
+    try {
+      const notesResult = await api.get<ClientNote[]>(`/clients/${clientId}/notes`);
+      setNotes(notesResult);
+    } catch {
+      setNotes([]);
     }
   }, [clientId]);
 
@@ -207,6 +215,21 @@ export function ClientProfileView({ clientId, navigation, onDeleted }: ClientPro
         </View>
       )}
 
+      {notes.length > 0 && (
+        <View style={styles.notesCard}>
+          <Text style={styles.retentionTitle}>Notes</Text>
+          {notes.slice(0, 5).map((note) => (
+            <View key={note.id} style={styles.noteRow}>
+              <Text style={styles.noteText}>
+                {note.source === 'voice' ? '🎤 ' : ''}
+                {note.text}
+              </Text>
+              <Text style={styles.retentionRowDate}>{new Date(note.created_at).toLocaleDateString()}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+
       <Text style={styles.sectionTitle}>Lash Map History</Text>
       {lashMaps.length === 0 ? (
         <Text style={styles.empty}>No lash maps saved yet.</Text>
@@ -278,6 +301,20 @@ const styles = StyleSheet.create({
   },
   retentionRowText: { fontSize: 12, color: colors.text, flex: 1, marginRight: 8 },
   retentionRowDate: { fontSize: 11, color: colors.muted },
+  notesCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 14,
+    marginTop: 8,
+  },
+  noteRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  noteText: { fontSize: 12, color: colors.text, flex: 1, marginRight: 8 },
   mapRow: {
     backgroundColor: '#ffffff',
     borderRadius: 10,
