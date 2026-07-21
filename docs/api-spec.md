@@ -76,13 +76,34 @@ Response `201`:
 ```
 
 ### `POST /clients/:id/lash-map`
-Body: `{ "eye_analysis_id": "..." }` (or inline eye_analysis JSON).
-Runs the deterministic rules engine (see `/docs/lash-rules.md`) to produce a `LashMap`.
+Body: `{ "eye_analysis_id": "..." }` (or inline eye_analysis JSON). Optionally
+`requested_style` / `requested_technique` / `requested_lash_set` / `requested_lash_style`,
+or `custom_lash_map` (Pro-gated, `{label, curl, diameter, lengths}`), or `template_id`
+(Pro-gated, applies a saved [`/lash-map-templates`](#post-lash-map-templates) entry —
+equivalent to submitting that same template's fields inline).
+Runs the deterministic rules engine (see `/docs/lash-rules.md`) to produce a `LashMap`,
+including a computed Service Difficulty score/label and estimated appointment-length
+range (see `backend/src/services/serviceDifficulty.service.ts` — estimates, not
+owner-verified figures).
 
-Response `201`: full `LashMap` record.
+Response `201`: full `LashMap` record, including `difficulty_score`, `difficulty_label`
+(`Quick | Standard | Technical | Expert-Level`), and `estimated_minutes: {min, max}`.
 
 ### `GET /clients/:id/lash-maps`
 Returns array of saved `LashMap` records for the client.
+
+### `POST /lash-map-templates`
+Pro tier (same gate as `custom_lash_map` above — zero access on free). Body:
+`{label, curl, diameter, lengths}`, same shape/validation as an inline custom lash map.
+Saves a reusable personal "signature set" independent of any one client.
+
+Response `201`: the saved `LashMapTemplate` record.
+
+### `GET /lash-map-templates`
+Pro tier. Returns the current user's saved templates, newest first.
+
+### `DELETE /lash-map-templates/:id`
+Pro tier, ownership-checked (403 if it belongs to another user). Response `204`.
 
 ### `POST /clients/:id/photo-feedback`
 Multipart upload (photo of the artist's **completed** lash application, not the

@@ -16,6 +16,7 @@ import {
   getLashMapsByClientProfileId,
   updateLashMapRetention,
 } from "../models/LashMap";
+import { getLashMapTemplateById } from "../models/LashMapTemplate";
 import {
   createPhotoFeedback,
   getPhotoFeedbackByClientProfileId,
@@ -214,7 +215,7 @@ clientsRouter.post(
     }
 
     let customLashMap: CustomLashMapInput | undefined;
-    if (req.body?.custom_lash_map) {
+    if (req.body?.custom_lash_map || req.body?.template_id) {
       const customAccess = await checkCustomLashMapAccess(req.currentUser!.id);
       if (!customAccess.allowed) {
         res.status(403).json({
@@ -222,14 +223,31 @@ clientsRouter.post(
         });
         return;
       }
-      try {
-        customLashMap = validateCustomLashMapInput(req.body.custom_lash_map);
-      } catch (error) {
-        if (error instanceof CustomLashMapValidationError) {
-          res.status(400).json({ error: error.message });
+      if (req.body?.template_id) {
+        // Applying a saved signature-set template is equivalent to submitting the same
+        // custom_lash_map inline — same validation, same gate, just sourced from a
+        // saved row instead of the request body.
+        const template = await getLashMapTemplateById(req.body.template_id);
+        if (!template || template.owner_user_id !== req.currentUser!.id) {
+          res.status(404).json({ error: "Template not found" });
           return;
         }
-        throw error;
+        customLashMap = {
+          label: template.label,
+          curl: template.curl,
+          diameter: template.diameter,
+          lengths: template.lengths,
+        };
+      } else {
+        try {
+          customLashMap = validateCustomLashMapInput(req.body.custom_lash_map);
+        } catch (error) {
+          if (error instanceof CustomLashMapValidationError) {
+            res.status(400).json({ error: error.message });
+            return;
+          }
+          throw error;
+        }
       }
     }
 
@@ -246,6 +264,12 @@ clientsRouter.post(
       lash_map_id: saved.id,
       style: saved.style,
       created_at: saved.created_at,
+      // Carried on the history entry (not just the lash_maps row) so the client list
+      // can show a difficulty badge per client from the GET /clients response alone,
+      // no extra per-client query needed.
+      difficulty_score: saved.difficulty_score,
+      difficulty_label: saved.difficulty_label,
+      estimated_minutes: saved.estimated_minutes,
     });
     await logUsageEvent(req.currentUser!.id, "lash_map_generation");
 

@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import ViewShot, { ViewShotRef } from 'react-native-view-shot';
 import { LashMapZoneDiagram } from '../components/LashMapZoneDiagram';
+import { DifficultyBadge } from '../components/DifficultyBadge';
 import { api, authenticatedImageSource } from '../services/api';
 import { saveImageToDevice, saveLocalImageToDevice } from '../services/saveToDevice';
 import { isQuotaExceededError, showQuotaExceededAlert } from '../services/quotaError';
@@ -170,6 +171,12 @@ export function LashMapScreen({ route, navigation }: Props) {
       <ResponsiveContainer maxWidth={640}>
       <Text style={styles.title}>Lash Map</Text>
       <Text style={styles.savedNote}>Saved to this client's history</Text>
+
+      {lashMap.difficulty_label && (
+        <View style={styles.difficultyRow}>
+          <DifficultyBadge label={lashMap.difficulty_label} estimatedMinutes={lashMap.estimated_minutes} />
+        </View>
+      )}
 
       <ViewShot ref={diagramRef} options={{ format: 'png', quality: 1 }}>
         <View style={styles.diagramCard}>
@@ -374,6 +381,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     marginBottom: 16,
   },
+  difficultyRow: { alignSelf: 'flex-start', marginBottom: 16 },
   diagramCard: {
     backgroundColor: '#ffffff',
     borderRadius: 12,

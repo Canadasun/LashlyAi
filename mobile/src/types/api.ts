@@ -20,13 +20,24 @@ export interface EyeAnalysis {
   mock: boolean;
 }
 
+export type DifficultyLabel = 'Quick' | 'Standard' | 'Technical' | 'Expert-Level';
+
+export interface LashHistoryEntry {
+  lash_map_id: string;
+  style: string;
+  created_at: string;
+  difficulty_score?: number;
+  difficulty_label?: DifficultyLabel;
+  estimated_minutes?: { min: number; max: number };
+}
+
 export interface ClientProfile {
   id: string;
   owner_user_id: string;
   name: string;
   photos: string[];
   eye_analysis: EyeAnalysis | null;
-  lash_history: { lash_map_id: string; style: string; created_at: string }[];
+  lash_history: LashHistoryEntry[];
   notes: string | null;
   created_at: string;
 }
@@ -68,6 +79,19 @@ export interface LashMap {
   lash_style?: string;
   lash_set_label?: string;
   lash_style_label?: string;
+  difficulty_score?: number;
+  difficulty_label?: DifficultyLabel;
+  estimated_minutes?: { min: number; max: number };
+}
+
+export interface LashMapTemplate {
+  id: string;
+  owner_user_id: string;
+  label: string;
+  curl: 'C' | 'CC' | 'D';
+  diameter: string;
+  lengths: Record<string, number>;
+  created_at: string;
 }
 
 export interface FeedbackReply {

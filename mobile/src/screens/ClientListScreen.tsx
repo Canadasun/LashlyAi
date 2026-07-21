@@ -22,6 +22,14 @@ import { RootStackParamList } from '../navigation/types';
 import { ClientProfile } from '../types/api';
 import { useDeviceClass } from '../hooks/useDeviceClass';
 import { ClientProfileView } from './ClientProfileView';
+import { DifficultyBadge } from '../components/DifficultyBadge';
+
+// Most recent lash map that has a difficulty score — older maps predate this feature
+// and have no score, so they're skipped rather than treated as a 0 (Quick).
+function latestDifficulty(client: ClientProfile) {
+  const scored = client.lash_history.filter((entry) => entry.difficulty_label);
+  return scored.length ? scored[scored.length - 1] : undefined;
+}
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ClientList'>;
 
@@ -76,6 +84,10 @@ export function ClientListScreen({ route, navigation }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [queryInput, setQueryInput] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
+  // iPad-only: the phone list stays a plain recency-ordered list (matches the server's
+  // default ORDER BY created_at DESC) — the bigger iPad screen has room for a client
+  // triage view sorted by how technical their next appointment is likely to be.
+  const [sortByDifficulty, setSortByDifficulty] = useState(false);
 
   useEffect(() => {
     const handle = setTimeout(() => setDebouncedQuery(queryInput.trim()), 300);
@@ -132,6 +144,18 @@ export function ClientListScreen({ route, navigation }: Props) {
       navigation.navigate('PhotoEditor', { clientId: client.id, photoUri: asset.uri });
     }
   };
+
+  const displayedClients =
+    isTablet && sortByDifficulty
+      ? [...clients].sort((a, b) => {
+          const scoreA = latestDifficulty(a)?.difficulty_score;
+          const scoreB = latestDifficulty(b)?.difficulty_score;
+          if (scoreA == null && scoreB == null) return 0;
+          if (scoreA == null) return 1; // unscored clients sort to the end
+          if (scoreB == null) return -1;
+          return scoreB - scoreA;
+        })
+      : clients;
 
   const openClient = (client: ClientProfile) => {
     if (pickerMode) {
@@ -198,6 +222,18 @@ export function ClientListScreen({ route, navigation }: Props) {
         />
       </View>
 
+      {isTablet && !pickerMode && (
+        <TouchableOpacity
+          style={styles.sortToggle}
+          onPress={() => setSortByDifficulty((prev) => !prev)}
+          accessibilityRole="button"
+          accessibilityLabel="Toggle sort by service difficulty">
+          <Text style={[styles.sortToggleText, sortByDifficulty && styles.sortToggleTextActive]}>
+            {sortByDifficulty ? '✓ Sorted by difficulty' : 'Sort by difficulty'}
+          </Text>
+        </TouchableOpacity>
+      )}
+
       {!pickerMode && (
         <ScrollView
           horizontal
@@ -235,7 +271,7 @@ export function ClientListScreen({ route, navigation }: Props) {
         <Text style={styles.error}>{error}</Text>
       ) : (
         <FlatList
-          data={clients}
+          data={displayedClients}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
           ListEmptyComponent={
@@ -246,6 +282,7 @@ export function ClientListScreen({ route, navigation }: Props) {
           renderItem={({ item }) => {
             const hasPhoto = item.photos.length > 0;
             const disabledInPicker = pickerMode && !hasPhoto;
+            const difficulty = latestDifficulty(item);
             return (
               <TouchableOpacity
                 style={[
@@ -273,6 +310,9 @@ export function ClientListScreen({ route, navigation }: Props) {
                       ? `${item.eye_analysis.eye_shape} eye profile`
                       : 'Profile ready for analysis'}
                   </Text>
+                  {!pickerMode && difficulty?.difficulty_label && (
+                    <DifficultyBadge label={difficulty.difficulty_label} compact />
+                  )}
                 </View>
                 <Text style={styles.chevron}>›</Text>
               </TouchableOpacity>
@@ -347,6 +387,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.ink,
   },
+  sortToggle: {
+    alignSelf: 'flex-start',
+    marginTop: 10,
+    marginLeft: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  sortToggleText: { fontSize: 12, fontWeight: '600', color: colors.muted },
+  sortToggleTextActive: { color: colors.primary },
   toolsRow: { marginTop: 12, paddingLeft: 16 },
   // Without this, the ScrollView's inner content container has no cross-axis
   // constraint, so each chip's default alignItems:'stretch' pulls it to fill the

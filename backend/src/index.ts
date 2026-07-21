@@ -15,6 +15,7 @@ import { marketingRouter } from "./routes/marketing.routes";
 import { lessonsRouter } from "./routes/lessons.routes";
 import { forumRouter } from "./routes/forum.routes";
 import { mediaRouter } from "./routes/media.routes";
+import { lashMapTemplatesRouter } from "./routes/lashMapTemplates.routes";
 import { errorHandler, requestLogger } from "./middleware/errorHandler";
 import { logger } from "./utils/logger";
 
@@ -61,6 +62,7 @@ app.use("/marketing", marketingRouter);
 app.use("/lessons", lessonsRouter);
 app.use("/forum", forumRouter);
 app.use("/media", mediaRouter);
+app.use("/lash-map-templates", lashMapTemplatesRouter);
 
 // Must be registered after all routes.
 app.use(errorHandler);

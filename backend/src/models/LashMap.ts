@@ -5,6 +5,7 @@ import {
   ZoneSummary,
 } from "../services/lashmap.service";
 import { ZoneName } from "../services/lashMapRules.data";
+import { DifficultyLabel } from "../services/serviceDifficulty.service";
 
 export interface LashMap {
   id: string;
@@ -26,6 +27,9 @@ export interface LashMap {
   lash_style?: string;
   lash_set_label?: string;
   lash_style_label?: string;
+  difficulty_score?: number;
+  difficulty_label?: DifficultyLabel;
+  estimated_minutes?: { min: number; max: number };
 }
 
 type LashMapPresentation = Pick<
@@ -39,6 +43,9 @@ type LashMapPresentation = Pick<
   | "lash_style"
   | "lash_set_label"
   | "lash_style_label"
+  | "difficulty_score"
+  | "difficulty_label"
+  | "estimated_minutes"
 >;
 
 interface LashMapRow {
@@ -88,6 +95,9 @@ export async function createLashMap(
     lash_style: map.lash_style,
     lash_set_label: map.lash_set_label,
     lash_style_label: map.lash_style_label,
+    difficulty_score: map.difficulty_score,
+    difficulty_label: map.difficulty_label,
+    estimated_minutes: map.estimated_minutes,
   };
   const result = await pool.query<LashMapRow>(
     `INSERT INTO lash_maps (client_profile_id, style, curl, lengths, diameter, fan_type, visual_map, presentation)

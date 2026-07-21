@@ -16,7 +16,7 @@ import { saveImageToDevice } from '../services/saveToDevice';
 import { isQuotaExceededError, showQuotaExceededAlert } from '../services/quotaError';
 import { colors } from '../theme/colors';
 import { RootStackParamList } from '../navigation/types';
-import { ClientProfile, EyeAnalysis, LashMap } from '../types/api';
+import { ClientProfile, EyeAnalysis, LashMap, LashMapTemplate } from '../types/api';
 import { ResponsiveContainer } from '../components/ResponsiveContainer';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'EyeAnalysisResult'>;
@@ -130,6 +130,42 @@ export function EyeAnalysisResultScreen({ route, navigation }: Props) {
   const [photoUrl, setPhotoUrl] = useState(route.params.photoUrl ?? null);
   const [error, setError] = useState<string | null>(null);
   const [savingPhoto, setSavingPhoto] = useState(false);
+  const [templates, setTemplates] = useState<LashMapTemplate[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [savingTemplate, setSavingTemplate] = useState(false);
+
+  const loadTemplates = useCallback(async () => {
+    try {
+      const result = await api.get<LashMapTemplate[]>('/lash-map-templates');
+      setTemplates(result);
+    } catch {
+      // Free-tier 403 is expected here — this section just stays empty rather than
+      // surfacing an error for a feature the user can't access yet.
+    }
+  }, []);
+
+  useEffect(() => {
+    loadTemplates();
+  }, [loadTemplates]);
+
+  const deleteTemplate = (template: LashMapTemplate) => {
+    Alert.alert('Delete Signature Set?', `Remove "${template.label}" from your saved sets?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await api.delete(`/lash-map-templates/${template.id}`);
+            setTemplates((prev) => prev.filter((item) => item.id !== template.id));
+            setSelectedTemplateId((prev) => (prev === template.id ? null : prev));
+          } catch (err) {
+            Alert.alert('Could not delete', err instanceof Error ? err.message : 'Please try again.');
+          }
+        },
+      },
+    ]);
+  };
 
   const handleSavePhoto = async () => {
     if (!photoUrl) {
@@ -183,6 +219,24 @@ export function EyeAnalysisResultScreen({ route, navigation }: Props) {
     return { label: customLabel.trim(), curl: customCurl, diameter: customDiameter.trim(), lengths };
   };
 
+  const saveAsTemplate = async () => {
+    setError(null);
+    const customLashMap = buildCustomLashMap();
+    if (!customLashMap) return;
+    setSavingTemplate(true);
+    try {
+      const saved = await api.post<LashMapTemplate>('/lash-map-templates', customLashMap);
+      setTemplates((prev) => [saved, ...prev]);
+      setSelectedTemplateId(saved.id);
+      setRequestedLashSet(null);
+      Alert.alert('Saved', `"${saved.label}" is now available as a Signature Set for any client.`);
+    } catch (err) {
+      Alert.alert('Could not save template', err instanceof Error ? err.message : 'Please try again.');
+    } finally {
+      setSavingTemplate(false);
+    }
+  };
+
   const generateLashMap = async () => {
     if (!eyeAnalysis) {
       return;
@@ -197,10 +251,11 @@ export function EyeAnalysisResultScreen({ route, navigation }: Props) {
     setError(null);
     try {
       const lashMap = await api.post<LashMap>(`/clients/${clientId}/lash-map`, {
-        requested_lash_set: isCustom ? undefined : requestedLashSet ?? undefined,
+        requested_lash_set: isCustom || selectedTemplateId ? undefined : requestedLashSet ?? undefined,
         requested_lash_style: requestedLashStyle ?? undefined,
         eye_analysis: eyeAnalysis,
         custom_lash_map: customLashMap ?? undefined,
+        template_id: selectedTemplateId ?? undefined,
       });
       navigation.replace('LashMap', { clientId, lashMap });
     } catch (err) {
@@ -279,7 +334,10 @@ export function EyeAnalysisResultScreen({ route, navigation }: Props) {
           <TouchableOpacity
             key={option.label}
             style={[styles.chip, requestedLashSet === option.value && styles.chipSelected]}
-            onPress={() => setRequestedLashSet(option.value)}>
+            onPress={() => {
+              setRequestedLashSet(option.value);
+              setSelectedTemplateId(null);
+            }}>
             <Text
               style={[
                 styles.chipText,
@@ -290,6 +348,33 @@ export function EyeAnalysisResultScreen({ route, navigation }: Props) {
           </TouchableOpacity>
         ))}
       </View>
+
+      {templates.length > 0 && (
+        <>
+          <Text style={styles.styleLabel}>My Signature Sets (Pro)</Text>
+          <View style={styles.styleChips}>
+            {templates.map((template) => (
+              <TouchableOpacity
+                key={template.id}
+                style={[styles.chip, selectedTemplateId === template.id && styles.chipSelected]}
+                onPress={() => {
+                  setSelectedTemplateId((prev) => (prev === template.id ? null : template.id));
+                  setRequestedLashSet(null);
+                }}
+                onLongPress={() => deleteTemplate(template)}>
+                <Text
+                  style={[
+                    styles.chipText,
+                    selectedTemplateId === template.id && styles.chipTextSelected,
+                  ]}>
+                  {template.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Text style={styles.templateHint}>Tap to apply, hold to delete.</Text>
+        </>
+      )}
 
       {isCustom && (
         <View style={styles.customCard}>
@@ -335,6 +420,16 @@ export function EyeAnalysisResultScreen({ route, navigation }: Props) {
               />
             </View>
           ))}
+          <TouchableOpacity
+            style={styles.saveTemplateButton}
+            onPress={saveAsTemplate}
+            disabled={savingTemplate}>
+            {savingTemplate ? (
+              <ActivityIndicator color={colors.primary} size="small" />
+            ) : (
+              <Text style={styles.saveTemplateButtonText}>Save as Signature Set</Text>
+            )}
+          </TouchableOpacity>
         </View>
       )}
 
@@ -435,6 +530,16 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   customSubLabel: { fontSize: 12, fontWeight: '600', color: colors.accent, marginTop: 4, marginBottom: 8 },
+  templateHint: { fontSize: 11, color: colors.muted, marginTop: -4, marginBottom: 8 },
+  saveTemplateButton: {
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  saveTemplateButtonText: { color: colors.primary, fontWeight: '700', fontSize: 13 },
   customZoneRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   customZoneLabel: { fontSize: 12, color: colors.text },
   customZoneInput: {

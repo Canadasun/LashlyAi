@@ -1,4 +1,5 @@
 import { EyeAnalysis } from "./ai.service";
+import { computeServiceDifficulty, DifficultyLabel } from "./serviceDifficulty.service";
 import {
   ADVANCED_STYLE_CURL,
   ADVANCED_STYLES,
@@ -125,6 +126,14 @@ export interface GeneratedLashMap {
   lash_style?: LashStyleOption;
   lash_set_label?: string;
   lash_style_label?: string;
+  // Service Difficulty / Time Estimate (Pro dashboard feature) — computed
+  // deterministically from the same inputs above, see serviceDifficulty.service.ts.
+  // Optional: lash maps saved before this feature existed have no stored value and
+  // aren't backfilled (deriveClassicPresentation doesn't have the eye-analysis inputs
+  // needed to compute one for those old rows).
+  difficulty_score?: number;
+  difficulty_label?: DifficultyLabel;
+  estimated_minutes?: { min: number; max: number };
 }
 
 const ZONE_ORDER: ZoneName[] = ["inner", "inner_mid", "center", "outer_mid", "outer"];
@@ -206,7 +215,7 @@ export function deriveClassicPresentation(
  * was added).
  */
 export function generateLashMap(
-  eyeAnalysis: Pick<EyeAnalysis, "eye_shape" | "lash_density">,
+  eyeAnalysis: Pick<EyeAnalysis, "eye_shape" | "lash_density"> & Partial<Pick<EyeAnalysis, "eye_symmetry">>,
   requestedStyle?: string,
   requestedTechnique?: string,
   requestedLashSet?: string,
@@ -255,6 +264,14 @@ export function generateLashMap(
   const spikeLengths = technique === "wispy" ? buildSpikeLengths(lengths) : undefined;
   const zoneSummary = bandify(spikeLengths ?? ZONE_ORDER.map((zone) => lengths[zone]));
 
+  const difficulty = computeServiceDifficulty({
+    eyeShape: eyeAnalysis.eye_shape,
+    lashDensity: eyeAnalysis.lash_density,
+    eyeSymmetry: eyeAnalysis.eye_symmetry,
+    lashSet,
+    technique,
+  });
+
   return {
     style,
     curl,
@@ -269,5 +286,8 @@ export function generateLashMap(
     zone_summary: zoneSummary,
     ...(lashSet ? { lash_set: lashSet, lash_set_label: LASH_SET_LABELS[lashSet] } : {}),
     ...(lashStyle ? { lash_style: lashStyle, lash_style_label: LASH_STYLE_LABELS[lashStyle] } : {}),
+    difficulty_score: difficulty.score,
+    difficulty_label: difficulty.label,
+    estimated_minutes: difficulty.estimated_minutes,
   };
 }
