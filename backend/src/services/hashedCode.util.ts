@@ -17,3 +17,15 @@ export function generateSixDigitCode(): string {
 export function hashCode(code: string): string {
   return crypto.createHash("sha256").update(code).digest("hex");
 }
+
+// Every call site was comparing two hashCode() outputs with plain `===` — inconsistent
+// with the timingSafeEqual comparisons used for passwords/session tokens elsewhere in
+// this codebase. Attempt caps on every one of these flows already make timing-based
+// brute force impractical, but there's no reason for this comparison to be the odd one
+// out. Both inputs are always fixed-length (64 hex chars) SHA-256 digests produced by
+// hashCode() itself, so a plain Buffer.from(..., "hex") is safe here.
+export function hashCodeMatches(submittedCode: string, storedHash: string): boolean {
+  const submittedHash = Buffer.from(hashCode(submittedCode), "hex");
+  const stored = Buffer.from(storedHash, "hex");
+  return submittedHash.length === stored.length && crypto.timingSafeEqual(submittedHash, stored);
+}

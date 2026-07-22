@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useVoiceDictation } from '../hooks/useVoiceDictation';
 import { api } from '../services/api';
+import { isQuotaExceededError, showQuotaExceededAlert } from '../services/quotaError';
 import { colors } from '../theme/colors';
 import { ClientNote } from '../types/api';
 
@@ -11,6 +12,9 @@ interface Props {
   // Chairside Mode's dark theme needs light-on-dark styling; everywhere else (e.g.
   // ClientProfileView) uses the app's normal light-card look.
   dark?: boolean;
+  // Only needed to route a quota-exceeded save to Paywall, same pattern as every other
+  // Pro-gated action in the app (see services/quotaError.ts).
+  navigation: { navigate: (screen: 'Paywall') => void };
 }
 
 /**
@@ -18,7 +22,7 @@ interface Props {
  * POST /clients/:id/notes. Built for a tech whose hands are busy with gloves/glue
  * mid-service: tap to start, tap again to stop, tap Save. No typing required.
  */
-export function VoiceNoteRecorder({ clientId, onSaved, dark }: Props) {
+export function VoiceNoteRecorder({ clientId, onSaved, dark, navigation }: Props) {
   const { listening, transcript, error, start, stop, reset } = useVoiceDictation();
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -43,7 +47,11 @@ export function VoiceNoteRecorder({ clientId, onSaved, dark }: Props) {
       onSaved(note);
       reset();
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : 'Could not save note');
+      if (isQuotaExceededError(err)) {
+        showQuotaExceededAlert(err, navigation);
+      } else {
+        setSaveError(err instanceof Error ? err.message : 'Could not save note');
+      }
     } finally {
       setSaving(false);
     }

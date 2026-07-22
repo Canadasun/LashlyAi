@@ -704,12 +704,6 @@ clientsRouter.post(
     const client = await loadOwnedClient(req, res);
     if (!client) return;
 
-    const access = await checkClientNotesAccess(req.currentUser!.id);
-    if (!access.allowed) {
-      res.status(403).json({ error: "Client notes are a Pro feature. Upgrade to Pro to use them." });
-      return;
-    }
-
     const { text, source } = req.body ?? {};
     if (!text || typeof text !== "string" || !text.trim()) {
       res.status(400).json({ error: "text is required" });
@@ -718,6 +712,17 @@ clientsRouter.post(
     if (source !== undefined && source !== "manual" && source !== "voice") {
       res.status(400).json({ error: 'source must be "manual" or "voice"' });
       return;
+    }
+
+    // Only voice dictation itself is the Pro-gated feature (see planLimits.service.ts's
+    // checkClientNotesAccess) — plain typed notes stay free, same as every other basic
+    // client-record field.
+    if (source === "voice") {
+      const access = await checkClientNotesAccess(req.currentUser!.id);
+      if (!access.allowed) {
+        res.status(403).json({ error: "Voice-dictated notes are a Pro feature. Upgrade to Pro to use them." });
+        return;
+      }
     }
 
     const note = await createClientNote({
@@ -735,12 +740,6 @@ clientsRouter.get(
   asyncHandler(async (req, res) => {
     const client = await loadOwnedClient(req, res);
     if (!client) return;
-
-    const access = await checkClientNotesAccess(req.currentUser!.id);
-    if (!access.allowed) {
-      res.status(403).json({ error: "Client notes are a Pro feature. Upgrade to Pro to use them." });
-      return;
-    }
 
     const notes = await getClientNotesByClientProfileId(client.id);
     res.json(notes);

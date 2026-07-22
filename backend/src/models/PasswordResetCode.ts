@@ -1,5 +1,5 @@
 import { pool } from "../db";
-import { generateSixDigitCode, hashCode } from "../services/hashedCode.util";
+import { generateSixDigitCode, hashCode, hashCodeMatches } from "../services/hashedCode.util";
 
 const CODE_TTL_MS = 15 * 60 * 1000;
 const MAX_VERIFY_ATTEMPTS = 5;
@@ -61,7 +61,7 @@ export async function verifyPasswordResetCode(userId: string, submittedCode: str
     return { ok: false, reason: "expired" };
   }
 
-  const matches = hashCode(submittedCode) === record.code_hash;
+  const matches = hashCodeMatches(submittedCode, record.code_hash);
   if (!matches) {
     await pool.query(`UPDATE password_reset_codes SET attempts = attempts + 1 WHERE id = $1`, [
       record.id,

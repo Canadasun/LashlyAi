@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import Svg, { Line, Polygon } from 'react-native-svg';
@@ -80,13 +81,20 @@ export function ARLashPreviewScreen({ navigation }: Props) {
     }
   }, [hasPermission, requestPermission]);
 
-  useEffect(() => {
-    api
-      .get<{ plan: string }>('/users/me/usage')
-      .then((result) => setPlan(result.plan))
-      .catch(() => setPlan('free'))
-      .finally(() => setCheckingPlan(false));
-  }, []);
+  // Re-checks on every focus, not just mount — a user who hits the Pro lock below,
+  // upgrades on Paywall (pushed on top of this still-mounted screen), and backs out
+  // needs the lock to lift immediately rather than showing stale "free" state until a
+  // full remount.
+  useFocusEffect(
+    useCallback(() => {
+      setCheckingPlan(true);
+      api
+        .get<{ plan: string }>('/users/me/usage')
+        .then((result) => setPlan(result.plan))
+        .catch(() => setPlan('free'))
+        .finally(() => setCheckingPlan(false));
+    }, []),
+  );
 
   const scannerOutput = useFaceDetectorOutput({
     runContours: true,

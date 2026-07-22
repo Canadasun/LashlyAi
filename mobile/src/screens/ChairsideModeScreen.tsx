@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -44,6 +45,7 @@ export function ChairsideModeScreen({ route, navigation }: Props) {
   const insets = useSafeAreaInsets();
   const [clientName, setClientName] = useState('');
   const [savedNotes, setSavedNotes] = useState<ClientNote[]>([]);
+  const [plan, setPlan] = useState<string | null>(null);
 
   useEffect(() => {
     api
@@ -53,6 +55,18 @@ export function ChairsideModeScreen({ route, navigation }: Props) {
         // Non-critical — the mode still works with just "Client" as a fallback label.
       });
   }, [clientId]);
+
+  // Voice-dictated notes (the one interactive element on this screen) are Pro-only —
+  // checked upfront so a free user sees that plainly instead of only discovering it
+  // after recording a note and hitting Save.
+  useFocusEffect(
+    useCallback(() => {
+      api
+        .get<{ plan: string }>('/users/me/usage')
+        .then((result) => setPlan(result.plan))
+        .catch(() => setPlan('free'));
+    }, []),
+  );
 
   return (
     <ScrollView
@@ -104,11 +118,21 @@ export function ChairsideModeScreen({ route, navigation }: Props) {
 
       <View style={styles.notesSection}>
         <Text style={styles.notesTitle}>Quick Note</Text>
-        <VoiceNoteRecorder
-          clientId={clientId}
-          dark
-          onSaved={(note) => setSavedNotes((prev) => [note, ...prev])}
-        />
+        {plan === 'free' ? (
+          <View style={styles.notesLocked}>
+            <Text style={styles.notesLockedText}>Voice-dictated notes are a Pro feature.</Text>
+            <TouchableOpacity style={styles.notesUpgradeButton} onPress={() => navigation.navigate('Paywall')}>
+              <Text style={styles.notesUpgradeButtonText}>Upgrade to Pro</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <VoiceNoteRecorder
+            clientId={clientId}
+            dark
+            navigation={navigation}
+            onSaved={(note) => setSavedNotes((prev) => [note, ...prev])}
+          />
+        )}
         {savedNotes.map((note) => (
           <Text key={note.id} style={styles.savedNoteText}>
             ✓ {note.text}
@@ -183,4 +207,20 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   savedNoteText: { color: colors.background, fontSize: 13, marginTop: 10, opacity: 0.85 },
+  notesLocked: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    padding: 14,
+    alignItems: 'center',
+  },
+  notesLockedText: { color: colors.background, fontSize: 13, opacity: 0.85, textAlign: 'center', marginBottom: 10 },
+  notesUpgradeButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  notesUpgradeButtonText: { color: colors.background, fontWeight: '700', fontSize: 13 },
 });

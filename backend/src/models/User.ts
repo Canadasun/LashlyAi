@@ -157,11 +157,21 @@ export async function deleteUserById(userId: string): Promise<void> {
 // Self-heals is_admin from the ADMIN_EMAILS allowlist on every authenticated request
 // (see requireUser middleware) so admin access doesn't depend on registration order
 // relative to when this env var/migration shipped — no separate seed script to run.
+//
+// Fails safe if the var is unset/empty: an accidental clear (typo, dropped value on a
+// Railway redeploy) must not silently demote every existing admin to is_admin:false on
+// their next request. Only sync when the allowlist actually has entries, so revoking a
+// specific admin still works (remove their email while others remain listed) but losing
+// the whole var doesn't lock everyone out.
 export async function syncAdminFlagFromAllowlist(user: User): Promise<User> {
   const allowlist = (process.env.ADMIN_EMAILS ?? "")
     .split(",")
     .map((email) => email.trim().toLowerCase())
     .filter(Boolean);
+
+  if (allowlist.length === 0) {
+    return user;
+  }
 
   const shouldBeAdmin = allowlist.includes(user.email.toLowerCase());
   if (shouldBeAdmin === user.is_admin) {

@@ -258,7 +258,10 @@ export function ClientListScreen({ route, navigation }: Props) {
       {!pickerMode && (
         <ScrollView
           horizontal
-          showsHorizontalScrollIndicator={false}
+          // Was false — with no indicator and no fade/chevron affordance, nothing
+          // signals this row scrolls, so chips placed later (notably "Report Issue",
+          // the only in-app support channel, and "Upgrade") risked never being seen.
+          showsHorizontalScrollIndicator
           style={styles.toolsRow}
           contentContainerStyle={styles.toolsRowContent}>
           {TOOLS.filter((tool) => !tool.tabletOnly || isTablet).map((tool) => (

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   ActivityIndicator,
@@ -69,13 +70,44 @@ export function VideoRetouchScreen({ route, navigation }: Props) {
   const strokesRef = useRef<Point2D[][]>([]);
   const [, forceRender] = useReducer((n: number) => n + 1, 0);
 
+  // Guards runProcessing's async setState calls below — on-device retouch has no
+  // native cancellation hook, so backing out mid-processing can't stop the work
+  // itself, but it must stop touching state once this screen is gone.
+  const isMountedRef = useRef(true);
   useEffect(() => {
-    api
-      .get<{ plan: string }>('/users/me/usage')
-      .then((usage) => setPhase(usage.plan === 'free' ? 'locked' : hasPermission ? 'capture' : 'permission'))
-      .catch(() => setPhase(hasPermission ? 'capture' : 'permission'));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => {
+      isMountedRef.current = false;
+    };
   }, []);
+
+  // Re-checks on every focus, but only while still gated ('checking_access' or
+  // 'locked') — a user who hits the Pro lock, upgrades on Paywall (pushed on top of
+  // this still-mounted screen), and backs out needs the lock to lift immediately
+  // instead of showing stale "free" state. Once past the gate, leaves an in-progress
+  // capture/paint/record in place rather than resetting it on every refocus.
+  useFocusEffect(
+    useCallback(() => {
+      api
+        .get<{ plan: string }>('/users/me/usage')
+        .then((usage) => {
+          setPhase((current) =>
+            current === 'checking_access' || current === 'locked'
+              ? usage.plan === 'free'
+                ? 'locked'
+                : hasPermission
+                  ? 'capture'
+                  : 'permission'
+              : current,
+          );
+        })
+        .catch(() => {
+          setPhase((current) =>
+            current === 'checking_access' ? (hasPermission ? 'capture' : 'permission') : current,
+          );
+        });
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []),
+  );
 
   const referenceImage = useImage(referencePhotoPath ? `file://${referencePhotoPath}` : undefined);
   const previewHeight = referenceImage
@@ -131,8 +163,14 @@ export function VideoRetouchScreen({ route, navigation }: Props) {
     const faces = imageFaceDetector.detectFaces({ uri: `file://${photoPath}` });
     if (faces.length === 0) return [];
     const face = faces[0];
+    // Scale from the face detector's own frame space into the *actual* rendered
+    // preview space (previewHeight, derived from the decoded reference photo below) —
+    // deriving a height from the face frame's own aspect ratio here instead would
+    // silently misalign this "never paintable" zone whenever the detector's frame
+    // aspect ratio differs from the captured photo's real aspect ratio (e.g. rotation/
+    // crop differences between what the detector processed and the saved file).
     const scaleX = PREVIEW_WIDTH / face.frameWidth;
-    const scaleY = previewHeightFor(face) / face.frameHeight;
+    const scaleY = previewHeight / face.frameHeight;
     const contours = [face.contours?.LEFT_EYE, face.contours?.RIGHT_EYE].filter(
       (c): c is { x: number; y: number }[] => Boolean(c && c.length >= 3),
     );
@@ -142,17 +180,22 @@ export function VideoRetouchScreen({ route, navigation }: Props) {
         EXCLUSION_PADDING_FACTOR,
       ),
     );
-
-    function previewHeightFor(f: { frameWidth: number; frameHeight: number }) {
-      return PREVIEW_WIDTH * (f.frameHeight / f.frameWidth);
-    }
   };
+
+  // Recomputes once the reference photo has actually finished decoding (referenceImage
+  // is populated asynchronously by useImage) rather than synchronously right after
+  // capture — computing eagerly would use last render's previewHeight (still reflecting
+  // the *previous* or default image), the same class of source-mismatch bug as above.
+  useEffect(() => {
+    if (!referencePhotoPath || !referenceImage) return;
+    setExcludedPolygons(capturedFaceExclusionZones(referencePhotoPath));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [referencePhotoPath, referenceImage]);
 
   const handleCaptureReferenceFrame = async () => {
     try {
       const photo = await photoOutput.capturePhotoToFile({}, {});
       setReferencePhotoPath(photo.filePath);
-      setExcludedPolygons(capturedFaceExclusionZones(photo.filePath));
       strokesRef.current = [];
       setPhase('paint');
     } catch (err) {
@@ -247,9 +290,11 @@ export function VideoRetouchScreen({ route, navigation }: Props) {
     try {
       const maskPath = await buildMaskPngPath();
       const outputPath = await applyMaskedVideoRetouch(recordedVideoPath, maskPath);
+      if (!isMountedRef.current) return;
       setProcessedVideoPath(outputPath);
       setPhase('preview');
     } catch (err) {
+      if (!isMountedRef.current) return;
       if (err instanceof VideoRetouchUnavailableError) {
         setError(err.message);
       } else {
@@ -487,6 +532,9 @@ export function VideoRetouchScreen({ route, navigation }: Props) {
       <View style={styles.centered}>
         <ActivityIndicator color={colors.primary} size="large" />
         <Text style={styles.lockedText}>Applying retouch on-device…</Text>
+        <TouchableOpacity style={styles.backLink} onPress={() => navigation.goBack()}>
+          <Text style={styles.backLinkText}>Cancel</Text>
+        </TouchableOpacity>
       </View>
     );
   }
