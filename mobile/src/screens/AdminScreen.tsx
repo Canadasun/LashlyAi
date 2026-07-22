@@ -13,10 +13,16 @@ import {
 } from 'react-native';
 import { api } from '../services/api';
 import { colors } from '../theme/colors';
-import { AdminOverview } from '../types/api';
+import { AdminOverview, AdminSubscriptionGrant } from '../types/api';
 import { ResponsiveContainer } from '../components/ResponsiveContainer';
 
 const GRANTABLE_PLANS = ['pro', 'educator', 'salon', 'enterprise'] as const;
+const REFUND_REASONS = ['requested_by_customer', 'duplicate', 'fraudulent'] as const;
+const REFUND_REASON_LABELS: Record<(typeof REFUND_REASONS)[number], string> = {
+  requested_by_customer: 'Customer request',
+  duplicate: 'Duplicate charge',
+  fraudulent: 'Fraudulent',
+};
 
 // Every action here that creates/destroys subscription value goes through this same
 // request-a-code -> prompt -> retry-with-code dance, matching the backend's
@@ -66,6 +72,12 @@ export function AdminScreen() {
   const [grantPlan, setGrantPlan] = useState<(typeof GRANTABLE_PLANS)[number]>('pro');
   const [grantDays, setGrantDays] = useState('30');
   const [granting, setGranting] = useState(false);
+  const [revokingId, setRevokingId] = useState<string | null>(null);
+
+  const [refundEmail, setRefundEmail] = useState('');
+  const [refundReason, setRefundReason] = useState<(typeof REFUND_REASONS)[number]>('requested_by_customer');
+  const [cancelSubscriptionToo, setCancelSubscriptionToo] = useState(true);
+  const [refunding, setRefunding] = useState(false);
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -115,6 +127,67 @@ export function AdminScreen() {
       setGrantEmail('');
       load();
     }
+  };
+
+  const revokeGrant = (grant: AdminSubscriptionGrant) => {
+    Alert.alert('Revoke this grant?', `${grant.grantee_email} will lose ${grant.plan} access immediately.`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Revoke',
+        style: 'destructive',
+        onPress: async () => {
+          setRevokingId(grant.id);
+          const result = await withTwoFactorCode((code) =>
+            api.post(`/admin/grants/${grant.id}/revoke`, { two_factor_code: code }),
+          );
+          setRevokingId(null);
+          if (result) {
+            Alert.alert('Revoked', `${grant.grantee_email}'s ${grant.plan} grant was revoked.`);
+            load();
+          }
+        },
+      },
+    ]);
+  };
+
+  const submitRefund = () => {
+    const email = refundEmail.trim();
+    if (!/^\S+@\S+\.\S+$/.test(email)) {
+      Alert.alert('Enter a valid email address');
+      return;
+    }
+
+    Alert.alert(
+      'Issue this refund?',
+      `Refunds ${email}'s most recent payment${cancelSubscriptionToo ? ' and cancels their subscription immediately' : ', leaving their subscription active'}.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Refund',
+          style: 'destructive',
+          onPress: async () => {
+            setRefunding(true);
+            const result = await withTwoFactorCode((code) =>
+              api.post<{ amount: number; currency: string }>('/admin/billing/refund', {
+                email,
+                reason: refundReason,
+                cancel_subscription: cancelSubscriptionToo,
+                two_factor_code: code,
+              }),
+            );
+            setRefunding(false);
+            if (result) {
+              Alert.alert(
+                'Refunded',
+                `${(result.amount / 100).toFixed(2)} ${result.currency.toUpperCase()} refunded to ${email}.`,
+              );
+              setRefundEmail('');
+              load();
+            }
+          },
+        },
+      ],
+    );
   };
 
   const replyToFeedback = (id: string) => {
@@ -245,6 +318,88 @@ export function AdminScreen() {
             <ActivityIndicator color={colors.background} />
           ) : (
             <Text style={styles.primaryButtonText}>Grant Subscription</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      <Text style={styles.sectionTitle}>Complimentary Grants</Text>
+      {overview?.recentSubscriptionGrants.length ? (
+        overview.recentSubscriptionGrants.map((grant) => {
+          const expired = new Date(grant.expires_at).getTime() <= Date.now();
+          const revoked = Boolean(grant.revoked_at);
+          return (
+            <View key={grant.id} style={styles.card}>
+              <Text style={styles.rowTitle}>
+                {grant.grantee_email} · {grant.plan}
+              </Text>
+              <Text style={styles.rowMeta}>
+                {revoked
+                  ? `Revoked ${new Date(grant.revoked_at!).toLocaleDateString()}`
+                  : expired
+                    ? `Expired ${new Date(grant.expires_at).toLocaleDateString()}`
+                    : `Expires ${new Date(grant.expires_at).toLocaleDateString()}`}
+                {grant.granter_email ? ` · granted by ${grant.granter_email}` : ''}
+              </Text>
+              {!revoked && !expired && (
+                <View style={styles.actionRow}>
+                  <TouchableOpacity onPress={() => revokeGrant(grant)} disabled={revokingId === grant.id}>
+                    {revokingId === grant.id ? (
+                      <ActivityIndicator color={colors.danger} size="small" />
+                    ) : (
+                      <Text style={[styles.actionText, styles.actionTextDanger]}>Revoke</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          );
+        })
+      ) : (
+        <Text style={styles.empty}>No grants yet.</Text>
+      )}
+
+      <Text style={styles.sectionTitle}>Refund Payment</Text>
+      <View style={styles.card}>
+        <Text style={styles.cardHint}>
+          Stripe-billed subscribers only — Apple/StoreKit subscribers must be refunded through
+          App Store Connect.
+        </Text>
+        <TextInput
+          style={styles.input}
+          placeholder="artist@example.com"
+          placeholderTextColor="#9b8f8c"
+          autoCapitalize="none"
+          keyboardType="email-address"
+          value={refundEmail}
+          onChangeText={setRefundEmail}
+        />
+        <View style={styles.chipRow}>
+          {REFUND_REASONS.map((reason) => (
+            <TouchableOpacity
+              key={reason}
+              style={[styles.chip, refundReason === reason && styles.chipActive]}
+              onPress={() => setRefundReason(reason)}>
+              <Text style={[styles.chipText, refundReason === reason && styles.chipTextActive]}>
+                {REFUND_REASON_LABELS[reason]}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <TouchableOpacity
+          style={styles.checkboxRow}
+          onPress={() => setCancelSubscriptionToo((prev) => !prev)}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: cancelSubscriptionToo }}>
+          <View style={[styles.checkbox, cancelSubscriptionToo && styles.checkboxChecked]}>
+            {cancelSubscriptionToo && <Text style={styles.checkboxMark}>✓</Text>}
+          </View>
+          <Text style={styles.checkboxLabel}>Also cancel their subscription immediately</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.primaryButton, styles.dangerButton]} onPress={submitRefund} disabled={refunding}>
+          {refunding ? (
+            <ActivityIndicator color={colors.background} />
+          ) : (
+            <Text style={styles.primaryButtonText}>Issue Refund</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -386,5 +541,23 @@ const styles = StyleSheet.create({
   repliedBadge: { fontSize: 11, color: colors.success, marginTop: 6, fontWeight: '600' },
   actionRow: { flexDirection: 'row', gap: 16, marginTop: 10 },
   actionText: { fontSize: 12, color: colors.primaryDark, fontWeight: '700' },
+  actionTextDanger: { color: colors.danger },
   empty: { color: colors.muted, fontSize: 12, fontStyle: 'italic' },
+  cardHint: { fontSize: 11, color: colors.muted, marginBottom: 10, lineHeight: 16 },
+  dangerButton: { backgroundColor: colors.danger },
+  checkboxRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  checkboxChecked: { backgroundColor: colors.primary, borderColor: colors.primary },
+  checkboxMark: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' },
+  checkboxLabel: { fontSize: 12, color: colors.text, flex: 1 },
 });

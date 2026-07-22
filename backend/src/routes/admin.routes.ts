@@ -15,7 +15,7 @@ import {
 import { createUserNotification } from "../models/UserNotification";
 import { logLifecycleEvent, getRecentLifecycleEvents } from "../models/UserLifecycleEvent";
 import { expireLapsedSubscriptions } from "../services/subscriptionLifecycle.service";
-import { refundLatestInvoiceForSubscription } from "../services/stripe.service";
+import { cancelStripeSubscription, refundLatestInvoiceForSubscription } from "../services/stripe.service";
 import { getOpenForumReports, resolveForumReport } from "../models/Forum";
 import { sendEmailBestEffort } from "../services/email.service";
 import {
@@ -259,6 +259,12 @@ adminRouter.post(
  * Apple/StoreKit subscribers must be refunded through App Store Connect, Apple doesn't
  * expose a refund API to third parties). Same 2FA-gated pattern as /grants above.
  * Full refund only in v1, matching stripe.service.ts's refundLatestInvoiceForSubscription.
+ *
+ * Also cancels the underlying Stripe subscription by default (cancel_subscription:
+ * false to opt out) — without this, a refunded customer's card would simply be
+ * charged again on their next renewal, since a refund on its own doesn't stop future
+ * billing. Cancellation is immediate, not at period end: they've already gotten this
+ * period's payment back, so there's no remaining period to let run out.
  */
 adminRouter.post(
   "/billing/refund",
@@ -267,7 +273,11 @@ adminRouter.post(
   asyncHandler(async (req, res) => {
     if (!(await requireTwoFactorCode(req, res))) return;
 
-    const { email, reason } = (req.body ?? {}) as { email?: unknown; reason?: unknown };
+    const { email, reason, cancel_subscription: cancelSubscriptionRaw } = (req.body ?? {}) as {
+      email?: unknown;
+      reason?: unknown;
+      cancel_subscription?: unknown;
+    };
     if (typeof email !== "string" || !email.trim()) {
       res.status(400).json({ error: "email is required" });
       return;
@@ -281,6 +291,7 @@ adminRouter.post(
       typeof reason === "string" && validReasons.includes(reason as Stripe.RefundCreateParams.Reason)
         ? (reason as Stripe.RefundCreateParams.Reason)
         : undefined;
+    const cancelSubscription = cancelSubscriptionRaw !== false;
 
     const targetUser = await findUserByEmail(email);
     if (!targetUser) {
@@ -301,6 +312,24 @@ adminRouter.post(
       refundReason,
     );
 
+    let subscriptionCanceled = false;
+    if (cancelSubscription) {
+      await cancelStripeSubscription(subscription.stripe_subscription_id);
+      // Mirrors the field-preservation idiom Subscription.ts's upsertSubscription
+      // requires — every field is written verbatim, so callers must carry forward
+      // whatever they're not intentionally changing.
+      await upsertSubscription({
+        userId: targetUser.id,
+        plan: subscription.plan,
+        status: "revoked",
+        renewsAt: subscription.renews_at ?? undefined,
+        paymentProvider: subscription.payment_provider,
+        stripeCustomerId: subscription.stripe_customer_id ?? undefined,
+        stripeSubscriptionId: subscription.stripe_subscription_id ?? undefined,
+      });
+      subscriptionCanceled = true;
+    }
+
     await logLifecycleEvent({
       userId: targetUser.id,
       userEmail: targetUser.email,
@@ -313,6 +342,7 @@ adminRouter.post(
         plan: subscription.plan,
         reason: refundReason ?? null,
         issued_by_admin_id: req.currentUser!.id,
+        subscription_canceled: subscriptionCanceled,
       },
     });
     void sendEmailBestEffort({ to: targetUser.email, ...stripeRefundIssuedEmail(subscription.plan) });
@@ -322,6 +352,7 @@ adminRouter.post(
       amount: refund.amount,
       currency: refund.currency,
       status: refund.status,
+      subscription_canceled: subscriptionCanceled,
     });
   }),
 );

@@ -157,6 +157,15 @@ export async function retrieveStripeSubscription(stripeSubscriptionId: string): 
   return stripe.subscriptions.retrieve(stripeSubscriptionId);
 }
 
+// Immediate cancellation (not at period end) — this is only ever called alongside a
+// refund (see admin.routes.ts's POST /billing/refund), where the customer has already
+// gotten their money back, so there's no reason to let paid access run out the clock
+// on a period they were just refunded for.
+export async function cancelStripeSubscription(stripeSubscriptionId: string): Promise<Stripe.Subscription> {
+  const stripe = requireStripeClient();
+  return stripe.subscriptions.cancel(stripeSubscriptionId);
+}
+
 export function constructWebhookEvent(rawBody: Buffer, signature: string): Stripe.Event {
   const stripe = requireStripeClient();
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;

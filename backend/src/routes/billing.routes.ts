@@ -52,18 +52,171 @@ const BILLABLE_PLANS: Exclude<SubscriptionPlan, "free">[] = [
   "enterprise",
 ];
 
-function brandedPage(title: string, bodyHtml: string): string {
+function brandedPage(title: string, bodyHtml: string, maxWidth = 480): string {
   return `<!doctype html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${title}</title></head>
 <body style="font-family: -apple-system, 'Segoe UI', sans-serif; background: #FAF7F4; padding: 48px 16px; color: #241D20; margin: 0;">
-  <div style="max-width: 480px; margin: 0 auto; background: #FFFFFF; border-radius: 14px; padding: 40px 32px; text-align: center;">
+  <div style="max-width: ${maxWidth}px; margin: 0 auto; background: #FFFFFF; border-radius: 14px; padding: 40px 32px; text-align: center;">
     <div style="font-weight: 800; font-size: 18px; color: #B85C7A; margin-bottom: 24px;">LashlyAI</div>
     ${bodyHtml}
   </div>
 </body>
 </html>`;
 }
+
+// The three plans meant to be bought this way — "pro" is reachable here too via the
+// underlying /billing/checkout API (nothing stops it), but individual artists buy Pro
+// in the mobile app via Apple StoreKit; this page exists specifically for the
+// salon/educator/enterprise customers that flow was never meant to serve, so only
+// those three are shown.
+const B2B_WEB_PLANS: { plan: Exclude<SubscriptionPlan, "free" | "pro">; label: string; blurb: string }[] = [
+  { plan: "educator", label: "Educator", blurb: "For lash educators running courses and certifying students." },
+  { plan: "salon", label: "Salon", blurb: "For salons managing multiple artists under one account." },
+  { plan: "enterprise", label: "Enterprise", blurb: "For academies and larger multi-location businesses." },
+];
+
+// Minimal, self-contained web signup/checkout flow — the one piece of the B2B billing
+// surface that was entirely missing: the backend could already create Stripe Checkout
+// Sessions, but nothing anywhere let a salon/educator/enterprise prospect actually
+// reach that call, since the mobile app deliberately never does (Apple StoreKit only).
+// Reuses the exact same JSON APIs the mobile app uses (/auth/login, /auth/register,
+// /billing/checkout, /billing/portal) via plain fetch() from inline JS — the session
+// token lives in sessionStorage, the same bearer-token model as mobile, not a cookie,
+// so this doesn't introduce any new session mechanism or CSRF surface to this codebase.
+// Real prices aren't hardcoded here — Stripe's own hosted Checkout page shows the
+// actual configured price at checkout time.
+billingRouter.get(
+  "/plans",
+  asyncHandler(async (_req, res) => {
+    res.set("Content-Type", "text/html");
+    res.send(
+      brandedPage(
+        "LashlyAI for teams",
+        `
+      <h1 style="font-size: 22px; margin: 0 0 6px;">LashlyAI for teams</h1>
+      <p style="font-size: 13px; color: #746A6E; margin: 0 0 28px;">Educator, salon, and enterprise accounts.</p>
+
+      <div id="authBox">
+        <div id="authError" style="display:none; background:#FBEAE8; color:#B3261E; border-radius:8px; padding:10px; font-size:12px; margin-bottom:14px;"></div>
+        <input id="authEmail" type="email" placeholder="you@example.com" autocomplete="email"
+          style="width:100%; box-sizing:border-box; padding:11px 12px; border:1px solid #E4D5CB; border-radius:8px; font-size:14px; margin-bottom:10px;" />
+        <input id="authPassword" type="password" placeholder="Password" autocomplete="current-password"
+          style="width:100%; box-sizing:border-box; padding:11px 12px; border:1px solid #E4D5CB; border-radius:8px; font-size:14px; margin-bottom:14px;" />
+        <button id="signInBtn" style="width:100%; padding:12px; border:none; border-radius:9px; background:#B85C7A; color:#fff; font-weight:700; font-size:14px; cursor:pointer; margin-bottom:8px;">Sign in</button>
+        <button id="registerBtn" style="width:100%; padding:12px; border:1px solid #E4D5CB; border-radius:9px; background:#fff; color:#241D20; font-weight:700; font-size:14px; cursor:pointer;">Create account</button>
+      </div>
+
+      <div id="plansBox" style="display:none;">
+        <div id="plansError" style="display:none; background:#FBEAE8; color:#B3261E; border-radius:8px; padding:10px; font-size:12px; margin-bottom:14px;"></div>
+        ${B2B_WEB_PLANS.map(
+          (p) => `
+        <div style="border:1px solid #E4D5CB; border-radius:10px; padding:16px; text-align:left; margin-bottom:10px;">
+          <div style="font-weight:700; font-size:14px;">${p.label}</div>
+          <div style="font-size:12px; color:#746A6E; margin:4px 0 12px;">${p.blurb}</div>
+          <button class="planBtn" data-plan="${p.plan}" style="width:100%; padding:10px; border:none; border-radius:8px; background:#B85C7A; color:#fff; font-weight:700; font-size:13px; cursor:pointer;">Subscribe to ${p.label}</button>
+        </div>`,
+        ).join("")}
+        <button id="portalBtn" style="width:100%; padding:11px; border:1px solid #E4D5CB; border-radius:9px; background:#fff; color:#241D20; font-weight:600; font-size:13px; cursor:pointer; margin-top:6px;">Manage existing billing</button>
+        <button id="signOutBtn" style="width:100%; padding:8px; border:none; background:transparent; color:#9b8f8c; font-size:12px; cursor:pointer; margin-top:14px;">Sign out</button>
+      </div>
+
+      <script src="/billing/plans.js"></script>
+      `,
+        560,
+      ),
+    );
+  }),
+);
+
+// Served as an external same-origin file, not inlined into /billing/plans, because
+// helmet()'s default Content-Security-Policy (script-src 'self', no 'unsafe-inline')
+// blocks inline <script> tags — a same-origin <script src> is allowed under that
+// exact same default policy, no CSP relaxation needed.
+billingRouter.get("/plans.js", (_req, res) => {
+  res.set("Content-Type", "application/javascript");
+  res.send(`
+    var TOKEN_KEY = 'lashlyai_billing_token';
+    var authBox = document.getElementById('authBox');
+    var plansBox = document.getElementById('plansBox');
+    var authError = document.getElementById('authError');
+    var plansError = document.getElementById('plansError');
+
+    function showError(el, message) {
+      el.textContent = message;
+      el.style.display = 'block';
+    }
+    function hideError(el) { el.style.display = 'none'; }
+
+    function showPlans() {
+      authBox.style.display = 'none';
+      plansBox.style.display = 'block';
+    }
+
+    async function api(path, body) {
+      var res = await fetch(path, {
+        method: 'POST',
+        headers: Object.assign(
+          { 'Content-Type': 'application/json' },
+          sessionStorage.getItem(TOKEN_KEY) ? { Authorization: 'Bearer ' + sessionStorage.getItem(TOKEN_KEY) } : {}
+        ),
+        body: JSON.stringify(body || {}),
+      });
+      var data = await res.json().catch(function () { return {}; });
+      if (!res.ok) throw new Error(data.error || ('Request failed (' + res.status + ')'));
+      return data;
+    }
+
+    async function authenticate(path) {
+      hideError(authError);
+      var email = document.getElementById('authEmail').value.trim();
+      var password = document.getElementById('authPassword').value;
+      if (!email || !password) { showError(authError, 'Enter an email and password.'); return; }
+      try {
+        var result = await api(path, { email: email, password: password });
+        sessionStorage.setItem(TOKEN_KEY, result.token);
+        showPlans();
+      } catch (err) {
+        showError(authError, err.message);
+      }
+    }
+
+    document.getElementById('signInBtn').addEventListener('click', function () { authenticate('/auth/login'); });
+    document.getElementById('registerBtn').addEventListener('click', function () { authenticate('/auth/register'); });
+
+    document.getElementById('signOutBtn').addEventListener('click', function () {
+      sessionStorage.removeItem(TOKEN_KEY);
+      plansBox.style.display = 'none';
+      authBox.style.display = 'block';
+    });
+
+    document.querySelectorAll('.planBtn').forEach(function (btn) {
+      btn.addEventListener('click', async function () {
+        hideError(plansError);
+        btn.disabled = true;
+        try {
+          var session = await api('/billing/checkout', { plan: btn.getAttribute('data-plan') });
+          window.location.href = session.url;
+        } catch (err) {
+          showError(plansError, err.message);
+          btn.disabled = false;
+        }
+      });
+    });
+
+    document.getElementById('portalBtn').addEventListener('click', async function () {
+      hideError(plansError);
+      try {
+        var session = await api('/billing/portal', {});
+        window.location.href = session.url;
+      } catch (err) {
+        showError(plansError, err.message);
+      }
+    });
+
+    if (sessionStorage.getItem(TOKEN_KEY)) showPlans();
+  `);
+});
 
 billingRouter.post(
   "/checkout",
