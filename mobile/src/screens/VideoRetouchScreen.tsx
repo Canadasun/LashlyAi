@@ -12,13 +12,22 @@ import {
   View,
 } from 'react-native';
 import Slider from '@react-native-community/slider';
+import { launchImageLibrary } from 'react-native-image-picker';
 import { Camera, useCameraDevice, useCameraPermission, usePhotoOutput, useVideoOutput } from 'react-native-vision-camera';
 import { useImageFaceDetector } from 'react-native-vision-camera-face-detector';
 import { Canvas, Image as SkiaImage, ImageFormat, Path, Skia, useImage } from '@shopify/react-native-skia';
 import ReactNativeBlobUtil from 'react-native-blob-util';
 import Video from 'react-native-video';
 import { api } from '../services/api';
-import { applyMaskedVideoRetouch, VideoRetouchUnavailableError } from '../services/videoRetouchNative';
+import {
+  applyMaskedVideoRetouch,
+  extractVideoFrame,
+  NormalizedFaceBounds,
+  TrackingData,
+  TrackingSample,
+  VideoRetouchUnavailableError,
+} from '../services/videoRetouchNative';
+import { saveLocalVideoToDevice } from '../services/saveToDevice';
 import { isQuotaExceededError, showQuotaExceededAlert } from '../services/quotaError';
 import { expandPolygonFromCentroid, isPointInPolygon, Point2D } from '../utils/polygon';
 import { colors } from '../theme/colors';
@@ -29,14 +38,19 @@ type Props = NativeStackScreenProps<RootStackParamList, 'VideoRetouch'>;
 type Phase =
   | 'checking_access'
   | 'locked'
-  | 'permission'
-  | 'no_camera'
   | 'capture'
+  | 'permission'
+  | 'live_reference'
+  | 'no_camera'
+  | 'importing'
   | 'paint'
   | 'record'
   | 'processing'
   | 'preview'
   | 'uploading';
+
+type VideoSource = 'live' | 'library';
+type ProcessingStage = 'analyzing' | 'applying';
 
 const PREVIEW_WIDTH = 340;
 // The eye contour ML Kit detects is the eyelid edge itself — a technician's actual
@@ -44,6 +58,13 @@ const PREVIEW_WIDTH = 340;
 // from the raw contour rather than matching it exactly.
 const EXCLUSION_PADDING_FACTOR = 1.6;
 const DEFAULT_BRUSH_RADIUS = 16;
+// Keeps both the tracking-sample pass (one native seek+detect per sample) and the
+// final export itself bounded to a reasonable processing time on-device — this tool
+// is for short chairside documentation clips, not long-form video.
+const MAX_VIDEO_DURATION_MS = 90_000;
+// How often to sample face position across the clip for tracking. Lower = smoother
+// tracking but more native seek+detect round trips before export can start.
+const TRACKING_SAMPLE_INTERVAL_MS = 300;
 
 export function VideoRetouchScreen({ route, navigation }: Props) {
   const { clientId } = route.params;
@@ -55,13 +76,27 @@ export function VideoRetouchScreen({ route, navigation }: Props) {
   const [recordedVideoPath, setRecordedVideoPath] = useState<string | null>(null);
   const [processedVideoPath, setProcessedVideoPath] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
+  const [videoSource, setVideoSource] = useState<VideoSource>('live');
+  const [videoDurationMs, setVideoDurationMs] = useState<number | null>(null);
+  const [processingStage, setProcessingStage] = useState<ProcessingStage>('analyzing');
+  const [savingToPhotos, setSavingToPhotos] = useState(false);
 
   const { hasPermission, requestPermission } = useCameraPermission();
   const device = useCameraDevice('back');
   const photoOutput = usePhotoOutput({});
   const videoOutput = useVideoOutput({ enableAudio: false });
+  // Contour-accurate — this is the one detection that actually gates painting (draws
+  // the visible protected lash zone), so precision matters here.
   const imageFaceDetector = useImageFaceDetector({ runContours: true, performanceMode: 'accurate' });
+  // Bounds-only, fast mode — used for the tracking-sample pass below, which only ever
+  // needs a bounding box + roll angle for a rigid transform, run many times over a
+  // clip, so trading contour precision for speed is the right call there.
+  const trackingFaceDetector = useImageFaceDetector({ runContours: false, performanceMode: 'fast' });
   const cameraRecorderRef = useRef<{ stopRecording(): Promise<void> } | null>(null);
+  // The reference frame's own face position/size/roll, normalized — the anchor every
+  // tracking sample below is measured against. Not React state: never rendered,
+  // needed only at export time.
+  const referenceBoundsRef = useRef<NormalizedFaceBounds | null>(null);
 
   // strokesRef holds paint-stroke points in PREVIEW-canvas coordinate space (not the
   // reference photo's native resolution) — a single uniform scale factor is applied
@@ -85,27 +120,25 @@ export function VideoRetouchScreen({ route, navigation }: Props) {
   // this still-mounted screen), and backs out needs the lock to lift immediately
   // instead of showing stale "free" state. Once past the gate, leaves an in-progress
   // capture/paint/record in place rather than resetting it on every refocus.
+  //
+  // Always lands on 'capture' (a choice screen, no camera preview) rather than
+  // branching on hasPermission here — importing from the library needs no camera
+  // access at all, so camera permission is only requested lazily, the moment the
+  // user actually chooses the live-record path (see handleGoLive below). Gating the
+  // whole screen behind camera permission would force it on a user who only ever
+  // wants to import an existing clip.
   useFocusEffect(
     useCallback(() => {
       api
         .get<{ plan: string }>('/users/me/usage')
         .then((usage) => {
           setPhase((current) =>
-            current === 'checking_access' || current === 'locked'
-              ? usage.plan === 'free'
-                ? 'locked'
-                : hasPermission
-                  ? 'capture'
-                  : 'permission'
-              : current,
+            current === 'checking_access' || current === 'locked' ? (usage.plan === 'free' ? 'locked' : 'capture') : current,
           );
         })
         .catch(() => {
-          setPhase((current) =>
-            current === 'checking_access' ? (hasPermission ? 'capture' : 'permission') : current,
-          );
+          setPhase((current) => (current === 'checking_access' ? 'capture' : current));
         });
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []),
   );
 
@@ -159,9 +192,13 @@ export function VideoRetouchScreen({ route, navigation }: Props) {
     forceRender();
   };
 
-  const capturedFaceExclusionZones = (photoPath: string): Point2D[][] => {
+  // Detects the reference frame's face once, returning both the paintable exclusion
+  // polygons (preview-canvas pixel space, as before) and the face's normalized
+  // bounds/roll — the anchor every video tracking sample gets measured against later.
+  // One detection, two derived results, rather than detecting twice.
+  const detectReferenceFace = (photoPath: string): { polygons: Point2D[][]; bounds: NormalizedFaceBounds | null } => {
     const faces = imageFaceDetector.detectFaces({ uri: `file://${photoPath}` });
-    if (faces.length === 0) return [];
+    if (faces.length === 0) return { polygons: [], bounds: null };
     const face = faces[0];
     // Scale from the face detector's own frame space into the *actual* rendered
     // preview space (previewHeight, derived from the decoded reference photo below) —
@@ -174,12 +211,20 @@ export function VideoRetouchScreen({ route, navigation }: Props) {
     const contours = [face.contours?.LEFT_EYE, face.contours?.RIGHT_EYE].filter(
       (c): c is { x: number; y: number }[] => Boolean(c && c.length >= 3),
     );
-    return contours.map((contour) =>
+    const polygons = contours.map((contour) =>
       expandPolygonFromCentroid(
         contour.map((p) => ({ x: p.x * scaleX, y: p.y * scaleY })),
         EXCLUSION_PADDING_FACTOR,
       ),
     );
+    const bounds: NormalizedFaceBounds = {
+      cx: (face.bounds.x + face.bounds.width / 2) / face.frameWidth,
+      cy: (face.bounds.y + face.bounds.height / 2) / face.frameHeight,
+      w: face.bounds.width / face.frameWidth,
+      h: face.bounds.height / face.frameHeight,
+      rollDeg: face.rollAngle,
+    };
+    return { polygons, bounds };
   };
 
   // Recomputes once the reference photo has actually finished decoding (referenceImage
@@ -188,19 +233,72 @@ export function VideoRetouchScreen({ route, navigation }: Props) {
   // the *previous* or default image), the same class of source-mismatch bug as above.
   useEffect(() => {
     if (!referencePhotoPath || !referenceImage) return;
-    setExcludedPolygons(capturedFaceExclusionZones(referencePhotoPath));
+    const { polygons, bounds } = detectReferenceFace(referencePhotoPath);
+    setExcludedPolygons(polygons);
+    referenceBoundsRef.current = bounds;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [referencePhotoPath, referenceImage]);
 
   const handleCaptureReferenceFrame = async () => {
     try {
       const photo = await photoOutput.capturePhotoToFile({}, {});
+      setVideoSource('live');
+      // Clears any duration left over from a library import the user started and
+      // then abandoned in favor of recording live instead — without this,
+      // runProcessing would skip probing the *actual* recorded video's duration and
+      // use the abandoned import's stale one, throwing off both the length cap and
+      // the tracking sample loop's range.
+      setVideoDurationMs(null);
       setReferencePhotoPath(photo.filePath);
       strokesRef.current = [];
       setPhase('paint');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to capture reference frame');
     }
+  };
+
+  const handleChooseVideoFromLibrary = async () => {
+    const result = await launchImageLibrary({ mediaType: 'video' });
+    if (result.didCancel) return;
+    const pickedUri = result.assets?.[0]?.uri;
+    if (!pickedUri) {
+      setError(result.errorMessage ?? 'Could not read the selected video.');
+      return;
+    }
+
+    setError(null);
+    setPhase('importing');
+    const videoPath = pickedUri.replace(/^file:\/\//, '');
+    try {
+      const { path: framePath, durationMs } = await extractVideoFrame(videoPath, 0);
+      if (durationMs > MAX_VIDEO_DURATION_MS) {
+        setError(`That clip is ${Math.round(durationMs / 1000)}s — please choose one under ${MAX_VIDEO_DURATION_MS / 1000}s.`);
+        setPhase('capture');
+        return;
+      }
+      setVideoSource('library');
+      setRecordedVideoPath(videoPath);
+      setVideoDurationMs(durationMs);
+      setReferencePhotoPath(framePath);
+      strokesRef.current = [];
+      setPhase('paint');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to import that video.');
+      setPhase('capture');
+    }
+  };
+
+  // Camera permission is only ever requested here — the moment the user actually
+  // chooses to record live, not as a blanket gate on the whole screen (see the
+  // useFocusEffect above).
+  const handleGoLive = async () => {
+    setError(null);
+    if (hasPermission) {
+      setPhase('live_reference');
+      return;
+    }
+    const granted = await requestPermission();
+    setPhase(granted ? 'live_reference' : 'permission');
   };
 
   const handleStartRecording = async () => {
@@ -211,6 +309,11 @@ export function VideoRetouchScreen({ route, navigation }: Props) {
         (filePath) => {
           setIsRecording(false);
           setRecordedVideoPath(filePath);
+          // Every completed recording is a genuinely new file — including a retry
+          // after a previous attempt hit the duration cap or a processing error — so
+          // its duration always needs a fresh probe, never inherited from whatever
+          // attempt came before it.
+          setVideoDurationMs(null);
           setPhase('processing');
         },
         (err) => {
@@ -284,12 +387,74 @@ export function VideoRetouchScreen({ route, navigation }: Props) {
     return path;
   };
 
+  // Samples face position across the actual recorded/imported video at a fixed
+  // interval, so the retouch mask (and the lash exclusion baked into it) can track
+  // real head movement instead of staying frozen at the reference frame's position —
+  // see VideoRetouch.swift's per-frame interpolation. A failed individual sample
+  // (blink, motion blur, a seek that lands on a bad frame) is simply skipped, not
+  // fatal — interpolation across the surrounding good samples covers the gap.
+  const buildTrackingSamples = async (videoPath: string, durationMs: number): Promise<TrackingSample[]> => {
+    const samples: TrackingSample[] = [];
+    for (let t = 0; t <= durationMs; t += TRACKING_SAMPLE_INTERVAL_MS) {
+      let framePath: string | null = null;
+      try {
+        const extracted = await extractVideoFrame(videoPath, t);
+        framePath = extracted.path;
+        const faces = trackingFaceDetector.detectFaces({ uri: `file://${framePath}` });
+        if (faces.length > 0) {
+          const face = faces[0];
+          samples.push({
+            timeMs: t,
+            cx: (face.bounds.x + face.bounds.width / 2) / face.frameWidth,
+            cy: (face.bounds.y + face.bounds.height / 2) / face.frameHeight,
+            w: face.bounds.width / face.frameWidth,
+            h: face.bounds.height / face.frameHeight,
+            rollDeg: face.rollAngle,
+          });
+        }
+      } catch {
+        // See doc comment above — one bad sample doesn't abort the pass.
+      } finally {
+        if (framePath) {
+          ReactNativeBlobUtil.fs.unlink(framePath).catch(() => undefined);
+        }
+      }
+    }
+    return samples;
+  };
+
   const runProcessing = async () => {
     if (!recordedVideoPath) return;
     setError(null);
+    setProcessingStage('analyzing');
     try {
+      // Live-recorded video's duration isn't known yet (only library imports probe it
+      // up front, since that's also when the import-length cap is checked) — probe it
+      // here so both sources reach the sampling loop with a known duration.
+      let durationMs = videoDurationMs;
+      if (durationMs === null) {
+        const probe = await extractVideoFrame(recordedVideoPath, 0);
+        durationMs = probe.durationMs;
+        ReactNativeBlobUtil.fs.unlink(probe.path).catch(() => undefined);
+        if (isMountedRef.current) setVideoDurationMs(durationMs);
+        if (durationMs > MAX_VIDEO_DURATION_MS) {
+          throw new Error(
+            `This recording is ${Math.round(durationMs / 1000)}s — Video Retouch supports clips up to ${MAX_VIDEO_DURATION_MS / 1000}s.`,
+          );
+        }
+      }
+
+      const samples = await buildTrackingSamples(recordedVideoPath, durationMs);
+      if (!isMountedRef.current) return;
+
       const maskPath = await buildMaskPngPath();
-      const outputPath = await applyMaskedVideoRetouch(recordedVideoPath, maskPath);
+      const tracking: TrackingData | undefined =
+        referenceBoundsRef.current && samples.length > 0
+          ? { referenceBounds: referenceBoundsRef.current, samples }
+          : undefined;
+
+      setProcessingStage('applying');
+      const outputPath = await applyMaskedVideoRetouch(recordedVideoPath, maskPath, tracking);
       if (!isMountedRef.current) return;
       setProcessedVideoPath(outputPath);
       setPhase('preview');
@@ -300,7 +465,9 @@ export function VideoRetouchScreen({ route, navigation }: Props) {
       } else {
         setError(err instanceof Error ? err.message : 'Failed to process video');
       }
-      setPhase('record');
+      // A library-imported video has no live recording to fall back into — 'record'
+      // renders a live Camera, which isn't the right recovery step for that source.
+      setPhase(videoSource === 'library' ? 'paint' : 'record');
     }
   };
 
@@ -334,6 +501,18 @@ export function VideoRetouchScreen({ route, navigation }: Props) {
     }
   };
 
+  const handleSaveToPhotos = async () => {
+    if (!processedVideoPath) return;
+    setSavingToPhotos(true);
+    const result = await saveLocalVideoToDevice(`file://${processedVideoPath}`);
+    setSavingToPhotos(false);
+    if (result.success) {
+      Alert.alert('Saved', 'The retouched video was saved to your Photos.');
+    } else {
+      Alert.alert('Could not save', result.error);
+    }
+  };
+
   if (phase === 'checking_access') {
     return (
       <View style={styles.centered}>
@@ -360,38 +539,66 @@ export function VideoRetouchScreen({ route, navigation }: Props) {
     );
   }
 
-  if (phase === 'permission' || !hasPermission) {
+  // Entry choice screen — deliberately no camera preview and no device/permission
+  // requirement here: importing an existing clip needs no camera access at all, so
+  // permission is only requested lazily by handleGoLive, the moment the user actually
+  // chooses to record live (see the useFocusEffect above for why).
+  if (phase === 'capture') {
+    return (
+      <View style={styles.choiceContainer}>
+        <Text style={styles.title}>Video Retouch</Text>
+        <Text style={styles.subtitle}>
+          Record a new clip, or import one you've already shot on your phone.
+        </Text>
+        <TouchableOpacity style={styles.button} onPress={handleGoLive}>
+          <Text style={styles.buttonText}>Record Live</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.secondaryButtonFull} onPress={handleChooseVideoFromLibrary}>
+          <Text style={styles.secondaryButtonText}>Choose Video from Library</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.backLink} onPress={() => navigation.goBack()}>
+          <Text style={styles.backLinkText}>Cancel</Text>
+        </TouchableOpacity>
+        {error && <Text style={styles.error}>{error}</Text>}
+      </View>
+    );
+  }
+
+  if (phase === 'importing') {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator color={colors.primary} />
+        <Text style={styles.lockedText}>Importing video…</Text>
+      </View>
+    );
+  }
+
+  if (phase === 'permission') {
     return (
       <View style={styles.centered}>
         <Text style={styles.lockedTitle}>Camera access needed</Text>
-        <Text style={styles.lockedText}>Video Retouch needs your camera to record the client.</Text>
-        <TouchableOpacity
-          style={styles.upgradeButton}
-          onPress={async () => {
-            const granted = await requestPermission();
-            if (granted) setPhase('capture');
-          }}>
+        <Text style={styles.lockedText}>Recording live needs your camera — or choose a video from your library instead, which doesn't.</Text>
+        <TouchableOpacity style={styles.upgradeButton} onPress={handleGoLive}>
           <Text style={styles.upgradeButtonText}>Allow Camera Access</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.backLink} onPress={() => navigation.goBack()}>
+        <TouchableOpacity style={styles.backLink} onPress={() => setPhase('capture')}>
           <Text style={styles.backLinkText}>Back</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
-  if (!device) {
-    return (
-      <View style={styles.centered}>
-        <Text style={styles.lockedTitle}>No camera available</Text>
-        <TouchableOpacity style={styles.backLink} onPress={() => navigation.goBack()}>
-          <Text style={styles.backLinkText}>Back</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  if (phase === 'capture') {
+  if (phase === 'live_reference') {
+    if (!device) {
+      return (
+        <View style={styles.centered}>
+          <Text style={styles.lockedTitle}>No camera available</Text>
+          <TouchableOpacity style={styles.backLink} onPress={() => setPhase('capture')}>
+            <Text style={styles.backLinkText}>Back</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
     return (
       <View style={styles.container}>
         <Camera
@@ -408,7 +615,7 @@ export function VideoRetouchScreen({ route, navigation }: Props) {
         <TouchableOpacity style={styles.shutterButton} onPress={handleCaptureReferenceFrame}>
           <Text style={styles.shutterButtonText}>Capture Reference Frame</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.exitButton} onPress={() => navigation.goBack()}>
+        <TouchableOpacity style={styles.exitButton} onPress={() => setPhase('capture')}>
           <Text style={styles.exitButtonText}>✕ Cancel</Text>
         </TouchableOpacity>
         {error && <Text style={styles.errorBanner}>{error}</Text>}
@@ -490,8 +697,10 @@ export function VideoRetouchScreen({ route, navigation }: Props) {
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.button} onPress={() => setPhase('record')}>
-          <Text style={styles.buttonText}>Continue to Record</Text>
+        <TouchableOpacity
+          style={styles.button}
+          onPress={() => setPhase(videoSource === 'library' ? 'processing' : 'record')}>
+          <Text style={styles.buttonText}>{videoSource === 'library' ? 'Apply Retouch' : 'Continue to Record'}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.backLink} onPress={() => navigation.goBack()}>
           <Text style={styles.backLinkText}>Cancel</Text>
@@ -500,7 +709,18 @@ export function VideoRetouchScreen({ route, navigation }: Props) {
     );
   }
 
-  if (phase === 'record') {
+  if (phase === 'record' && !device) {
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.lockedTitle}>No camera available</Text>
+        <TouchableOpacity style={styles.backLink} onPress={() => navigation.goBack()}>
+          <Text style={styles.backLinkText}>Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (phase === 'record' && device) {
     return (
       <View style={styles.container}>
         <Camera
@@ -531,7 +751,11 @@ export function VideoRetouchScreen({ route, navigation }: Props) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator color={colors.primary} size="large" />
-        <Text style={styles.lockedText}>Applying retouch on-device…</Text>
+        <Text style={styles.lockedText}>
+          {processingStage === 'analyzing'
+            ? 'Tracking motion across the clip…'
+            : 'Applying retouch on-device…'}
+        </Text>
         <TouchableOpacity style={styles.backLink} onPress={() => navigation.goBack()}>
           <Text style={styles.backLinkText}>Cancel</Text>
         </TouchableOpacity>
@@ -559,6 +783,13 @@ export function VideoRetouchScreen({ route, navigation }: Props) {
           <Text style={styles.buttonText}>Upload to Client Profile</Text>
         )}
       </TouchableOpacity>
+      <TouchableOpacity style={styles.secondaryButtonFull} onPress={handleSaveToPhotos} disabled={savingToPhotos}>
+        {savingToPhotos ? (
+          <ActivityIndicator color={colors.text} />
+        ) : (
+          <Text style={styles.secondaryButtonText}>Save to Photos</Text>
+        )}
+      </TouchableOpacity>
       <TouchableOpacity style={styles.backLink} onPress={() => navigation.goBack()}>
         <Text style={styles.backLinkText}>Discard</Text>
       </TouchableOpacity>
@@ -571,6 +802,12 @@ const styles = StyleSheet.create({
   centered: {
     flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.background,
+    padding: 24,
+  },
+  choiceContainer: {
+    flex: 1,
     justifyContent: 'center',
     backgroundColor: colors.background,
     padding: 24,
@@ -639,6 +876,19 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingVertical: 12,
     alignItems: 'center',
+  },
+  // Same look as secondaryButton, but width: '100%' instead of flex: 1 — for a
+  // standalone button (not sharing a flexDirection: 'row' with a sibling), flex: 1
+  // stretches to fill the parent's remaining main-axis space instead of just sizing
+  // to content, which is wrong when the parent itself is a full-height flex: 1 view
+  // (e.g. the capture choice screen below).
+  secondaryButtonFull: {
+    width: '100%',
+    backgroundColor: '#ffffff',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 10,
   },
   secondaryButtonText: { color: colors.text, fontWeight: '600' },
   button: { backgroundColor: colors.primary, borderRadius: 10, paddingVertical: 14, alignItems: 'center', width: '100%' },

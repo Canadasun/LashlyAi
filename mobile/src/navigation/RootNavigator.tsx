@@ -16,6 +16,7 @@ import { ClientProfileScreen } from '../screens/ClientProfileScreen';
 import { CoachScreen } from '../screens/CoachScreen';
 import { CompSubscriptionBanner } from '../components/CompSubscriptionBanner';
 import { EyeAnalysisResultScreen } from '../screens/EyeAnalysisResultScreen';
+import { FaceDeepScanScreen } from '../screens/FaceDeepScanScreen';
 import { FeedbackScreen } from '../screens/FeedbackScreen';
 import { HomeDashboardScreen } from '../screens/HomeDashboardScreen';
 import { ForumListScreen } from '../screens/ForumListScreen';
@@ -117,6 +118,11 @@ export function RootNavigator() {
               <Stack.Screen
                 name="ARLashPreview"
                 component={ARLashPreviewScreen}
+                options={{ headerShown: false, presentation: 'fullScreenModal' }}
+              />
+              <Stack.Screen
+                name="FaceDeepScan"
+                component={FaceDeepScanScreen}
                 options={{ headerShown: false, presentation: 'fullScreenModal' }}
               />
               <Stack.Screen

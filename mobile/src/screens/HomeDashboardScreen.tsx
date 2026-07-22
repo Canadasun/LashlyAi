@@ -39,7 +39,7 @@ const QUICK_ACTIONS: {
   title: string;
   caption: string;
   symbol: string;
-  screen: 'NewClient' | 'Coach' | 'MarketingTools' | 'ClientList';
+  screen: 'NewClient' | 'Coach' | 'MarketingTools' | 'ClientList' | 'FaceDeepScan';
   params?: { pickerMode: 'photoEdit' | 'videoRetouch' };
 }[] = [
   { title: 'Add client', caption: 'Start a profile', symbol: '+', screen: 'NewClient' },
@@ -59,16 +59,18 @@ const QUICK_ACTIONS: {
     screen: 'ClientList',
     params: { pickerMode: 'videoRetouch' },
   },
+  { title: 'Face deep scan', caption: 'Live face analysis', symbol: '◎', screen: 'FaceDeepScan' },
 ];
 
-// Last phone row has a single tile — actionCard's flex:1 stretches it to full width,
-// same pattern an odd-count grid falls back to without extra layout code.
+// Even count on phone (2x3) — an odd count instead falls back to actionCard's flex:1
+// stretching the last row's single tile to full width, which still works but this is
+// the cleaner layout when it divides evenly.
 const QUICK_ACTION_ROWS_PHONE = [
   QUICK_ACTIONS.slice(0, 2),
   QUICK_ACTIONS.slice(2, 4),
-  QUICK_ACTIONS.slice(4, 5),
+  QUICK_ACTIONS.slice(4, 6),
 ];
-// One row of 5 instead of stacked pairs — makes real use of a tablet's extra width
+// One row of 6 instead of stacked pairs — makes real use of a tablet's extra width
 // instead of leaving the same cramped phone grid centered in a lot of empty space.
 const QUICK_ACTION_ROWS_TABLET = [QUICK_ACTIONS];
 

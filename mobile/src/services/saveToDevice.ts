@@ -74,3 +74,22 @@ export async function saveLocalImageToDevice(localUri: string): Promise<SaveResu
     };
   }
 }
+
+// Video Retouch's processed output is already a local file:// path (the native
+// module's own export, never fetched from the backend) — same no-auth-fetch shape as
+// saveLocalImageToDevice above, just type: 'video' so it lands in Videos, not Photos.
+export async function saveLocalVideoToDevice(localUri: string): Promise<SaveResult> {
+  try {
+    const hasPermission = await ensureAndroidWritePermission();
+    if (!hasPermission) {
+      return { success: false, error: 'Photo library permission was denied.' };
+    }
+    await CameraRoll.save(localUri, { type: 'video' });
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Failed to save video.',
+    };
+  }
+}

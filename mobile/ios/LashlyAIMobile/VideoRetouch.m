@@ -8,6 +8,12 @@
 
 RCT_EXTERN_METHOD(applyMaskedRetouch:(NSString *)videoPath
                   maskPath:(NSString *)maskPath
+                  trackingJson:(NSString *)trackingJson
+                  resolve:(RCTPromiseResolveBlock)resolve
+                  reject:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(extractFrame:(NSString *)videoPath
+                  atTimeMs:(double)atTimeMs
                   resolve:(RCTPromiseResolveBlock)resolve
                   reject:(RCTPromiseRejectBlock)reject)
 

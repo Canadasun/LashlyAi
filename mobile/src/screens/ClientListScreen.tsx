@@ -68,6 +68,7 @@ const TOOLS: ToolChip[] = [
   { label: 'Inventory', screen: 'Inventory' },
   { label: 'Marketing', screen: 'MarketingTools' },
   { label: 'AR Preview', screen: 'ARLashPreview' },
+  { label: 'Face Deep Scan', screen: 'FaceDeepScan' },
   { label: 'Retention Analytics', screen: 'RetentionAnalytics', tabletOnly: true },
   { label: 'Report Issue', screen: 'Feedback' },
   { label: 'Upgrade', screen: 'Paywall' },
