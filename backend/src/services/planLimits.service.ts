@@ -51,7 +51,16 @@ const PAID_VIDEO_RETOUCH_DAILY_CAP = 5;
 // Exported so the expiry sweep (subscriptionLifecycle.service.ts) checks the exact
 // same set of "currently grants access" statuses this file uses — one definition,
 // not two that could silently drift apart.
-export const ACTIVE_SUBSCRIPTION_STATUSES = new Set(["active", "trialing", "grace_period"]);
+//
+// "billing_retry" (Stripe's own dunning/payment-retry window — see
+// stripe.service.ts's mapStripeSubscriptionStatus) belongs here: the whole point of
+// that status is that Stripe hasn't given up on collecting payment yet, so access
+// shouldn't be cut on the very first failed charge. It was previously missing here
+// (a stale "grace_period" — never a real SubscriptionStatus value, never assigned
+// anywhere — sat in its place instead), which meant a customer's plan silently
+// dropped to "free" the instant a renewal payment failed, not when Stripe actually
+// cancels the subscription days/weeks later.
+export const ACTIVE_SUBSCRIPTION_STATUSES = new Set(["active", "trialing", "billing_retry"]);
 
 function isNonExpiredRenewal(renewsAt: string | null, now: number) {
   if (!renewsAt) {

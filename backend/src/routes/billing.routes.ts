@@ -11,6 +11,7 @@ import {
 } from "../models/Subscription";
 import { findUserById } from "../models/User";
 import { logLifecycleEvent } from "../models/UserLifecycleEvent";
+import { isSubscriptionActive } from "../services/planLimits.service";
 import {
   isStripeWebhookEventAlreadyProcessed,
   markStripeWebhookEventProcessed,
@@ -80,6 +81,21 @@ billingRouter.post(
     }
 
     const existing = await getSubscriptionByUserId(req.currentUser!.id);
+
+    // Without this, calling /checkout again while already subscribed creates a
+    // *second* live Stripe subscription for the same customer — subscriptions is a
+    // single row per user (see Subscription.ts), so only whichever webhook lands
+    // last is ever tracked or refundable locally, while the other keeps billing the
+    // customer's card with no local record of it at all.
+    if (existing && isSubscriptionActive(existing) && (existing.stripe_subscription_id || existing.apple_transaction_id)) {
+      res.status(409).json({
+        error: existing.stripe_subscription_id
+          ? "You already have an active subscription. Manage or change your plan from the billing portal instead."
+          : "Your subscription is managed through the App Store and can't be changed here.",
+      });
+      return;
+    }
+
     try {
       const session = await createCheckoutSession({
         userId: req.currentUser!.id,

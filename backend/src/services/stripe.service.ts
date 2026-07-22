@@ -14,7 +14,16 @@ import { logger } from "../utils/logger";
 const secretKey = process.env.STRIPE_SECRET_KEY;
 export const stripeConfigured = Boolean(secretKey);
 
-const stripeClient = secretKey ? new Stripe(secretKey) : undefined;
+// Pinned explicitly rather than left to the SDK's default: several call sites below
+// (mapStripeSubscription's per-item current_period_end, refundLatestInvoiceForSubscription's
+// invoicePayments lookup, the invoice.parent.subscription_details webhook path) are
+// hand-tuned to this exact response shape. Without a pin, a routine `npm update` inside
+// this package's "^22.3.2" range could silently bump the SDK's default API version and
+// change those shapes with no compile-time signal. Bump this deliberately, alongside
+// re-checking the call sites above, not as a side effect of a dependency update.
+const STRIPE_API_VERSION = "2026-06-24.dahlia";
+
+const stripeClient = secretKey ? new Stripe(secretKey, { apiVersion: STRIPE_API_VERSION }) : undefined;
 
 function requireStripeClient(): Stripe {
   if (!stripeClient) {
@@ -66,9 +75,21 @@ export async function getOrCreateStripeCustomer(input: {
   const stripe = requireStripeClient();
 
   if (input.existingStripeCustomerId) {
-    const existing = await stripe.customers.retrieve(input.existingStripeCustomerId);
-    if (!existing.deleted) {
-      return existing.id;
+    try {
+      const existing = await stripe.customers.retrieve(input.existingStripeCustomerId);
+      if (!existing.deleted) {
+        return existing.id;
+      }
+    } catch (err) {
+      // A stored customer id can become unretrievable in ways that aren't "this
+      // customer was deleted" — most commonly STRIPE_SECRET_KEY switching between
+      // test and live mode, where every previously-stored id 404s under the new key.
+      // Falling through to create a fresh customer keeps checkout working instead of
+      // permanently locking this user out of ever subscribing again.
+      logger.error(
+        `[stripe.service] Could not retrieve stored Stripe customer ${input.existingStripeCustomerId} for user ${input.userId}, creating a new one`,
+        err,
+      );
     }
   }
 

@@ -40,7 +40,7 @@ const QUICK_ACTIONS: {
   caption: string;
   symbol: string;
   screen: 'NewClient' | 'Coach' | 'MarketingTools' | 'ClientList';
-  params?: { pickerMode: 'photoEdit' };
+  params?: { pickerMode: 'photoEdit' | 'videoRetouch' };
 }[] = [
   { title: 'Add client', caption: 'Start a profile', symbol: '+', screen: 'NewClient' },
   { title: 'Ask AI coach', caption: 'Get guidance', symbol: 'AI', screen: 'Coach' },
@@ -52,11 +52,24 @@ const QUICK_ACTIONS: {
     screen: 'ClientList',
     params: { pickerMode: 'photoEdit' },
   },
+  {
+    title: 'Video retouch',
+    caption: 'Clean up a clip',
+    symbol: '▶',
+    screen: 'ClientList',
+    params: { pickerMode: 'videoRetouch' },
+  },
 ];
 
-const QUICK_ACTION_ROWS_PHONE = [QUICK_ACTIONS.slice(0, 2), QUICK_ACTIONS.slice(2, 4)];
-// One row of 4 instead of 2x2 — makes real use of a tablet's extra width instead of
-// leaving the same cramped phone grid centered in a lot of empty space.
+// Last phone row has a single tile — actionCard's flex:1 stretches it to full width,
+// same pattern an odd-count grid falls back to without extra layout code.
+const QUICK_ACTION_ROWS_PHONE = [
+  QUICK_ACTIONS.slice(0, 2),
+  QUICK_ACTIONS.slice(2, 4),
+  QUICK_ACTIONS.slice(4, 5),
+];
+// One row of 5 instead of stacked pairs — makes real use of a tablet's extra width
+// instead of leaving the same cramped phone grid centered in a lot of empty space.
 const QUICK_ACTION_ROWS_TABLET = [QUICK_ACTIONS];
 
 function quotaText(field?: QuotaField) {
@@ -261,7 +274,7 @@ export function HomeDashboardScreen({ navigation }: Props) {
                 <View key={rowIndex} style={styles.actionRow}>
                   {row.map((action) => (
                     <TouchableOpacity
-                      key={action.screen}
+                      key={action.title}
                       accessibilityRole="button"
                       style={styles.actionCard}
                       onPress={() => (navigation.navigate as (screen: string, params?: object) => void)(action.screen, action.params)}>
