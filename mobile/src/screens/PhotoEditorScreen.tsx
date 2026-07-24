@@ -25,6 +25,7 @@ import {
 } from '../services/colorMatrix';
 import { colors } from '../theme/colors';
 import { RootStackParamList } from '../navigation/types';
+import { AiConsentCheckbox } from '../components/AiConsentCheckbox';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PhotoEditor'>;
 
@@ -315,15 +316,11 @@ export function PhotoEditorScreen({ route, navigation }: Props) {
           keeps the client's identity, eye shape, and lash work unchanged.
         </Text>
 
-        <TouchableOpacity
-          style={styles.consentRow}
-          onPress={() => setRetouchConsented((v) => !v)}
-          activeOpacity={0.7}>
-          <View style={[styles.checkbox, retouchConsented && styles.checkboxChecked]}>
-            {retouchConsented && <Text style={styles.checkboxMark}>✓</Text>}
-          </View>
-          <Text style={styles.consentText}>Client consented to this AI-edited photo</Text>
-        </TouchableOpacity>
+        <AiConsentCheckbox
+          checked={retouchConsented}
+          onToggle={() => setRetouchConsented((v) => !v)}
+          purpose="smooth skin texture and reduce blemishes/redness"
+        />
 
         <TouchableOpacity
           style={[styles.retouchButton, (!retouchConsented || retouching) && styles.buttonDisabled]}
@@ -444,20 +441,6 @@ const styles = StyleSheet.create({
     borderLeftColor: colors.secondary,
   },
   retouchHint: { fontSize: 12, color: colors.text, opacity: 0.7, marginTop: 4, marginBottom: 12 },
-  consentRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 5,
-    borderWidth: 1.5,
-    borderColor: colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  checkboxChecked: { backgroundColor: colors.secondary, borderColor: colors.secondary },
-  checkboxMark: { color: colors.ink, fontSize: 12, fontWeight: '700' },
-  consentText: { flex: 1, fontSize: 12, color: colors.text },
   buttonDisabled: { opacity: 0.5 },
   retouchButton: {
     backgroundColor: colors.secondary,

@@ -158,6 +158,12 @@ clientsRouter.post(
       res.status(400).json({ error: 'Missing "photo" file in multipart body' });
       return;
     }
+    if (req.body?.consented !== "true") {
+      res.status(400).json({
+        error: "consented must be true — confirm the client consented before sending their photo to OpenAI for analysis.",
+      });
+      return;
+    }
 
     const quota = await checkEyeScanQuota(req.currentUser!.id);
     if (!quota.allowed) {
@@ -174,6 +180,7 @@ clientsRouter.post(
       ownerUserId: req.currentUser!.id,
       clientProfileId: client.id,
       purpose: "eye_analysis",
+      consentedByUserId: req.currentUser!.id,
     });
     let updated;
     try {
@@ -395,6 +402,12 @@ clientsRouter.post(
       res.status(400).json({ error: 'Missing "photo" file in multipart body' });
       return;
     }
+    if (req.body?.consented !== "true") {
+      res.status(400).json({
+        error: "consented must be true — confirm the client consented before sending their photo to OpenAI for scoring.",
+      });
+      return;
+    }
 
     const quota = await checkPhotoFeedbackQuota(req.currentUser!.id);
     if (!quota.allowed) {
@@ -411,6 +424,7 @@ clientsRouter.post(
       ownerUserId: req.currentUser!.id,
       clientProfileId: client.id,
       purpose: "photo_feedback",
+      consentedByUserId: req.currentUser!.id,
     });
     let saved;
     try {

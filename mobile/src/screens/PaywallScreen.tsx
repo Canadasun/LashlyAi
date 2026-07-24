@@ -82,6 +82,15 @@ function FeatureRow({ label, included }: { label: string; included: boolean }) {
   );
 }
 
+// Apple guideline 2.1(b): the review build's subscription page spun on "Loading App
+// Store products…" indefinitely — fetchProducts' onError DID fire (see below), but the
+// Plans card only ever branched on subscriptions.length === 0, so an error never
+// actually replaced the spinner. Fixed with an explicit loading/error/timeout state
+// machine instead of inferring loading purely from an empty array.
+const PRODUCT_FETCH_TIMEOUT_MS = 12000;
+
+type ProductsState = 'loading' | 'loaded' | 'error';
+
 export function PaywallScreen() {
   const isIOS = Platform.OS === 'ios';
   const [selectedSku, setSelectedSku] = useState<string>(SUBSCRIPTION_SKUS[0]);
@@ -89,10 +98,17 @@ export function PaywallScreen() {
   const [status, setStatus] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [featuresExpanded, setFeaturesExpanded] = useState(false);
+  const [productsState, setProductsState] = useState<ProductsState>('loading');
+  const [productsError, setProductsError] = useState<string | null>(null);
+  const [fetchAttempt, setFetchAttempt] = useState(0);
 
   const { connected, subscriptions, fetchProducts, restorePurchases } =
     useIAP({
-      onError: (err) => setError(err.message),
+      onError: (err) => {
+        setError(err.message);
+        setProductsError(err.message);
+        setProductsState('error');
+      },
       onPurchaseError: (purchaseError) => {
         setError(purchaseError.message);
         setSubmitting(false);
@@ -106,8 +122,50 @@ export function PaywallScreen() {
     });
 
   useEffect(() => {
-    fetchProducts({ skus: SUBSCRIPTION_SKUS, type: 'subs' }).catch(() => undefined);
-  }, [fetchProducts]);
+    if (!isIOS) return;
+    setProductsState('loading');
+    setProductsError(null);
+
+    let settled = false;
+    const timeout = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      setProductsState('error');
+      setProductsError('Loading is taking longer than expected.');
+    }, PRODUCT_FETCH_TIMEOUT_MS);
+
+    fetchProducts({ skus: SUBSCRIPTION_SKUS, type: 'subs' })
+      .then(() => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        // subscriptions state updates via the hook itself; the effect below promotes
+        // 'loading' to 'loaded' once it actually has entries, so a resolve with an
+        // empty result (e.g. products not yet propagated on Apple's side) still shows
+        // the error/retry state instead of silently reverting to an infinite spinner.
+      })
+      .catch((err) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        setProductsError(err instanceof Error ? err.message : 'Failed to load App Store products');
+        setProductsState('error');
+      });
+
+    return () => {
+      settled = true;
+      clearTimeout(timeout);
+    };
+  }, [fetchProducts, isIOS, fetchAttempt]);
+
+  useEffect(() => {
+    if (subscriptions.length > 0) {
+      setProductsState('loaded');
+      setProductsError(null);
+    }
+  }, [subscriptions]);
+
+  const retryFetchProducts = () => setFetchAttempt((n) => n + 1);
 
   const selectedProduct = subscriptions.find((product) => product.id === selectedSku) ?? null;
 
@@ -224,10 +282,21 @@ export function PaywallScreen() {
 
       <View style={styles.card}>
         <Text style={styles.cardLabel}>Plans</Text>
-        {subscriptions.length === 0 ? (
+        {!isIOS ? (
+          <Text style={styles.loadingText}>Subscriptions are currently wired for iOS only.</Text>
+        ) : productsState === 'loading' ? (
           <View style={styles.loadingState}>
             <ActivityIndicator color={colors.primary} />
             <Text style={styles.loadingText}>Loading App Store products…</Text>
+          </View>
+        ) : productsState === 'error' || subscriptions.length === 0 ? (
+          <View style={styles.loadingState}>
+            <Text style={styles.loadingErrorText}>
+              {productsError ?? 'Unable to load App Store products.'}
+            </Text>
+            <TouchableOpacity style={styles.retryButton} onPress={retryFetchProducts} activeOpacity={0.7}>
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           subscriptions.map((product) => (
@@ -395,6 +464,23 @@ const styles = StyleSheet.create({
     color: colors.accent,
     fontSize: 13,
     marginTop: 10,
+  },
+  loadingErrorText: {
+    color: '#B3261E',
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    backgroundColor: colors.primarySoft,
+  },
+  retryButtonText: {
+    color: colors.primaryDark,
+    fontWeight: '700',
+    fontSize: 13,
   },
   planCard: {
     borderWidth: 1,

@@ -16,6 +16,7 @@ import { colors } from '../theme/colors';
 import { RootStackParamList } from '../navigation/types';
 import { PhotoFeedback } from '../types/api';
 import { ResponsiveContainer } from '../components/ResponsiveContainer';
+import { AiConsentCheckbox } from '../components/AiConsentCheckbox';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PhotoFeedback'>;
 
@@ -39,6 +40,7 @@ export function PhotoFeedbackScreen({ route, navigation }: Props) {
   const [feedback, setFeedback] = useState<PhotoFeedback | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [consented, setConsented] = useState(false);
 
   const pick = async (fromCamera: boolean) => {
     setError(null);
@@ -57,7 +59,7 @@ export function PhotoFeedbackScreen({ route, navigation }: Props) {
   };
 
   const score = async () => {
-    if (!photo?.uri) return;
+    if (!photo?.uri || !consented) return;
     setLoading(true);
     setError(null);
     try {
@@ -67,6 +69,7 @@ export function PhotoFeedbackScreen({ route, navigation }: Props) {
         name: photo.fileName ?? 'work.jpg',
         type: photo.type ?? 'image/jpeg',
       } as unknown as Blob);
+      form.append('consented', 'true');
 
       const result = await api.postForm<PhotoFeedback>(
         `/clients/${clientId}/photo-feedback`,
@@ -110,10 +113,18 @@ export function PhotoFeedbackScreen({ route, navigation }: Props) {
         <Text style={styles.secondaryButtonText}>Choose from Library</Text>
       </TouchableOpacity>
 
+      {photo?.uri && (
+        <AiConsentCheckbox
+          checked={consented}
+          onToggle={() => setConsented((v) => !v)}
+          purpose="score this photo for isolation, direction, and styling"
+        />
+      )}
+
       <TouchableOpacity
-        style={[styles.primaryButton, !photo && styles.disabledButton]}
+        style={[styles.primaryButton, (!photo || !consented) && styles.disabledButton]}
         onPress={score}
-        disabled={!photo || loading}>
+        disabled={!photo || !consented || loading}>
         {loading ? (
           <ActivityIndicator color={colors.background} />
         ) : (

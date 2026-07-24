@@ -21,6 +21,7 @@ import { isQuotaExceededError, showQuotaExceededAlert } from '../services/quotaE
 import { colors } from '../theme/colors';
 import { RootStackParamList } from '../navigation/types';
 import { ResponsiveContainer } from '../components/ResponsiveContainer';
+import { AiConsentCheckbox } from '../components/AiConsentCheckbox';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LashMap'>;
 
@@ -312,15 +313,11 @@ export function LashMapScreen({ route, navigation }: Props) {
           eye photo.
         </Text>
 
-        <TouchableOpacity
-          style={styles.consentRow}
-          onPress={() => setConsented((v) => !v)}
-          activeOpacity={0.7}>
-          <View style={[styles.checkbox, consented && styles.checkboxChecked]}>
-            {consented && <Text style={styles.checkboxMark}>✓</Text>}
-          </View>
-          <Text style={styles.consentText}>Client consented to this AI-generated preview</Text>
-        </TouchableOpacity>
+        <AiConsentCheckbox
+          checked={consented}
+          onToggle={() => setConsented((v) => !v)}
+          purpose="generate a realistic after-look preview of the finished lash set"
+        />
 
         {previewError && <Text style={styles.error}>{previewError}</Text>}
 
@@ -595,20 +592,6 @@ const styles = StyleSheet.create({
   buttonText: { color: colors.background, fontWeight: '700', fontSize: 15 },
   buttonDisabled: { opacity: 0.5 },
   previewHint: { fontSize: 12, color: colors.text, opacity: 0.7, marginBottom: 12 },
-  consentRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 5,
-    borderWidth: 1.5,
-    borderColor: colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  checkboxChecked: { backgroundColor: colors.primary, borderColor: colors.primary },
-  checkboxMark: { color: colors.background, fontSize: 12, fontWeight: '700' },
-  consentText: { flex: 1, fontSize: 12, color: colors.text },
   previewImage: { width: '100%', height: 260, borderRadius: 12 },
   previewAngleLabel: { fontSize: 12, fontWeight: '700', color: colors.accent, marginTop: 16, marginBottom: 6 },
   // iPad: both angles side by side, no swiping needed.

@@ -6,7 +6,7 @@
 > the sections on third-party AI processing and photographing non-users (your
 > clients) — before treating this as production-final.
 
-Effective date: July 16, 2026
+Effective date: July 24, 2026
 
 LashlyAI ("we", "us") provides an app that helps lash artists analyze client eye
 photos and generate AI-assisted lash maps. This policy explains what data we collect,
@@ -36,20 +36,48 @@ part of your normal client intake process.
   StoreKit — we receive a transaction identifier to verify your subscription status,
   never your payment card details.
 
-## How we use this information
+## How we use this information, including face data sent to OpenAI
 
-- To generate eye analyses and lash maps (client photos and derived data are sent to
-  OpenAI's API for AI processing — see below).
-- To save and let you retrieve client profiles and lash map history.
-- To answer AI Lash Coach questions.
-- To respond to feedback and fix bugs/crashes.
-- To maintain your account and subscription status.
+**Face data we collect**: client eye/lash-area photos you take or upload, and the
+AI-generated eye analysis derived from them (eye shape, lash density, natural lash
+length). This is face data — treat every feature below that says "photo" as referring
+to this data.
+
+Every app feature that sends a client photo to OpenAI requires you to first confirm,
+in-app, that the client has consented to that specific photo being shared with OpenAI
+— you cannot proceed without checking that box. The features that send a photo:
+
+- **Eye Analysis** (`POST /clients/:id/eye-analysis`): the client's eye photo is sent
+  to OpenAI's vision API to generate the eye-shape/lash-density analysis that the lash
+  map is built from. This is the core feature of the app.
+- **Score My Work / Photo Feedback** (`POST /clients/:id/photo-feedback`): a photo of
+  the completed lash application is sent to OpenAI's vision API for feedback on
+  isolation, direction, and styling.
+- **AI After-Look Preview** (`POST /clients/:id/lash-preview`): the client's eye photo
+  is sent to OpenAI's image-editing API to generate a preview of the finished lash
+  look on that same photo.
+- **AI Retouch** (`POST /clients/:id/photo-retouch`): a client photo is sent to
+  OpenAI's image-editing API to smooth skin texture and reduce blemishes/redness.
+
+Other AI features do **not** send a photo, only text: the **AI Lash Coach** sends your
+typed question (and, if you asked about a specific client, short text context about
+that client — not their photo) to OpenAI's chat API. **AI-generated social captions and
+client-reply drafts** send text you provide (e.g. a client's first name, service type)
+to OpenAI's chat API, never a photo.
+
+We also use this information to save and let you retrieve client profiles and lash map
+history, to respond to feedback and fix bugs/crashes, and to maintain your account and
+subscription status.
 
 ## Who we share data with
 
-- **OpenAI** — client eye photos and related prompts are sent to OpenAI's API to
-  generate eye analyses and Lash Coach answers. OpenAI processes this data under its
-  own API data usage terms.
+- **OpenAI** — as detailed above: client photos for Eye Analysis, Photo Feedback, AI
+  After-Look Preview, and AI Retouch; short text for AI Lash Coach and AI-generated
+  captions/replies. As of this writing, OpenAI's own API terms state that data sent
+  through its API is not used to train its models and is retained only briefly for
+  abuse/safety monitoring, separate from any account-level retention described below —
+  verify this against OpenAI's current terms before relying on it, since third-party
+  policies can change.
 - **Firebase / Google** — used for crash reporting (Crashlytics) only; analytics and
   push notifications are not currently implemented.
 - **Apple** — Sign in with Apple (if you choose it) and StoreKit subscription payments.
@@ -60,9 +88,14 @@ We do not sell your data or your clients' photos to third parties for advertisin
 
 ## Data retention and deletion
 
-Client profiles, photos, and lash maps are retained until you delete them or close
-your account. To request deletion of your account or client data, contact
-support@lashlyai.com.
+Client profiles, photos (including eye-analysis, photo-feedback, retouch, and preview
+images), and lash maps are retained only for as long as the client profile or your
+account exists — deleting a client profile immediately and permanently deletes its
+photos and derived data, and deleting your account (in-app, under Settings > Delete
+Account) immediately and permanently deletes every client profile, photo, and lash map
+you own, with no separate retention period. Account deletion is instant and in-app; you
+do not need to email us to request it, though you may still contact
+support@lashlyai.com for help.
 
 ## Children's data
 
@@ -72,7 +105,8 @@ information from anyone under 13.
 ## Your rights
 
 Depending on where you live, you may have rights to access, correct, or delete your
-data. Contact support@lashlyai.com to make a request.
+data. Contact support@lashlyai.com to make a request, or delete your account and all
+client data yourself at any time in-app under Settings > Delete Account.
 
 > Formal GDPR/PIPEDA compliance work (data processing agreements, regional data
 > residency, etc.) is planned as a later-stage project (see `docs/roadmap.md` Phase 5)

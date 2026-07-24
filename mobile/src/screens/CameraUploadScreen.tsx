@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { api } from '../services/api';
 import { ScanningProgress } from '../components/ScanningProgress';
+import { AiConsentCheckbox } from '../components/AiConsentCheckbox';
 import { colors } from '../theme/colors';
 import { RootStackParamList } from '../navigation/types';
 import { EyeAnalysis } from '../types/api';
@@ -29,6 +30,7 @@ export function CameraUploadScreen({ route, navigation }: Props) {
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [quota, setQuota] = useState<QuotaField | null>(null);
+  const [consented, setConsented] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -57,7 +59,7 @@ export function CameraUploadScreen({ route, navigation }: Props) {
   };
 
   const analyze = async () => {
-    if (!photo?.uri) return;
+    if (!photo?.uri || !consented) return;
     setAnalyzing(true);
     setError(null);
     try {
@@ -67,6 +69,7 @@ export function CameraUploadScreen({ route, navigation }: Props) {
         name: photo.fileName ?? 'eye.jpg',
         type: photo.type ?? 'image/jpeg',
       } as unknown as Blob);
+      form.append('consented', 'true');
 
       const result = await api.postForm<{ photo_url: string; eye_analysis: EyeAnalysis }>(
         `/clients/${clientId}/eye-analysis`,
@@ -113,10 +116,18 @@ export function CameraUploadScreen({ route, navigation }: Props) {
         <Text style={styles.secondaryButtonText}>Choose from Library</Text>
       </TouchableOpacity>
 
+      {photo?.uri && (
+        <AiConsentCheckbox
+          checked={consented}
+          onToggle={() => setConsented((v) => !v)}
+          purpose="analyze the eye shape and lash characteristics"
+        />
+      )}
+
       <TouchableOpacity
-        style={[styles.primaryButton, !photo && styles.disabledButton]}
+        style={[styles.primaryButton, (!photo || !consented) && styles.disabledButton]}
         onPress={analyze}
-        disabled={!photo || analyzing}>
+        disabled={!photo || !consented || analyzing}>
         {analyzing ? (
           <ActivityIndicator color={colors.background} />
         ) : (
