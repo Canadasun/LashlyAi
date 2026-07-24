@@ -38,68 +38,58 @@
   <main>
     <h1>Lashly<span class="accent">AI</span> Privacy Policy</h1>
     <blockquote><p><strong>STATUS: DRAFT — REQUIRES LEGAL REVIEW.</strong> All placeholders are now filled in with real owner-provided details (2026-07-16), but this is a reasonable starting point filled in by an AI assistant, not legal advice. Have a lawyer review it — especially the sections on third-party AI processing and photographing non-users (your clients) — before treating this as production-final.</p></blockquote>
-    <p>Effective date: July 16, 2026</p>
+    <p>Effective date: July 24, 2026</p>
     <p>LashlyAI ("we", "us") provides an app that helps lash artists analyze client eye photos and generate AI-assisted lash maps. This policy explains what data we collect, how we use it, and who we share it with.</p>
+
     <h2>Important: this app processes photos of your clients, not just you</h2>
     <p>If you're a lash artist using LashlyAI, you upload photos of your clients' eyes so the app can generate a lash map. <strong>You are responsible for obtaining your client's consent before photographing them and before their photo is processed by LashlyAI and its third-party AI provider (OpenAI).</strong> We recommend getting written or verbal consent as part of your normal client intake process.</p>
+
     <h2>Information we collect</h2>
     <ul>
-    <li><strong>Account information</strong>: email address, password (stored as a salted hash, never in</li>
+      <li><strong>Account information</strong>: email address, password (stored as a salted hash, never in plain text) or your Apple ID identifier if you use Sign in with Apple, role (e.g. beginner, certified, salon owner).</li>
+      <li><strong>Client data you enter</strong>: client name, notes, eye photos, AI-generated eye analysis (eye shape, lash density, natural lash length), generated lash maps (style, curl, lengths, diameter, fan type), and lash history you save.</li>
+      <li><strong>AI Lash Coach questions</strong>: the troubleshooting questions you ask and the answers given.</li>
+      <li><strong>Feedback/bug reports</strong>: anything you submit through "Report an Issue," plus basic device/platform info attached automatically to help us diagnose problems.</li>
+      <li><strong>Payment information</strong>: subscription purchases are handled entirely by Apple's StoreKit — we receive a transaction identifier to verify your subscription status, never your payment card details.</li>
     </ul>
-    <p>plain text) or your Apple ID identifier if you use Sign in with Apple, role (e.g. beginner, certified, salon owner).</p>
+
+    <h2>How we use this information, including face data sent to OpenAI</h2>
+    <p><strong>Face data we collect</strong>: client eye/lash-area photos you take or upload, and the AI-generated eye analysis derived from them (eye shape, lash density, natural lash length). This is face data — treat every feature below that says "photo" as referring to this data.</p>
+    <p>Every app feature that sends a client photo to OpenAI requires you to first confirm, in-app, that the client has consented to that specific photo being shared with OpenAI — you cannot proceed without checking that box. The features that send a photo:</p>
     <ul>
-    <li><strong>Client data you enter</strong>: client name, notes, eye photos, AI-generated eye analysis</li>
+      <li><strong>Eye Analysis</strong>: the client's eye photo is sent to OpenAI's vision API to generate the eye-shape/lash-density analysis that the lash map is built from. This is the core feature of the app.</li>
+      <li><strong>Score My Work / Photo Feedback</strong>: a photo of the completed lash application is sent to OpenAI's vision API for feedback on isolation, direction, and styling.</li>
+      <li><strong>AI After-Look Preview</strong>: the client's eye photo is sent to OpenAI's image-editing API to generate a preview of the finished lash look on that same photo.</li>
+      <li><strong>AI Retouch</strong>: a client photo is sent to OpenAI's image-editing API to smooth skin texture and reduce blemishes/redness.</li>
     </ul>
-    <p>(eye shape, lash density, natural lash length), generated lash maps (style, curl, lengths, diameter, fan type), and lash history you save.</p>
-    <ul>
-    <li><strong>AI Lash Coach questions</strong>: the troubleshooting questions you ask and the answers</li>
-    </ul>
-    <p>given.</p>
-    <ul>
-    <li><strong>Feedback/bug reports</strong>: anything you submit through "Report an Issue," plus basic</li>
-    </ul>
-    <p>device/platform info attached automatically to help us diagnose problems.</p>
-    <ul>
-    <li><strong>Payment information</strong>: subscription purchases are handled entirely by Apple's</li>
-    </ul>
-    <p>StoreKit — we receive a transaction identifier to verify your subscription status, never your payment card details.</p>
-    <h2>How we use this information</h2>
-    <ul>
-    <li>To generate eye analyses and lash maps (client photos and derived data are sent to</li>
-    </ul>
-    <p>OpenAI's API for AI processing — see below).</p>
-    <ul>
-    <li>To save and let you retrieve client profiles and lash map history.</li>
-    <li>To answer AI Lash Coach questions.</li>
-    <li>To respond to feedback and fix bugs/crashes.</li>
-    <li>To maintain your account and subscription status.</li>
-    </ul>
+    <p>Other AI features do <strong>not</strong> send a photo, only text: the <strong>AI Lash Coach</strong> sends your typed question (and, if you asked about a specific client, short text context about that client — not their photo) to OpenAI's chat API. <strong>AI-generated social captions and client-reply drafts</strong> send text you provide (e.g. a client's first name, service type) to OpenAI's chat API, never a photo.</p>
+    <p>We also use this information to save and let you retrieve client profiles and lash map history, to respond to feedback and fix bugs/crashes, and to maintain your account and subscription status.</p>
+
     <h2>Who we share data with</h2>
     <ul>
-    <li><strong>OpenAI</strong> — client eye photos and related prompts are sent to OpenAI's API to</li>
+      <li><strong>OpenAI</strong> — as detailed above: client photos for Eye Analysis, Photo Feedback, AI After-Look Preview, and AI Retouch; short text for AI Lash Coach and AI-generated captions/replies. As of this writing, OpenAI's own API terms state that data sent through its API is not used to train its models and is retained only briefly for abuse/safety monitoring, separate from any account-level retention described below — verify this against OpenAI's current terms before relying on it, since third-party policies can change.</li>
+      <li><strong>Firebase / Google</strong> — used for crash reporting (Crashlytics) only; analytics and push notifications are not currently implemented.</li>
+      <li><strong>Apple</strong> — Sign in with Apple (if you choose it) and StoreKit subscription payments.</li>
+      <li><strong>Cloud storage provider</strong> — client photos are stored in S3-compatible object storage (hosted via Railway), authenticated and private, not publicly accessible.</li>
     </ul>
-    <p>generate eye analyses and Lash Coach answers. OpenAI processes this data under its own API data usage terms.</p>
-    <ul>
-    <li><strong>Firebase / Google</strong> — used for crash reporting (Crashlytics) only; analytics and</li>
-    </ul>
-    <p>push notifications are not currently implemented.</p>
-    <ul>
-    <li><strong>Apple</strong> — Sign in with Apple (if you choose it) and StoreKit subscription payments.</li>
-    <li><strong>Cloud storage provider</strong> — client photos are stored in S3-compatible object</li>
-    </ul>
-    <p>storage (hosted via Railway), authenticated and private, not publicly accessible.</p>
     <p>We do not sell your data or your clients' photos to third parties for advertising.</p>
+
     <h2>Data retention and deletion</h2>
-    <p>Client profiles, photos, and lash maps are retained until you delete them or close your account. To request deletion of your account or client data, contact support@lashlyai.com.</p>
+    <p>Client profiles, photos (including eye-analysis, photo-feedback, retouch, and preview images), and lash maps are retained only for as long as the client profile or your account exists — deleting a client profile immediately and permanently deletes its photos and derived data, and deleting your account (in-app, under Settings &gt; Delete Account) immediately and permanently deletes every client profile, photo, and lash map you own, with no separate retention period. Account deletion is instant and in-app; you do not need to email us to request it, though you may still contact support@lashlyai.com for help.</p>
+
     <h2>Children's data</h2>
     <p>LashlyAI is not directed at children under 13, and we do not knowingly collect account information from anyone under 13.</p>
+
     <h2>Your rights</h2>
-    <p>Depending on where you live, you may have rights to access, correct, or delete your data. Contact support@lashlyai.com to make a request.</p>
+    <p>Depending on where you live, you may have rights to access, correct, or delete your data. Contact support@lashlyai.com to make a request, or delete your account and all client data yourself at any time in-app under Settings &gt; Delete Account.</p>
     <blockquote><p>Formal GDPR/PIPEDA compliance work (data processing agreements, regional data residency, etc.) is planned as a later-stage project (see <code>docs/roadmap.md</code> Phase 5) and is not yet complete as of this draft.</p></blockquote>
+
     <h2>Security</h2>
     <p>We use reasonable technical and organizational measures to protect your data, but no system is 100% secure.</p>
+
     <h2>Changes to this policy</h2>
     <p>We may update this policy as the app evolves. Material changes will be communicated in-app or by email.</p>
+
     <h2>Contact</h2>
     <p>Email: support@lashlyai.com<br>Idowu Ayeni, 3 St SE, Calgary, AB T2G 0T9, Canada</p>
   </main>
