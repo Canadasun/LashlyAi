@@ -116,10 +116,12 @@ export function VideoRetouchScreen({ route, navigation }: Props) {
   }, []);
 
   // Re-checks on every focus, but only while still gated ('checking_access' or
-  // 'locked') — a user who hits the Pro lock, upgrades on Paywall (pushed on top of
+  // 'locked') — a user who hits the Salon lock, upgrades on Paywall (pushed on top of
   // this still-mounted screen), and backs out needs the lock to lift immediately
-  // instead of showing stale "free" state. Once past the gate, leaves an in-progress
-  // capture/paint/record in place rather than resetting it on every refocus.
+  // instead of showing stale locked-out state. Once past the gate, leaves an
+  // in-progress capture/paint/record in place rather than resetting it on every
+  // refocus. Salon-exclusive as of 2026-07-24 (grandfathered Pro subscribers
+  // included, see hasSalonFeatureAccess on the backend) — was plan !== 'free' before.
   //
   // Always lands on 'capture' (a choice screen, no camera preview) rather than
   // branching on hasPermission here — importing from the library needs no camera
@@ -130,10 +132,10 @@ export function VideoRetouchScreen({ route, navigation }: Props) {
   useFocusEffect(
     useCallback(() => {
       api
-        .get<{ plan: string }>('/users/me/usage')
+        .get<{ has_salon_features: boolean }>('/users/me/usage')
         .then((usage) => {
           setPhase((current) =>
-            current === 'checking_access' || current === 'locked' ? (usage.plan === 'free' ? 'locked' : 'capture') : current,
+            current === 'checking_access' || current === 'locked' ? (usage.has_salon_features ? 'capture' : 'locked') : current,
           );
         })
         .catch(() => {
@@ -524,13 +526,13 @@ export function VideoRetouchScreen({ route, navigation }: Props) {
   if (phase === 'locked') {
     return (
       <View style={styles.centered}>
-        <Text style={styles.lockedTitle}>Video Retouch is a Pro feature</Text>
+        <Text style={styles.lockedTitle}>Video Retouch is a Salon feature</Text>
         <Text style={styles.lockedText}>
           Mark blemish spots on a freeze-frame and export a retouched video, entirely on-device — the
           lash area is always protected and never touched.
         </Text>
         <TouchableOpacity style={styles.upgradeButton} onPress={() => navigation.navigate('Paywall')}>
-          <Text style={styles.upgradeButtonText}>Upgrade to Pro</Text>
+          <Text style={styles.upgradeButtonText}>Upgrade to Salon</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.backLink} onPress={() => navigation.goBack()}>
           <Text style={styles.backLinkText}>Back</Text>

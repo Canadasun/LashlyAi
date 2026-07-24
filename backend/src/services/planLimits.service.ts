@@ -88,6 +88,23 @@ export async function getUserPlan(userId: string): Promise<SubscriptionPlan> {
   return subscription.plan;
 }
 
+/**
+ * Salon tier (2026-07-24, $39.99/mo): Video Retouch, Face Deep Scan AR, and Inventory
+ * are Salon-exclusive going forward. Grandfathered Pro subscribers (see migration
+ * 0037 — anyone already actively on Pro at cutover) keep access too, per explicit
+ * owner decision not to take a paid-for feature away from existing customers.
+ */
+export async function hasSalonFeatureAccess(userId: string): Promise<boolean> {
+  const subscription = await getSubscriptionByUserId(userId);
+  if (!subscription || !isSubscriptionActive(subscription)) {
+    return false;
+  }
+  if (subscription.plan === "salon") {
+    return true;
+  }
+  return subscription.plan === "pro" && subscription.legacy_pro_features_grandfathered;
+}
+
 export interface QuotaStatus {
   used: number;
   limit: number | null; // null = unlimited
@@ -180,12 +197,14 @@ export async function checkPhotoRetouchQuota(userId: string): Promise<QuotaStatu
   return quotaStatus(used, limit);
 }
 
-// Free tier gets none (same shape as photo editor above); paid tiers get a flat daily
-// cap rather than unlimited, since exports are large video files.
+// Salon-exclusive (see hasSalonFeatureAccess) as of 2026-07-24 — previously any paid
+// plan got this; grandfathered Pro subscribers still do, everyone else on Pro/Free
+// does not. Paid tiers with access get a flat daily cap rather than unlimited, since
+// exports are large video files.
 export async function checkVideoRetouchQuota(userId: string): Promise<QuotaStatus> {
-  const plan = await getUserPlan(userId);
+  const hasAccess = await hasSalonFeatureAccess(userId);
   const used = await countEventsToday(userId, "video_retouch");
-  const limit = plan === "free" ? 0 : PAID_VIDEO_RETOUCH_DAILY_CAP;
+  const limit = hasAccess ? PAID_VIDEO_RETOUCH_DAILY_CAP : 0;
   return quotaStatus(used, limit);
 }
 
@@ -219,9 +238,11 @@ export async function checkAdvancedLashSetAccess(
  * there was no gating at all on inventory.routes.ts, so free users had full CRUD
  * access. Respects ENFORCEMENT_ENABLED like every other gate in this file.
  */
+// Salon-exclusive (see hasSalonFeatureAccess) as of 2026-07-24 — previously any paid
+// plan (not just free) got this; grandfathered Pro subscribers still do.
 export async function checkInventoryAccess(userId: string): Promise<{ allowed: boolean }> {
-  const plan = await getUserPlan(userId);
-  return { allowed: plan !== "free" || !ENFORCEMENT_ENABLED };
+  const hasAccess = await hasSalonFeatureAccess(userId);
+  return { allowed: hasAccess || !ENFORCEMENT_ENABLED };
 }
 
 /**

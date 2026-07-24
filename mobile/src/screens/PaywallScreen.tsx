@@ -20,12 +20,14 @@ import { api } from '../services/api';
 import { colors } from '../theme/colors';
 import { ResponsiveContainer } from '../components/ResponsiveContainer';
 
-const SUBSCRIPTION_SKUS = ['lashlyai_pro_monthly', 'lashlyai_pro_yearly'];
+// lashlyai_salon_monthly (2026-07-24): the new Salon tier, $39.99/mo, monthly-only
+// (no yearly SKU yet) — see hasSalonFeatureAccess in the backend for the gating.
+const SUBSCRIPTION_SKUS = ['lashlyai_pro_monthly', 'lashlyai_pro_yearly', 'lashlyai_salon_monthly'];
 
 // Kept in sync by hand with what's actually gated server-side — see
 // backend/src/services/planLimits.service.ts FREE_LIMITS and the Pro-only checks in
-// clients.routes.ts / inventory.routes.ts / lessons.routes.ts. Glue & humidity isn't
-// its own bullet since that route was folded into retention troubleshooting.
+// clients.routes.ts / lessons.routes.ts. Glue & humidity isn't its own bullet since
+// that route was folded into retention troubleshooting.
 const FREE_FEATURES = [
   '5 AI Lash Coach questions per day',
   '2 eye-shape scans per month',
@@ -43,17 +45,26 @@ const PRO_HIGHLIGHTS = [
   'Advanced lash sets & styles',
 ];
 
-// Only shown once "View All Features" is expanded.
+// Only shown once "View All Features" is expanded. Inventory tracking moved to
+// Salon-only 2026-07-24 (see SALON_FEATURES) — grandfathered Pro subscribers who
+// already had it keep it (hasSalonFeatureAccess on the backend), new/renewing Pro
+// subscribers from here on don't, which is why it's no longer listed as a Pro
+// feature on this screen even though the server-side exception exists.
 const PRO_REST = [
   'Retention troubleshooting, incl. glue & humidity guidance',
   'Full client photo history',
   'Before-and-after comparisons',
   'Unlimited saved clients',
-  'Inventory tracking',
   'AI social media captions & replies',
   'All 10 lessons',
   'Priority support',
 ];
+
+// Salon tier (2026-07-24) — everything in Pro, plus these three. Existing Pro
+// subscribers who already had Video Retouch/Face Deep Scan/Inventory keep them
+// (grandfathered server-side); this list is what's exclusive to a *new* Salon
+// subscription from here on.
+const SALON_FEATURES = ['On-device Video Retouch', 'Face Deep Scan AR', 'Inventory tracking'];
 
 type VerifiedSubscriptionResponse = {
   plan: string;
@@ -62,10 +73,14 @@ type VerifiedSubscriptionResponse = {
 };
 
 function getProductLabel(product: ProductSubscription) {
+  if (product.id === 'lashlyai_salon_monthly') return 'Salon Monthly';
   return product.id === 'lashlyai_pro_yearly' ? 'Pro Annual' : 'Pro Monthly';
 }
 
 function getProductFeatureCopy(product: ProductSubscription) {
+  if (product.id === 'lashlyai_salon_monthly') {
+    return 'Everything in Pro, plus Video Retouch, Face Deep Scan AR, and Inventory tracking.';
+  }
   return product.id === 'lashlyai_pro_yearly'
     ? 'Best value for salons and established professionals.'
     : 'Flexible monthly access for active artists and teams.';
@@ -270,12 +285,23 @@ export function PaywallScreen() {
           </Text>
         </TouchableOpacity>
 
+        {featuresExpanded && (
+          <>
+            <Text style={[styles.featuresCardLabel, styles.featuresCardLabelPro]}>Salon — everything in Pro, plus</Text>
+            {SALON_FEATURES.map((label) => (
+              <FeatureRow key={label} label={label} included={false} />
+            ))}
+          </>
+        )}
+
         <TouchableOpacity
           style={styles.upgradeRow}
           onPress={handlePurchase}
           disabled={submitting || !isIOS || !connected || !selectedProduct}
           activeOpacity={0.7}>
-          <Text style={styles.upgradeRowText}>Upgrade to Pro</Text>
+          <Text style={styles.upgradeRowText}>
+            {selectedProduct ? `Upgrade to ${getProductLabel(selectedProduct)}` : 'Upgrade'}
+          </Text>
           <Text style={styles.upgradeRowArrow}>→</Text>
         </TouchableOpacity>
       </View>

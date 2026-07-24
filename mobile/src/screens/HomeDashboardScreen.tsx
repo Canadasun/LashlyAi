@@ -132,10 +132,11 @@ export function HomeDashboardScreen({ navigation }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [clientsError, setClientsError] = useState(false);
   const [inventoryError, setInventoryError] = useState(false);
-  // Inventory tracking is Pro-only (see backend inventory.routes.ts) — a free-tier
-  // user's fetch fails with a 403 by design, not a transient network error, so it
-  // needs its own copy ("Pro feature") instead of the generic "Unable to load /
-  // pull to refresh", which is actively misleading since refreshing will never fix it.
+  // Inventory tracking is Salon-only (see backend inventory.routes.ts) — a
+  // non-Salon user's fetch fails with a 403 by design, not a transient network error,
+  // so it needs its own copy ("Salon feature") instead of the generic "Unable to
+  // load / pull to refresh", which is actively misleading since refreshing will never
+  // fix it.
   const [inventoryLocked, setInventoryLocked] = useState(false);
 
   const loadDashboard = useCallback(async (isRefresh = false) => {
@@ -250,7 +251,7 @@ export function HomeDashboardScreen({ navigation }: Props) {
                 onPress={() => navigation.navigate(inventoryLocked ? 'Paywall' : 'Inventory')}>
                 <Text style={styles.metricLabel}>STOCK ATTENTION</Text>
                 {inventoryLocked ? (
-                  <Text style={styles.metricUnavailable}>Pro feature</Text>
+                  <Text style={styles.metricUnavailable}>Salon feature</Text>
                 ) : inventoryError ? (
                   <Text style={styles.metricUnavailable}>Unable to load</Text>
                 ) : (

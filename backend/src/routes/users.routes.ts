@@ -16,6 +16,7 @@ import {
   checkRetentionInsightsAccess,
   ENFORCEMENT_ENABLED,
   getUserPlan,
+  hasSalonFeatureAccess,
 } from "../services/planLimits.service";
 import { deleteUserById } from "../models/User";
 import { getMediaAssetsByOwnerUserId } from "../models/MediaAsset";
@@ -84,6 +85,7 @@ usersRouter.get(
     const userId = req.currentUser!.id;
     const [
       plan,
+      hasSalonFeatures,
       clientProfiles,
       coachQuestionsToday,
       eyeScansThisMonth,
@@ -97,6 +99,7 @@ usersRouter.get(
       photoRetouchesThisMonth,
     ] = await Promise.all([
       getUserPlan(userId),
+      hasSalonFeatureAccess(userId),
       checkClientProfileQuota(userId),
       checkCoachQuota(userId),
       checkEyeScanQuota(userId),
@@ -112,6 +115,7 @@ usersRouter.get(
 
     res.json({
       plan,
+      has_salon_features: hasSalonFeatures,
       enforced: ENFORCEMENT_ENABLED,
       client_profiles: clientProfiles,
       coach_questions_today: coachQuestionsToday,

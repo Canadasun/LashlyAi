@@ -13,18 +13,19 @@ import { asyncHandler } from "../utils/asyncHandler";
 
 export const inventoryRouter = Router();
 
-// Every route below is Pro-only — applied once here rather than per-route since,
-// unlike the quota-gated features elsewhere, all four inventory routes share the
-// exact same flat access check (see checkInventoryAccess).
-async function requireProForInventory(req: Request, res: Response, next: NextFunction) {
+// Every route below is Salon-only (grandfathered Pro subscribers included, see
+// hasSalonFeatureAccess) — applied once here rather than per-route since, unlike the
+// quota-gated features elsewhere, all four inventory routes share the exact same flat
+// access check (see checkInventoryAccess).
+async function requireSalonForInventory(req: Request, res: Response, next: NextFunction) {
   const access = await checkInventoryAccess(req.currentUser!.id);
   if (!access.allowed) {
-    res.status(403).json({ error: "Inventory tracking is a Pro feature. Upgrade to Pro to use it." });
+    res.status(403).json({ error: "Inventory tracking is a Salon feature. Upgrade to Salon to use it." });
     return;
   }
   next();
 }
-inventoryRouter.use(requireUser, asyncHandler(requireProForInventory));
+inventoryRouter.use(requireUser, asyncHandler(requireSalonForInventory));
 
 const VALID_CATEGORIES: InventoryCategory[] = ["lash_trays", "glue", "tools", "other"];
 

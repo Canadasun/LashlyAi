@@ -71,7 +71,7 @@ export function FaceDeepScanScreen({ navigation }: Props) {
   // at the client (a professional consultation stance), not a front-facing selfie view.
   const device = useCameraDevice('back');
   const [faces, setFaces] = useState<Face[]>([]);
-  const [plan, setPlan] = useState<string | null>(null);
+  const [hasAccess, setHasAccess] = useState(false);
   const [checkingPlan, setCheckingPlan] = useState(true);
 
   useFocusEffect(
@@ -82,16 +82,18 @@ export function FaceDeepScanScreen({ navigation }: Props) {
     }, [hasPermission, requestPermission]),
   );
 
-  // Re-checks on every focus, not just mount — a user who hits the Pro lock,
+  // Re-checks on every focus, not just mount — a user who hits the Salon lock,
   // upgrades on Paywall (pushed on top of this still-mounted screen), and backs out
-  // needs the lock to lift immediately rather than showing stale "free" state.
+  // needs the lock to lift immediately rather than showing stale locked-out state.
+  // Salon-exclusive as of 2026-07-24 (grandfathered Pro subscribers included, see
+  // hasSalonFeatureAccess on the backend) — was plan !== 'free' before.
   useFocusEffect(
     useCallback(() => {
       setCheckingPlan(true);
       api
-        .get<{ plan: string }>('/users/me/usage')
-        .then((result) => setPlan(result.plan))
-        .catch(() => setPlan('free'))
+        .get<{ has_salon_features: boolean }>('/users/me/usage')
+        .then((result) => setHasAccess(result.has_salon_features))
+        .catch(() => setHasAccess(false))
         .finally(() => setCheckingPlan(false));
     }, []),
   );
@@ -116,17 +118,17 @@ export function FaceDeepScanScreen({ navigation }: Props) {
     );
   }
 
-  if (plan === 'free') {
+  if (!hasAccess) {
     return (
       <View style={styles.centered}>
-        <Text style={styles.lockedTitle}>Face Deep Scan is a Pro feature</Text>
+        <Text style={styles.lockedTitle}>Face Deep Scan is a Salon feature</Text>
         <Text style={styles.lockedText}>
           Point your device at a client and see every facial region tracked live —
           face shape, brows, eyes, nose, and lips — with real-time symmetry and spacing
           measurements. A consultation tool to walk clients through their own features.
         </Text>
         <TouchableOpacity style={styles.upgradeButton} onPress={() => navigation.navigate('Paywall')}>
-          <Text style={styles.upgradeButtonText}>Upgrade to Pro</Text>
+          <Text style={styles.upgradeButtonText}>Upgrade to Salon</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.backLink} onPress={() => navigation.goBack()}>
           <Text style={styles.backLinkText}>Back</Text>

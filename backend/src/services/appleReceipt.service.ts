@@ -8,13 +8,14 @@ const SANDBOX_URL = "https://sandbox.itunes.apple.com/verifyReceipt";
 const SANDBOX_RECEIPT_ON_PRODUCTION_STATUS = 21007;
 
 /**
- * Placeholder product ID -> plan mapping. These identifiers don't exist yet — they
- * must match whatever subscription products get created in App Store Connect once a
- * real Apple Developer account exists (see docs/roadmap.md Phase 3).
+ * Product ID -> plan mapping, matching the products configured in App Store Connect
+ * (see docs/roadmap.md Phase 3). lashlyai_salon_monthly is the new Salon tier
+ * (2026-07-24) — monthly-only for now, no yearly SKU.
  */
 const PRODUCT_ID_TO_PLAN: Record<string, SubscriptionPlan> = {
   lashlyai_pro_monthly: "pro",
   lashlyai_pro_yearly: "pro",
+  lashlyai_salon_monthly: "salon",
 };
 
 export interface VerifiedReceipt {

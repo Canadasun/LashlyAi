@@ -15,6 +15,10 @@ export interface Subscription {
   payment_provider: PaymentProvider;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
+  // Set once, only via migration 0037 (for whoever was already an active Pro
+  // subscriber at cutover) — never written by upsertSubscription, so it survives every
+  // future plan/status change untouched. See that migration for the full rationale.
+  legacy_pro_features_grandfathered: boolean;
 }
 
 // Every field here is written verbatim on every upsert (single row per user, no

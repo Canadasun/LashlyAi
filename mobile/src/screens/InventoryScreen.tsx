@@ -25,8 +25,9 @@ export function InventoryScreen({ navigation }: Props) {
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // Inventory tracking is Pro-only — a 403 here means the gate, not a real failure,
-  // so it gets a distinct "Upgrade to Pro" state instead of the generic error text.
+  // Inventory tracking is Salon-only — a 403 here means the gate, not a real
+  // failure, so it gets a distinct "Upgrade to Salon" state instead of the generic
+  // error text.
   const [locked, setLocked] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
 
@@ -102,12 +103,12 @@ export function InventoryScreen({ navigation }: Props) {
         <ActivityIndicator style={styles.loading} color={colors.primary} />
       ) : locked ? (
         <View style={styles.lockedContainer}>
-          <Text style={styles.lockedTitle}>Inventory tracking is a Pro feature</Text>
+          <Text style={styles.lockedTitle}>Inventory tracking is a Salon feature</Text>
           <Text style={styles.lockedText}>
-            Track lash trays, glue, and tools with low-stock and expiry alerts on Pro.
+            Track lash trays, glue, and tools with low-stock and expiry alerts on Salon.
           </Text>
           <TouchableOpacity style={styles.upgradeButton} onPress={() => navigation.navigate('Paywall')}>
-            <Text style={styles.upgradeButtonText}>Upgrade to Pro</Text>
+            <Text style={styles.upgradeButtonText}>Upgrade to Salon</Text>
           </TouchableOpacity>
         </View>
       ) : error ? (
